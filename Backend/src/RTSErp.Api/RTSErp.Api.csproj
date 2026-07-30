@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<UserSecretsId>rts-erp-api-secrets</UserSecretsId>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+		<PackageReference Include="Serilog.AspNetCore" Version="8.0.2" />
+
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\RTSErp.Application\RTSErp.Application.csproj" />
+		<ProjectReference Include="..\RTSErp.Infrastructure\RTSErp.Infrastructure.csproj" />
+		<ProjectReference Include="..\RTSErp.Shared\RTSErp.Shared.csproj" />
+	</ItemGroup>
+
+</Project>

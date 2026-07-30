@@ -1,0 +1,241 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.api\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|solutionrelative:src\\rtserp.api\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|solutionrelative:src\\rtserp.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.api\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|solutionrelative:src\\rtserp.api\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|solutionrelative:src\\rtserp.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.api\\rtserp.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|solutionrelative:src\\rtserp.api\\rtserp.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.application\\identity\\dtos\\authresponsedto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|solutionrelative:src\\rtserp.application\\identity\\dtos\\authresponsedto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.application\\identity\\queries\\getcurrentuser\\getcurrentuserquery.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|solutionrelative:src\\rtserp.application\\identity\\queries\\getcurrentuser\\getcurrentuserquery.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.application\\identity\\commands\\refresh\\refreshtokencommand.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|solutionrelative:src\\rtserp.application\\identity\\commands\\refresh\\refreshtokencommand.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.application\\identity\\commands\\login\\logincommandhandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|solutionrelative:src\\rtserp.application\\identity\\commands\\login\\logincommandhandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.application\\rtserp.application.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\RTSErp.Application\\RTSErp.Application.csproj|solutionrelative:src\\rtserp.application\\rtserp.application.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.api\\controllers\\v1\\authcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{55555555-5555-5555-5555-555555555555}|src\\RTSErp.Api\\RTSErp.Api.csproj|solutionrelative:src\\rtserp.api\\controllers\\v1\\authcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{88888888-8888-8888-8888-888888888888}|tests\\RTSErp.Api.IntegrationTests\\RTSErp.Api.IntegrationTests.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\tests\\rtserp.api.integrationtests\\rtserp.api.integrationtests.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{88888888-8888-8888-8888-888888888888}|tests\\RTSErp.Api.IntegrationTests\\RTSErp.Api.IntegrationTests.csproj|solutionrelative:tests\\rtserp.api.integrationtests\\rtserp.api.integrationtests.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{44444444-4444-4444-4444-444444444444}|src\\RTSErp.Infrastructure\\RTSErp.Infrastructure.csproj|c:\\users\\geovany hany\\desktop\\erp\\backend\\src\\rtserp.infrastructure\\rtserp.infrastructure.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{44444444-4444-4444-4444-444444444444}|src\\RTSErp.Infrastructure\\RTSErp.Infrastructure.csproj|solutionrelative:src\\rtserp.infrastructure\\rtserp.infrastructure.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "appsettings.Development.json",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\appsettings.Development.json",
+              "RelativeDocumentMoniker": "src\\RTSErp.Api\\appsettings.Development.json",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\appsettings.Development.json",
+              "RelativeToolTip": "src\\RTSErp.Api\\appsettings.Development.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-07-29T12:32:31.162Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "appsettings.json",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\appsettings.json",
+              "RelativeDocumentMoniker": "src\\RTSErp.Api\\appsettings.json",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\appsettings.json",
+              "RelativeToolTip": "src\\RTSErp.Api\\appsettings.json",
+              "ViewState": "AgIAAAwAAAAAAAAAAAAuwB0AAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-07-29T12:31:32.383Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "launchSettings.json",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\Properties\\launchSettings.json",
+              "RelativeDocumentMoniker": "src\\RTSErp.Api\\Properties\\launchSettings.json",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\Properties\\launchSettings.json",
+              "RelativeToolTip": "src\\RTSErp.Api\\Properties\\launchSettings.json",
+              "ViewState": "AgIAAAcAAAAAAAAAAAAuwBkAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-07-29T12:13:53.679Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\Program.cs",
+              "RelativeDocumentMoniker": "src\\RTSErp.Api\\Program.cs",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\Program.cs",
+              "RelativeToolTip": "src\\RTSErp.Api\\Program.cs",
+              "ViewState": "AgIAADEAAAAAAAAAAAAAAD8AAAAVAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T10:59:33.568Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "GetCurrentUserQuery.cs",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Queries\\GetCurrentUser\\GetCurrentUserQuery.cs",
+              "RelativeDocumentMoniker": "src\\RTSErp.Application\\Identity\\Queries\\GetCurrentUser\\GetCurrentUserQuery.cs",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Queries\\GetCurrentUser\\GetCurrentUserQuery.cs",
+              "RelativeToolTip": "src\\RTSErp.Application\\Identity\\Queries\\GetCurrentUser\\GetCurrentUserQuery.cs",
+              "ViewState": "AgIAACYAAAAAAAAAAAAwwC0AAAA7AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T10:56:28.47Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "RefreshTokenCommand.cs",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Commands\\Refresh\\RefreshTokenCommand.cs",
+              "RelativeDocumentMoniker": "src\\RTSErp.Application\\Identity\\Commands\\Refresh\\RefreshTokenCommand.cs",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Commands\\Refresh\\RefreshTokenCommand.cs",
+              "RelativeToolTip": "src\\RTSErp.Application\\Identity\\Commands\\Refresh\\RefreshTokenCommand.cs",
+              "ViewState": "AgIAAEUAAAAAAAAAAAAkwE4AAAA6AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T10:56:02.158Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "AuthResponseDto.cs",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Dtos\\AuthResponseDto.cs",
+              "RelativeDocumentMoniker": "src\\RTSErp.Application\\Identity\\Dtos\\AuthResponseDto.cs",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Dtos\\AuthResponseDto.cs",
+              "RelativeToolTip": "src\\RTSErp.Application\\Identity\\Dtos\\AuthResponseDto.cs",
+              "ViewState": "AgIAAA0AAAAAAAAAAAAmwBoAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T10:46:58.033Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "LoginCommandHandler.cs",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Commands\\Login\\LoginCommandHandler.cs",
+              "RelativeDocumentMoniker": "src\\RTSErp.Application\\Identity\\Commands\\Login\\LoginCommandHandler.cs",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\Identity\\Commands\\Login\\LoginCommandHandler.cs",
+              "RelativeToolTip": "src\\RTSErp.Application\\Identity\\Commands\\Login\\LoginCommandHandler.cs",
+              "ViewState": "AgIAADwAAAAAAAAAAAAowEYAAAA6AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T10:41:33.912Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "RTSErp.Api.csproj",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\RTSErp.Api.csproj",
+              "RelativeDocumentMoniker": "src\\RTSErp.Api\\RTSErp.Api.csproj",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\RTSErp.Api.csproj",
+              "RelativeToolTip": "src\\RTSErp.Api\\RTSErp.Api.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-07-29T09:16:23.22Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "RTSErp.Application",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\RTSErp.Application.csproj",
+              "RelativeDocumentMoniker": "src\\RTSErp.Application\\RTSErp.Application.csproj",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Application\\RTSErp.Application.csproj",
+              "RelativeToolTip": "src\\RTSErp.Application\\RTSErp.Application.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAA8AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-07-29T10:38:33.366Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "AuthController.cs",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\Controllers\\v1\\AuthController.cs",
+              "RelativeDocumentMoniker": "src\\RTSErp.Api\\Controllers\\v1\\AuthController.cs",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Api\\Controllers\\v1\\AuthController.cs",
+              "RelativeToolTip": "src\\RTSErp.Api\\Controllers\\v1\\AuthController.cs",
+              "ViewState": "AgIAABMAAAAAAAAAAAAgwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T10:33:32.38Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "RTSErp.Api.IntegrationTests",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\tests\\RTSErp.Api.IntegrationTests\\RTSErp.Api.IntegrationTests.csproj",
+              "RelativeDocumentMoniker": "tests\\RTSErp.Api.IntegrationTests\\RTSErp.Api.IntegrationTests.csproj",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\tests\\RTSErp.Api.IntegrationTests\\RTSErp.Api.IntegrationTests.csproj",
+              "RelativeToolTip": "tests\\RTSErp.Api.IntegrationTests\\RTSErp.Api.IntegrationTests.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-07-29T10:33:16.462Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "RTSErp.Infrastructure.csproj",
+              "DocumentMoniker": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Infrastructure\\RTSErp.Infrastructure.csproj",
+              "RelativeDocumentMoniker": "src\\RTSErp.Infrastructure\\RTSErp.Infrastructure.csproj",
+              "ToolTip": "C:\\Users\\Geovany hany\\Desktop\\ERP\\Backend\\src\\RTSErp.Infrastructure\\RTSErp.Infrastructure.csproj",
+              "RelativeToolTip": "src\\RTSErp.Infrastructure\\RTSErp.Infrastructure.csproj",
+              "ViewState": "AgIAAAoAAAAAAAAAAAAuwBoAAAAKAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-07-29T09:19:49.451Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

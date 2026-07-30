@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.Extensions.Identity.Stores gives us IdentityUser<TKey>/IdentityRole<TKey> as plain
+         POCOs with no EF/ASP.NET Core dependency, so Domain stays framework-light while still getting
+         Identity's built-in password hashing, lockout, and claims support for free. -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="8.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RTSErp.Shared\RTSErp.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

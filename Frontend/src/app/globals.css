@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS variable-based color tokens land here once the theme is finalized —
+   see UI.md "Color palette" section. */
