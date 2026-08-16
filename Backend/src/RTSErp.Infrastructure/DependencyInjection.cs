@@ -7,6 +7,7 @@ using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Infrastructure.Identity;
 using RTSErp.Infrastructure.Persistence;
+using RTSErp.Application.Common.Interfaces;
 using RTSErp.Infrastructure.Services;
 
 namespace RTSErp.Infrastructure;
@@ -35,9 +36,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
-
-        // IFileStorageService, IActivityLogger, INotificationService register here
-        // once their modules land (see SolutionArchitecture.md §6) — not needed by Auth + Shell.
+        services.AddScoped<IAccountingService, AccountingService>();
 
         return services;
     }

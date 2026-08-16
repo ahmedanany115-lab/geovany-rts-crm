@@ -25,6 +25,7 @@ public static class DbSeeder
         await SeedPermissionsAsync(db, logger);
         await SeedRolesAsync(roleManager, db, logger);
         await SeedEmployeesAndUsersAsync(db, userManager, logger);
+        await AccountingSeeder.SeedAsync(db, logger);
     }
 
     private static async Task SeedPermissionsAsync(ApplicationDbContext db, ILogger logger)

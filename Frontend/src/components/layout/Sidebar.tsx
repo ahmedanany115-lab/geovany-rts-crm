@@ -16,6 +16,7 @@ import {
   Settings,
   ChevronsLeft,
   ChevronsRight,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-state";
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { label: "Tasks", href: "/tasks/board", icon: KanbanSquare },
   { label: "Help Desk", href: "/helpdesk", icon: LifeBuoy },
   { label: "Inventory", href: "/inventory/products", icon: Package },
+  { label: "Finance", href: "/finance/accounts", icon: Landmark },
   { label: "Invoices", href: "/invoices", icon: Receipt },
   { label: "Reports", href: "/reports/sales", icon: BarChart3 },
   { label: "Users", href: "/users", icon: UserCog },

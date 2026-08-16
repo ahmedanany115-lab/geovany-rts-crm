@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
+using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Identity;
+using RTSErp.Infrastructure.Persistence.Configurations.Accounting;
 
 namespace RTSErp.Infrastructure.Persistence;
 
@@ -11,6 +13,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     {
     }
 
+    // ── Identity ──────────────────────────────────────────────────────────────
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Employee> Employees => Set<Employee>();
@@ -20,9 +23,31 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     DbSet<ApplicationUser> IApplicationDbContext.Users => Users;
     DbSet<ApplicationRole> IApplicationDbContext.Roles => Roles;
 
+    // ── Accounting ────────────────────────────────────────────────────────────
+    public DbSet<Currency> Currencies => Set<Currency>();
+    public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+    public DbSet<TaxRate> TaxRates => Set<TaxRate>();
+    public DbSet<CommissionRate> CommissionRates => Set<CommissionRate>();
+    public DbSet<BusinessPartner> BusinessPartners => Set<BusinessPartner>();
+    public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        // Apply all accounting configurations from this assembly
+        builder.ApplyConfiguration(new CurrencyConfiguration());
+        builder.ApplyConfiguration(new AccountConfiguration());
+        builder.ApplyConfiguration(new FiscalPeriodConfiguration());
+        builder.ApplyConfiguration(new JournalEntryConfiguration());
+        builder.ApplyConfiguration(new JournalEntryLineConfiguration());
+        builder.ApplyConfiguration(new TaxRateConfiguration());
+        builder.ApplyConfiguration(new CommissionRateConfiguration());
+        builder.ApplyConfiguration(new BusinessPartnerConfiguration());
+        builder.ApplyConfiguration(new BankAccountConfiguration());
 
         builder.Entity<RolePermission>(entity =>
         {
