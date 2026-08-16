@@ -2,5 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS variable-based color tokens land here once the theme is finalized —
-   see UI.md "Color palette" section. */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 30% 12%;
+  --border: 220 14% 91%;
+  --muted-foreground: 220 9% 46%;
+  --accent: 220 20% 96%;
+  --accent-foreground: 222 30% 12%;
+
+  /* Royal Blue */
+  --primary: 221 83% 40%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Emerald accent */
+  --emerald: 152 69% 31%;
+  --emerald-foreground: 0 0% 100%;
+
+  --success: 152 69% 31%;
+  --warning: 38 92% 50%;
+  --danger: 0 72% 51%;
+}
+
+.dark {
+  --background: 222 30% 8%;
+  --foreground: 210 20% 96%;
+  --border: 217 19% 20%;
+  --muted-foreground: 217 10% 64%;
+  --accent: 217 19% 16%;
+  --accent-foreground: 210 20% 96%;
+
+  --primary: 221 83% 58%;
+  --primary-foreground: 222 30% 8%;
+
+  --emerald: 152 55% 45%;
+  --emerald-foreground: 222 30% 8%;
+
+  --success: 152 55% 45%;
+  --warning: 38 92% 55%;
+  --danger: 0 70% 60%;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}

@@ -3,8 +3,8 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RTS ERP",
-  description: "Enterprise resource planning for RTS IT Solutions",
+  title: "Royal CRM",
+  description: "Sales, service, and delivery CRM for Royal Technology System",
 };
 
 export default function RootLayout({

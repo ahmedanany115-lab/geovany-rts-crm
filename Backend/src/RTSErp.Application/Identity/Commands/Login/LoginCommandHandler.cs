@@ -29,10 +29,12 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResult>
     public async Task<LoginResult> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
+
         if (user is null || !user.IsActive || user.IsDeleted)
             return new LoginResult { Succeeded = false, Error = "Invalid email or password." };
 
         var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+
         if (!passwordValid)
             return new LoginResult { Succeeded = false, Error = "Invalid email or password." };
 
@@ -50,7 +52,11 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResult>
             .ToListAsync(cancellationToken);
 
         var accessToken = _jwtTokenService.GenerateAccessToken(user, permissionCodes);
-        var refreshToken = await _refreshTokenService.IssueAsync(user.Id, request.IpAddress, cancellationToken);
+
+        var refreshToken = await _refreshTokenService.IssueAsync(
+            user.Id,
+            request.IpAddress,
+            cancellationToken);
 
         return new LoginResult
         {
@@ -68,7 +74,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResult>
                     LastName = user.LastName,
                     AvatarUrl = user.AvatarUrl,
                     Roles = roleNames.ToList(),
-                    Permissions = permissionCodes.ToList()
+                    Permissions = permissionCodes
                 }
             }
         };

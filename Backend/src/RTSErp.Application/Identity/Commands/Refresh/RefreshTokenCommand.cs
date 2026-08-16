@@ -76,7 +76,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
                     LastName = user.LastName,
                     AvatarUrl = user.AvatarUrl,
                     Roles = roleNames.ToList(),
-                    Permissions = permissionCodes.ToList()
+                    Permissions = permissionCodes
                 }
             }
         };

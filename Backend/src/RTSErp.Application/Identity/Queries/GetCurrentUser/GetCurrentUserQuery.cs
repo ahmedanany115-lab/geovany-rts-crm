@@ -43,7 +43,7 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, U
             LastName = user.LastName,
             AvatarUrl = user.AvatarUrl,
             Roles = roleNames.ToList(),
-            Permissions = _currentUser.Permissions.ToList()
+            Permissions = _currentUser.Permissions
         };
     }
 }

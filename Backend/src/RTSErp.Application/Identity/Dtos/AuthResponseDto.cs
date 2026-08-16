@@ -10,18 +10,10 @@ public class AuthResponseDto
 public class UserDto
 {
     public Guid Id { get; set; }
-
     public string Email { get; set; } = string.Empty;
-
     public string FirstName { get; set; } = string.Empty;
-
     public string LastName { get; set; } = string.Empty;
-
     public string? AvatarUrl { get; set; }
-
-    // Changed from IReadOnlyList to List
-    public List<string> Roles { get; set; } = new();
-
-    // Changed from IReadOnlyList to List
-    public List<string> Permissions { get; set; } = new();
+    public IReadOnlyList<string> Roles { get; set; } = [];
+    public IReadOnlyList<string> Permissions { get; set; } = [];
 }

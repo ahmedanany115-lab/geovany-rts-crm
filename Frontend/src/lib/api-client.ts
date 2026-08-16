@@ -1,6 +1,16 @@
 import { useAuthStore } from "@/stores/auth-store";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const FALLBACK_API_BASE_URL = "http://localhost:5210/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || FALLBACK_API_BASE_URL;
+
+if (!process.env.NEXT_PUBLIC_API_BASE_URL && typeof window !== "undefined") {
+  // Loud on purpose: a silently-undefined base URL turns every API call into a request
+  // against the Next.js dev server itself, which 404s in a way that looks like an auth bug.
+  console.warn(
+    `[api-client] NEXT_PUBLIC_API_BASE_URL is not set — falling back to ${FALLBACK_API_BASE_URL}. ` +
+    `Create .env.local (see .env.local.example) and restart "npm run dev" to silence this.`
+  );
+}
 
 let refreshInFlight: Promise<boolean> | null = null;
 
