@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Identity;
+using RTSErp.Domain.Entities.Operational;
 using RTSErp.Infrastructure.Persistence.Configurations.Accounting;
+using RTSErp.Infrastructure.Persistence.Configurations.Operational;
 
 namespace RTSErp.Infrastructure.Persistence;
 
@@ -23,7 +25,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     DbSet<ApplicationUser> IApplicationDbContext.Users => Users;
     DbSet<ApplicationRole> IApplicationDbContext.Roles => Roles;
 
-    // ── Accounting ────────────────────────────────────────────────────────────
+    // ── Accounting (Phase 1) ──────────────────────────────────────────────────
     public DbSet<Currency> Currencies => Set<Currency>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
@@ -34,11 +36,34 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<BusinessPartner> BusinessPartners => Set<BusinessPartner>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
 
+    // ── Operational (Phase 2) ─────────────────────────────────────────────────
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<InventoryBalance> InventoryBalances => Set<InventoryBalance>();
+    public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<PurchaseReceipt> PurchaseReceipts => Set<PurchaseReceipt>();
+    public DbSet<PurchaseReceiptLine> PurchaseReceiptLines => Set<PurchaseReceiptLine>();
+    public DbSet<SupplierInvoice> SupplierInvoices => Set<SupplierInvoice>();
+    public DbSet<SupplierInvoiceLine> SupplierInvoiceLines => Set<SupplierInvoiceLine>();
+    public DbSet<SalesOrder> SalesOrders => Set<SalesOrder>();
+    public DbSet<SalesOrderLine> SalesOrderLines => Set<SalesOrderLine>();
+    public DbSet<SalesDelivery> SalesDeliveries => Set<SalesDelivery>();
+    public DbSet<SalesDeliveryLine> SalesDeliveryLines => Set<SalesDeliveryLine>();
+    public DbSet<CustomerInvoice> CustomerInvoices => Set<CustomerInvoice>();
+    public DbSet<CustomerInvoiceLine> CustomerInvoiceLines => Set<CustomerInvoiceLine>();
+    public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
+    public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
+    public DbSet<BankTransaction> BankTransactions => Set<BankTransaction>();
+    public DbSet<Cheque> Cheques => Set<Cheque>();
+    public DbSet<SalesCommission> SalesCommissions => Set<SalesCommission>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
-        // Apply all accounting configurations from this assembly
+        // Phase 1 accounting configurations
         builder.ApplyConfiguration(new CurrencyConfiguration());
         builder.ApplyConfiguration(new AccountConfiguration());
         builder.ApplyConfiguration(new FiscalPeriodConfiguration());
@@ -48,6 +73,29 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         builder.ApplyConfiguration(new CommissionRateConfiguration());
         builder.ApplyConfiguration(new BusinessPartnerConfiguration());
         builder.ApplyConfiguration(new BankAccountConfiguration());
+
+        // Phase 2 operational configurations
+        builder.ApplyConfiguration(new ProductConfiguration());
+        builder.ApplyConfiguration(new WarehouseConfiguration());
+        builder.ApplyConfiguration(new InventoryBalanceConfiguration());
+        builder.ApplyConfiguration(new InventoryMovementConfiguration());
+        builder.ApplyConfiguration(new PurchaseOrderConfiguration());
+        builder.ApplyConfiguration(new PurchaseOrderLineConfiguration());
+        builder.ApplyConfiguration(new PurchaseReceiptConfiguration());
+        builder.ApplyConfiguration(new PurchaseReceiptLineConfiguration());
+        builder.ApplyConfiguration(new SupplierInvoiceConfiguration());
+        builder.ApplyConfiguration(new SupplierInvoiceLineConfiguration());
+        builder.ApplyConfiguration(new SalesOrderConfiguration());
+        builder.ApplyConfiguration(new SalesOrderLineConfiguration());
+        builder.ApplyConfiguration(new SalesDeliveryConfiguration());
+        builder.ApplyConfiguration(new SalesDeliveryLineConfiguration());
+        builder.ApplyConfiguration(new CustomerInvoiceConfiguration());
+        builder.ApplyConfiguration(new CustomerInvoiceLineConfiguration());
+        builder.ApplyConfiguration(new CustomerPaymentConfiguration());
+        builder.ApplyConfiguration(new SupplierPaymentConfiguration());
+        builder.ApplyConfiguration(new BankTransactionConfiguration());
+        builder.ApplyConfiguration(new ChequeConfiguration());
+        builder.ApplyConfiguration(new SalesCommissionConfiguration());
 
         builder.Entity<RolePermission>(entity =>
         {

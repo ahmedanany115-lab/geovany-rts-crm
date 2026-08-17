@@ -64,6 +64,7 @@ public static class AccountingSeeder
 
         var ar = await Add("1300", "Accounts Receivable", "ذمم مدينة", AccountType.Asset, true, assets.Id);
         await Add("1301", "Trade Receivables", "مستحقات تجارية", AccountType.Asset, false, ar.Id);
+        await Add("1302", "Cheques Receivable", "أوراق القبض", AccountType.Asset, false, ar.Id);
 
         var vatInput = await Add("1400", "VAT Receivable (Input)", "ضريبة القيمة المضافة المدخلات", AccountType.Asset, false, assets.Id);
 

@@ -10,9 +10,9 @@ public enum BusinessPartnerType
 }
 
 /// <summary>
-/// Accounting foundation for customers and suppliers.
-/// The full CRM customer / purchasing supplier modules will reference this entity
-/// to get AR/AP account balances without duplicating accounting logic.
+/// Unified customer/supplier entity.
+/// A partner may be Customer, Supplier, or Both.
+/// Phase 2 operational modules (Sales, Purchasing, Banking) reference this.
 /// </summary>
 public class BusinessPartner : BaseEntity
 {
@@ -21,6 +21,13 @@ public class BusinessPartner : BaseEntity
     public string? NameAr { get; set; }
     public BusinessPartnerType PartnerType { get; set; }
     public bool IsActive { get; set; } = true;
+
+    // Contact
+    public string? TaxNumber { get; set; }       // VAT/Tax registration number
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Address { get; set; }
+    public string? Notes { get; set; }
 
     // Accounts Receivable account for customers
     public Guid? ReceivableAccountId { get; set; }

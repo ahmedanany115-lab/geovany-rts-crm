@@ -17,6 +17,12 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Landmark,
+  ShoppingCart,
+  ShoppingBag,
+  Truck,
+  CreditCard,
+  DollarSign,
+  Warehouse,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-state";
@@ -25,6 +31,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  group?: string;
 }
 
 const navItems: NavItem[] = [
@@ -34,9 +41,23 @@ const navItems: NavItem[] = [
   { label: "Projects", href: "/projects", icon: Briefcase },
   { label: "Tasks", href: "/tasks/board", icon: KanbanSquare },
   { label: "Help Desk", href: "/helpdesk", icon: LifeBuoy },
+  // ERP Sales
+  { label: "Customers", href: "/erp/customers", icon: Users, group: "Sales" },
+  { label: "Sales Orders", href: "/erp/sales-orders", icon: ShoppingCart, group: "Sales" },
+  { label: "Invoices", href: "/erp/customer-invoices", icon: Receipt, group: "Sales" },
+  { label: "Payments", href: "/erp/payments", icon: DollarSign, group: "Sales" },
+  { label: "Cheques", href: "/erp/cheques", icon: CreditCard, group: "Sales" },
+  // ERP Purchasing
+  { label: "Suppliers", href: "/erp/suppliers", icon: Truck, group: "Purchasing" },
+  { label: "Purchase Orders", href: "/erp/purchase-orders", icon: ShoppingBag, group: "Purchasing" },
+  // ERP Inventory
+  { label: "Products", href: "/erp/products", icon: Package, group: "Inventory" },
+  { label: "Warehouses", href: "/erp/warehouses", icon: Warehouse, group: "Inventory" },
+  // Finance
+  { label: "Finance", href: "/finance/accounts", icon: Landmark, group: "Finance" },
+  { label: "Bank Accounts", href: "/erp/bank-accounts", icon: Landmark, group: "Finance" },
+  // Other
   { label: "Inventory", href: "/inventory/products", icon: Package },
-  { label: "Finance", href: "/finance/accounts", icon: Landmark },
-  { label: "Invoices", href: "/invoices", icon: Receipt },
   { label: "Reports", href: "/reports/sales", icon: BarChart3 },
   { label: "Users", href: "/users", icon: UserCog },
   { label: "Settings", href: "/settings/company", icon: Settings },

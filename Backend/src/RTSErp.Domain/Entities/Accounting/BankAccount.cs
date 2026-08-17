@@ -9,9 +9,8 @@ public enum BankAccountType
 }
 
 /// <summary>
-/// Foundation for cash accounts and bank accounts.
-/// Maps each physical bank account to its corresponding Chart of Accounts entry.
-/// The full Banking module (Phase 2) will build on this.
+/// Physical bank / cash account, linked to Chart of Accounts GL entry.
+/// Phase 2: tracks OpeningBalance, CurrentBalance; linked to BankTransactions.
 /// </summary>
 public class BankAccount : BaseEntity
 {
@@ -24,6 +23,10 @@ public class BankAccount : BaseEntity
     public string? IBAN { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    // Opening / current balance (informational — authoritative balance is in GL)
+    public decimal OpeningBalance { get; set; }
+    public decimal CurrentBalance { get; set; }
 
     // The GL account this bank/cash account maps to
     public Guid GlAccountId { get; set; }

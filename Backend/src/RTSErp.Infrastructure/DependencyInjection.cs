@@ -7,7 +7,6 @@ using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Infrastructure.Identity;
 using RTSErp.Infrastructure.Persistence;
-using RTSErp.Application.Common.Interfaces;
 using RTSErp.Infrastructure.Services;
 
 namespace RTSErp.Infrastructure;
@@ -37,6 +36,8 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IAccountingService, AccountingService>();
+        services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<IEInvoiceService, MockEInvoiceService>();
 
         return services;
     }
