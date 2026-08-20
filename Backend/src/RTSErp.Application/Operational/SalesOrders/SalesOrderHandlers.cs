@@ -739,3 +739,50 @@ public class PostCustomerInvoiceCommandHandler : IRequestHandler<PostCustomerInv
         }
     }
 }
+
+// ── Get Sales Deliveries ──────────────────────────────────────────────────────
+
+public class SalesDeliveryListDto
+{
+    public Guid Id { get; set; }
+    public string DeliveryNumber { get; set; } = string.Empty;
+    public string? SalesOrderNumber { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    public string WarehouseName { get; set; } = string.Empty;
+    public DateOnly DeliveryDate { get; set; }
+    public decimal TotalCOGS { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class GetSalesDeliveriesQuery : IRequest<List<SalesDeliveryListDto>>
+{
+    public Guid? SalesOrderId { get; set; }
+    public Guid? CustomerId { get; set; }
+}
+
+public class GetSalesDeliveriesQueryHandler : IRequestHandler<GetSalesDeliveriesQuery, List<SalesDeliveryListDto>>
+{
+    private readonly IApplicationDbContext _db;
+    public GetSalesDeliveriesQueryHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task<List<SalesDeliveryListDto>> Handle(GetSalesDeliveriesQuery request, CancellationToken ct)
+    {
+        var q = _db.SalesDeliveries
+            .Include(d => d.Customer)
+            .Include(d => d.Warehouse)
+            .Include(d => d.SalesOrder)
+            .Where(d => !d.IsDeleted);
+
+        if (request.SalesOrderId.HasValue) q = q.Where(d => d.SalesOrderId == request.SalesOrderId.Value);
+        if (request.CustomerId.HasValue)   q = q.Where(d => d.CustomerId   == request.CustomerId.Value);
+
+        return await q.OrderByDescending(d => d.DeliveryDate).ThenByDescending(d => d.CreatedAt)
+            .Select(d => new SalesDeliveryListDto
+            {
+                Id = d.Id, DeliveryNumber = d.DeliveryNumber,
+                SalesOrderNumber = d.SalesOrder != null ? d.SalesOrder.SONumber : null,
+                CustomerName = d.Customer.Name, WarehouseName = d.Warehouse.Name,
+                DeliveryDate = d.DeliveryDate, TotalCOGS = d.TotalCOGS, CreatedAt = d.CreatedAt
+            }).ToListAsync(ct);
+    }
+}

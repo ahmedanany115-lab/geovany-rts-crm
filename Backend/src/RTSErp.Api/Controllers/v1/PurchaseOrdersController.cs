@@ -27,6 +27,10 @@ public class PurchaseOrdersController : BaseApiController
 [Authorize]
 public class PurchaseReceiptsController : BaseApiController
 {
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] Guid? purchaseOrderId, [FromQuery] Guid? supplierId)
+        => Ok(await Mediator.Send(new GetPurchaseReceiptsQuery { PurchaseOrderId = purchaseOrderId, SupplierId = supplierId }));
+
     [HttpPost]
     public async Task<IActionResult> Create(CreatePurchaseReceiptCommand cmd)
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }
@@ -35,6 +39,10 @@ public class PurchaseReceiptsController : BaseApiController
 [Authorize]
 public class SupplierInvoicesController : BaseApiController
 {
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] int? status, [FromQuery] Guid? supplierId)
+        => Ok(await Mediator.Send(new GetSupplierInvoicesQuery { Status = status, SupplierId = supplierId }));
+
     [HttpPost]
     public async Task<IActionResult> Create(CreateSupplierInvoiceCommand cmd)
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }

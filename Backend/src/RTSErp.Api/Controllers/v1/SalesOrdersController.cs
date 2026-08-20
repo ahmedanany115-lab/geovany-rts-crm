@@ -27,6 +27,10 @@ public class SalesOrdersController : BaseApiController
 [Authorize]
 public class SalesDeliveriesController : BaseApiController
 {
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] Guid? salesOrderId, [FromQuery] Guid? customerId)
+        => Ok(await Mediator.Send(new GetSalesDeliveriesQuery { SalesOrderId = salesOrderId, CustomerId = customerId }));
+
     [HttpPost]
     public async Task<IActionResult> Create(CreateSalesDeliveryCommand cmd)
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }

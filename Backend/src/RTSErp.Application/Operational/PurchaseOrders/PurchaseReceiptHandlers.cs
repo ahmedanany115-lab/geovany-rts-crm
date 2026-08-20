@@ -379,3 +379,111 @@ public class PostSupplierInvoiceCommandHandler : IRequestHandler<PostSupplierInv
         await _db.SaveChangesAsync(ct);
     }
 }
+
+// ── Get Supplier Invoices ─────────────────────────────────────────────────────
+
+public class SupplierInvoiceListDto
+{
+    public Guid Id { get; set; }
+    public string InvoiceNumber { get; set; } = string.Empty;
+    public string? SupplierInvoiceNumber { get; set; }
+    public string SupplierName { get; set; } = string.Empty;
+    public DateOnly InvoiceDate { get; set; }
+    public DateOnly DueDate { get; set; }
+    public string CurrencyCode { get; set; } = string.Empty;
+    public decimal SubTotal { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal BalanceDue { get; set; }
+    public int Status { get; set; }
+    public string StatusName { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
+public class GetSupplierInvoicesQuery : IRequest<List<SupplierInvoiceListDto>>
+{
+    public int? Status { get; set; }
+    public Guid? SupplierId { get; set; }
+}
+
+public class GetSupplierInvoicesQueryHandler : IRequestHandler<GetSupplierInvoicesQuery, List<SupplierInvoiceListDto>>
+{
+    private readonly IApplicationDbContext _db;
+    public GetSupplierInvoicesQueryHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task<List<SupplierInvoiceListDto>> Handle(GetSupplierInvoicesQuery request, CancellationToken ct)
+    {
+        var q = _db.SupplierInvoices
+            .Include(i => i.Supplier)
+            .Include(i => i.Currency)
+            .Where(i => !i.IsDeleted);
+
+        if (request.SupplierId.HasValue) q = q.Where(i => i.SupplierId == request.SupplierId.Value);
+        if (request.Status.HasValue)     q = q.Where(i => (int)i.Status == request.Status.Value);
+
+        return await q.OrderByDescending(i => i.InvoiceDate).ThenByDescending(i => i.CreatedAt)
+            .Select(i => new SupplierInvoiceListDto
+            {
+                Id = i.Id, InvoiceNumber = i.InvoiceNumber,
+                SupplierInvoiceNumber = i.SupplierInvoiceNumber,
+                SupplierName = i.Supplier.Name,
+                InvoiceDate = i.InvoiceDate, DueDate = i.DueDate,
+                CurrencyCode = i.Currency.Code,
+                SubTotal = i.SubTotal, TaxAmount = i.TaxAmount, DiscountAmount = i.DiscountAmount,
+                TotalAmount = i.TotalAmount, PaidAmount = i.PaidAmount,
+                BalanceDue = i.TotalAmount - i.PaidAmount,
+                Status = (int)i.Status, StatusName = i.Status.ToString(),
+                CreatedAt = i.CreatedAt
+            }).ToListAsync(ct);
+    }
+}
+
+// ── Get Purchase Receipts ─────────────────────────────────────────────────────
+
+public class PurchaseReceiptListDto
+{
+    public Guid Id { get; set; }
+    public string ReceiptNumber { get; set; } = string.Empty;
+    public string SupplierName { get; set; } = string.Empty;
+    public string? PONumber { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public DateOnly ReceiptDate { get; set; }
+    public decimal TotalAmount { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class GetPurchaseReceiptsQuery : IRequest<List<PurchaseReceiptListDto>>
+{
+    public Guid? PurchaseOrderId { get; set; }
+    public Guid? SupplierId { get; set; }
+}
+
+public class GetPurchaseReceiptsQueryHandler : IRequestHandler<GetPurchaseReceiptsQuery, List<PurchaseReceiptListDto>>
+{
+    private readonly IApplicationDbContext _db;
+    public GetPurchaseReceiptsQueryHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task<List<PurchaseReceiptListDto>> Handle(GetPurchaseReceiptsQuery request, CancellationToken ct)
+    {
+        var q = _db.PurchaseReceipts
+            .Include(r => r.Supplier)
+            .Include(r => r.Warehouse)
+            .Include(r => r.PurchaseOrder)
+            .Where(r => !r.IsDeleted);
+
+        if (request.PurchaseOrderId.HasValue) q = q.Where(r => r.PurchaseOrderId == request.PurchaseOrderId.Value);
+        if (request.SupplierId.HasValue)      q = q.Where(r => r.SupplierId      == request.SupplierId.Value);
+
+        return await q.OrderByDescending(r => r.ReceiptDate).ThenByDescending(r => r.CreatedAt)
+            .Select(r => new PurchaseReceiptListDto
+            {
+                Id = r.Id, ReceiptNumber = r.ReceiptNumber,
+                SupplierName = r.Supplier.Name,
+                PONumber = r.PurchaseOrder != null ? r.PurchaseOrder.PONumber : null,
+                WarehouseName = r.Warehouse.Name,
+                ReceiptDate = r.ReceiptDate, TotalAmount = r.TotalAmount, CreatedAt = r.CreatedAt
+            }).ToListAsync(ct);
+    }
+}

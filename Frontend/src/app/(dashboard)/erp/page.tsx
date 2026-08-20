@@ -1,2 +1,2 @@
 import { redirect } from "next/navigation";
-export default function ErpPage() { redirect("/erp/customers"); }
+export default function ErpPage() { redirect("/erp/dashboard"); }
