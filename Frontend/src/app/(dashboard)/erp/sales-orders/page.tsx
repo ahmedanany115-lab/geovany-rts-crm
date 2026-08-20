@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ShoppingCart, RefreshCw, CheckCircle, Plus, X, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useSalesOrders, useApproveSalesOrder, useCreateSalesOrder, useCustomers, useProducts, useWarehouses } from "@/features/erp/hooks";
 import { SalesOrderStatusLabels } from "@/features/erp/types";
+import { useEgpCurrencyId } from "@/features/erp/hooks/useCurrency";
 
 const STATUS_COLORS: Record<number, string> = {
   1: "bg-muted text-muted-foreground",
@@ -46,6 +47,7 @@ export default function SalesOrdersPage() {
   const { data: customers } = useCustomers({ isActive: true });
   const { data: products } = useProducts({ isActive: true });
   const { data: warehouses } = useWarehouses({ isActive: true });
+  const egpId = useEgpCurrencyId();
 
   // Form state
   const today = new Date().toISOString().split("T")[0];
@@ -95,7 +97,7 @@ export default function SalesOrdersPage() {
     const payload = {
       customerId: form.customerId,
       warehouseId: form.warehouseId,
-      currencyId: form.currencyId || "00000000-0000-0000-0000-000000000001", // fallback EGP id
+      currencyId: form.currencyId || egpId,
       orderDate: form.orderDate,
       exchangeRate: 1,
       notes: form.notes,

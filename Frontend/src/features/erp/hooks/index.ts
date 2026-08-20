@@ -216,3 +216,7 @@ export const useCreateBankTransaction = () => {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["bank-transactions"] }); qc.invalidateQueries({ queryKey: ["bank-accounts"] }); }
   });
 };
+
+// ── Currency helpers ──────────────────────────────────────────────────────────
+// Re-export finance currencies so ERP forms can use them without cross-feature imports
+export { useCurrencies } from "@/features/finance/hooks";

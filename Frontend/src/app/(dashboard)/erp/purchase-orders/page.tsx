@@ -5,6 +5,7 @@ import { usePurchaseOrders, useApprovePurchaseOrder, useSuppliers, useProducts, 
 import { PurchaseOrderStatusLabels } from "@/features/erp/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { useEgpCurrencyId } from "@/features/erp/hooks/useCurrency";
 
 const STATUS_COLORS: Record<number, string> = {
   1: "bg-muted text-muted-foreground",
@@ -38,6 +39,7 @@ export default function PurchaseOrdersPage() {
   const { data: suppliers } = useSuppliers({ isActive: true });
   const { data: products } = useProducts({ isActive: true });
   const { data: warehouses } = useWarehouses({ isActive: true });
+  const egpId = useEgpCurrencyId();
 
   const qc = useQueryClient();
   const createPO = useMutation({
@@ -73,7 +75,7 @@ export default function PurchaseOrdersPage() {
     if (!lines.length) return alert("Add at least one line.");
     await createPO.mutateAsync({
       supplierId: form.supplierId, warehouseId: form.warehouseId,
-      orderDate: form.orderDate, currencyId: "00000000-0000-0000-0000-000000000001",
+      orderDate: form.orderDate, currencyId: egpId || "00000000-0000-0000-0000-000000000001",
       exchangeRate: 1, notes: form.notes,
       lines: lines.map(l => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice, discountPercent: l.discountPercent })),
     });

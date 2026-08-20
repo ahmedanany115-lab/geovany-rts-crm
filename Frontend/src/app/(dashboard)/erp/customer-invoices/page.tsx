@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FileText, RefreshCw, Send, CheckCircle2, Plus, X, Trash2 } from "lucide-react";
 import { useCustomerInvoices, usePostCustomerInvoice, useCreateCustomerInvoice, useCustomers, useProducts } from "@/features/erp/hooks";
 import { InvoiceStatusLabels } from "@/features/erp/types";
+import { useEgpCurrencyId } from "@/features/erp/hooks/useCurrency";
 
 const STATUS_COLORS: Record<number, string> = {
   1: "bg-muted text-muted-foreground",
@@ -36,6 +37,7 @@ export default function CustomerInvoicesPage() {
   const createInv = useCreateCustomerInvoice();
   const { data: customers } = useCustomers({ isActive: true });
   const { data: products } = useProducts({ isActive: true });
+  const egpId = useEgpCurrencyId();
 
   const [form, setForm] = useState({ customerId: "", invoiceDate: today, dueDate, notes: "" });
   const [lines, setLines] = useState<InvLine[]>([]);
@@ -70,7 +72,7 @@ export default function CustomerInvoicesPage() {
       customerId: form.customerId,
       invoiceDate: form.invoiceDate,
       dueDate: form.dueDate,
-      currencyId: "00000000-0000-0000-0000-000000000001",
+      currencyId: egpId || "",
       exchangeRate: 1,
       lines: lines.map(l => ({ productId: l.productId, description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, discountPercent: l.discountPercent, taxRate: l.taxRate })),
     });

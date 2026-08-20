@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { RefreshCw, Landmark, TrendingUp, TrendingDown, ArrowLeftRight, Plus, X } from "lucide-react";
+import { RefreshCw, Landmark, ArrowLeftRight, Plus, X } from "lucide-react";
 import { useBankAccounts, useBankTransactions, useCreateBankTransaction } from "@/features/erp/hooks";
+import { useEgpCurrencyId } from "@/features/erp/hooks/useCurrency";
 
 const TXN_TYPE_LABELS: Record<number, string> = { 1: "Deposit", 2: "Withdrawal", 3: "Transfer", 4: "Customer Receipt", 5: "Supplier Payment" };
 const TXN_COLORS: Record<number, string> = { 1: "text-emerald-600", 2: "text-red-600", 3: "text-blue-600", 4: "text-emerald-600", 5: "text-red-600" };
@@ -10,9 +11,10 @@ export default function BankAccountsPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(undefined);
   const [showTxnForm, setShowTxnForm] = useState(false);
   const today = new Date().toISOString().split("T")[0];
-  const [txnForm, setTxnForm] = useState({ bankAccountId: "", transactionType: "1", amount: "", description: "", reference: "", transactionDate: today, destinationBankAccountId: "", currencyId: "00000000-0000-0000-0000-000000000001", exchangeRate: "1" });
+  const [txnForm, setTxnForm] = useState({ bankAccountId: "", transactionType: "1", amount: "", description: "", reference: "", transactionDate: today, destinationBankAccountId: "", exchangeRate: "1" });
 
   const { data: accounts, isLoading, refetch } = useBankAccounts();
+  const egpId = useEgpCurrencyId();
   const { data: transactions, refetch: refetchTxns } = useBankTransactions({ bankAccountId: selectedAccountId });
   const createTxn = useCreateBankTransaction();
 
@@ -22,6 +24,8 @@ export default function BankAccountsPage() {
   const handleTxn = async (e: React.FormEvent) => {
     e.preventDefault();
     const selAcc = accounts?.find(a => a.id === txnForm.bankAccountId);
+    // Use selected account's currency (via its GL account currency) or fall back to EGP
+    const currencyId = egpId || "";
     await createTxn.mutateAsync({
       ...txnForm,
       transactionType: parseInt(txnForm.transactionType),
@@ -29,10 +33,10 @@ export default function BankAccountsPage() {
       amountBase: parseFloat(txnForm.amount) * parseFloat(txnForm.exchangeRate),
       exchangeRate: parseFloat(txnForm.exchangeRate),
       destinationBankAccountId: txnForm.destinationBankAccountId || undefined,
-      currencyId: selAcc ? "00000000-0000-0000-0000-000000000001" : txnForm.currencyId,
+      currencyId,
     });
     setShowTxnForm(false);
-    setTxnForm({ bankAccountId: "", transactionType: "1", amount: "", description: "", reference: "", transactionDate: today, destinationBankAccountId: "", currencyId: "00000000-0000-0000-0000-000000000001", exchangeRate: "1" });
+    setTxnForm({ bankAccountId: "", transactionType: "1", amount: "", description: "", reference: "", transactionDate: today, destinationBankAccountId: "", exchangeRate: "1" });
     refetch(); refetchTxns();
   };
 

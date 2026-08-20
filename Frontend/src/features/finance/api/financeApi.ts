@@ -137,3 +137,7 @@ export const currenciesApi = {
       body: JSON.stringify({ id, ...data }),
     }),
 };
+
+export const taxRatesApi = {
+  list: () => apiFetch<{ id: string; name: string; code: string; rate: number; isActive: boolean }[]>("/taxrates"),
+};
