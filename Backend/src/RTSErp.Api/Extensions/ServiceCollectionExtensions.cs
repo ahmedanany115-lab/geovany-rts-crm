@@ -12,7 +12,21 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         var jwtSection = configuration.GetSection("Jwt");
-        var signingKey = jwtSection["SigningKey"] ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
+        var signingKey = jwtSection["SigningKey"];
+
+        if (string.IsNullOrWhiteSpace(signingKey))
+        {
+            // Log a clear error and use a placeholder so the app starts and returns
+            // useful error messages rather than crashing with a 500 on every request.
+            Console.Error.WriteLine(
+                "[FATAL] Jwt:SigningKey is not configured. " +
+                "Set the Jwt__SigningKey environment variable on Railway. " +
+                "All authenticated endpoints will reject requests until this is fixed.");
+
+            // Minimum-length placeholder keeps the JWT middleware wired up so
+            // the app boots; tokens signed with this key will always fail validation.
+            signingKey = "UNCONFIGURED_KEY_SET_Jwt__SigningKey_ENV_VAR_NOW_32chars";
+        }
 
         services.AddAuthentication(options =>
         {

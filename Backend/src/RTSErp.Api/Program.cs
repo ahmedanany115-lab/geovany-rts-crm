@@ -71,7 +71,8 @@ app.UseSwaggerUI();
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-app.UseHttpsRedirection();
+// NOTE: Do NOT call app.UseHttpsRedirection() on Railway/Render — TLS is
+// terminated at the ingress proxy. Calling it here causes redirect loops.
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();

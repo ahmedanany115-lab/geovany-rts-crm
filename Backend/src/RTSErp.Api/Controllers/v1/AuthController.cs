@@ -15,14 +15,30 @@ public class AuthController : BaseApiController
     [AllowAnonymous]
     public async Task<IActionResult> Login(LoginCommand command)
     {
-        command.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var result = await Mediator.Send(command);
+        try
+        {
+            command.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var result = await Mediator.Send(command);
 
-        if (!result.Succeeded)
-            return Unauthorized(new { message = result.Error });
+            if (!result.Succeeded)
+                return Unauthorized(new { message = result.Error });
 
-        SetRefreshTokenCookie(result.RefreshToken!);
-        return Ok(result.Auth);
+            SetRefreshTokenCookie(result.RefreshToken!);
+            return Ok(result.Auth);
+        }
+        catch (Exception ex)
+        {
+            // Log and return a structured error instead of an unhandled 500
+            var logger = HttpContext.RequestServices
+                .GetRequiredService<ILogger<AuthController>>();
+            logger.LogError(ex, "Unhandled error during login for {Email}", command.Email);
+
+            return StatusCode(500, new
+            {
+                message = "Login failed due to a server error.",
+                detail  = ex.Message   // safe to expose on first deploy for diagnosis
+            });
+        }
     }
 
     [HttpPost("refresh")]
@@ -74,9 +90,9 @@ public class AuthController : BaseApiController
         Response.Cookies.Append(RefreshTokenCookieName, token, new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None, // frontend and API run on different ports in dev
-            Expires = DateTimeOffset.UtcNow.AddDays(7)
+            Secure   = true,
+            SameSite = SameSiteMode.None, // frontend and API on different origins
+            Expires  = DateTimeOffset.UtcNow.AddDays(7)
         });
     }
 }
