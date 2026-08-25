@@ -65,12 +65,9 @@ catch (Exception ex)
     // Don't crash the app — it may still serve requests if DB was already migrated.
 }
 
-// ── Swagger (dev only) ────────────────────────────────────────────────────────
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// ── Swagger (all environments) ────────────────────────────────────────────────
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseMiddleware<ExceptionHandlingMiddleware>();
