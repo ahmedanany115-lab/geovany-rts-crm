@@ -108,10 +108,11 @@ public static class DbSeeder
             }
 
             // One query: which permissions are already assigned to this role?
-            var assigned = await db.RolePermissions
+            var assigned = (await db.RolePermissions
                 .Where(rp => rp.RoleId == role.Id)
                 .Select(rp => rp.PermissionId)
-                .ToHashSetAsync();
+                .ToListAsync())
+                .ToHashSet();
 
             // Bulk-add missing ones
             var toAdd = allPerms
