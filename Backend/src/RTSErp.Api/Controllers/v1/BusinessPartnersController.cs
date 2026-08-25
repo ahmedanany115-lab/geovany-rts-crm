@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RTSErp.Application.Operational.BusinessPartners;
-using RTSErp.Domain.Enums;
+using RTSErp.Domain.Entities.Accounting;
 
 namespace RTSErp.Api.Controllers.v1;
 
