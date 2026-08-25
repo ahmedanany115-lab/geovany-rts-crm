@@ -97,9 +97,12 @@ public class GetErpDashboardKpisQueryHandler : IRequestHandler<GetErpDashboardKp
             .Where(b => !b.IsDeleted && b.Quantity > 0)
             .SumAsync(b => b.Quantity * b.AverageCost, ct);
 
-        dto.LowStockProducts = await _db.Products
-            .CountAsync(p => !p.IsDeleted && p.IsActive &&
-                p.InventoryBalances.Sum(b => b.Quantity) < p.MinimumStock, ct);
+        // Low stock: load active products with their total balance, count below minimum
+        var products = await _db.Products
+            .Where(p => !p.IsDeleted && p.IsActive)
+            .Select(p => new { p.MinimumStock, Total = p.InventoryBalances.Sum(b => b.Quantity) })
+            .ToListAsync(ct);
+        dto.LowStockProducts = products.Count(p => p.Total < p.MinimumStock);
 
         // Outstanding cheques
         var outstandingCheques = await _db.Cheques
