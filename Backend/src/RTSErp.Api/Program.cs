@@ -88,14 +88,24 @@ app.MapGet("/", () => Results.Ok(new { status = "RTS ERP API", version = "2.0" }
 
 // Diagnostics: returns startup error (if any) and key config state.
 // REMOVE this endpoint once the deployment is stable.
-app.MapGet("/diagnostics", (IConfiguration cfg) => Results.Ok(new
+app.MapGet("/diagnostics", (IConfiguration cfg) =>
 {
-    startupError     = startupError ?? "none",
-    dbConfigured     = !string.IsNullOrEmpty(cfg.GetConnectionString("DefaultConnection")),
-    jwtKeyConfigured = !string.IsNullOrEmpty(cfg["Jwt:SigningKey"]),
-    corsOrigins      = cfg.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [],
-    environment      = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown"
-}));
+    var rawCs = cfg.GetConnectionString("DefaultConnection") ?? "";
+    var normalized = RTSErp.Infrastructure.DependencyInjection.NormalizePostgresConnectionString(rawCs);
+    // Strip password from the diagnostic output
+    var safeCs = System.Text.RegularExpressions.Regex.Replace(
+        normalized, @"Password=[^;]*", "Password=***");
+
+    return Results.Ok(new
+    {
+        startupError     = startupError ?? "none",
+        dbConfigured     = !string.IsNullOrEmpty(rawCs),
+        dbConnectionSafe = safeCs,
+        jwtKeyConfigured = !string.IsNullOrEmpty(cfg["Jwt:SigningKey"]),
+        corsOrigins      = cfg.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [],
+        environment      = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown"
+    });
+});
 
 app.MapControllers();
 
