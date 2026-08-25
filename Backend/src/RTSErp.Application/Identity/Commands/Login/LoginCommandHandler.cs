@@ -66,6 +66,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResult>
             {
                 AccessToken = accessToken,
                 AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(15),
+                RefreshToken = refreshToken,   // also in body for cross-origin SPA
                 User = new UserDto
                 {
                     Id = user.Id,

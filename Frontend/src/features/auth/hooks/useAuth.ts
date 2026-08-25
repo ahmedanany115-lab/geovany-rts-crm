@@ -13,7 +13,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: (payload: LoginRequest) => authApi.login(payload),
     onSuccess: (data) => {
-      setSession(data.accessToken, data.user);
+      setSession(data.accessToken, data.user, data.refreshToken);
       router.push("/dashboard");
     },
   });

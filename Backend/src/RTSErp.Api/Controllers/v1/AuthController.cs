@@ -10,6 +10,8 @@ namespace RTSErp.Api.Controllers.v1;
 public class AuthController : BaseApiController
 {
     private const string RefreshTokenCookieName = "rts_erp_refresh_token";
+    // Header name the frontend sends when the cookie can't be used cross-origin
+    private const string RefreshTokenHeaderName = "X-Refresh-Token";
 
     [HttpPost("login")]
     [AllowAnonymous]
@@ -23,21 +25,17 @@ public class AuthController : BaseApiController
             if (!result.Succeeded)
                 return Unauthorized(new { message = result.Error });
 
+            // Set cookie (works same-origin / when browser permits cross-origin cookies)
             SetRefreshTokenCookie(result.RefreshToken!);
+
+            // Also return token in body — used by the frontend when cookie is blocked
             return Ok(result.Auth);
         }
         catch (Exception ex)
         {
-            // Log and return a structured error instead of an unhandled 500
-            var logger = HttpContext.RequestServices
-                .GetRequiredService<ILogger<AuthController>>();
-            logger.LogError(ex, "Unhandled error during login for {Email}", command.Email);
-
-            return StatusCode(500, new
-            {
-                message = "Login failed due to a server error.",
-                detail  = ex.Message   // safe to expose on first deploy for diagnosis
-            });
+            var logger = HttpContext.RequestServices.GetRequiredService<ILogger<AuthController>>();
+            logger.LogError(ex, "Login error for {Email}: {Msg}", command.Email, ex.Message);
+            return StatusCode(500, new { message = "Login failed.", detail = ex.Message });
         }
     }
 
@@ -45,7 +43,12 @@ public class AuthController : BaseApiController
     [AllowAnonymous]
     public async Task<IActionResult> Refresh()
     {
-        var refreshToken = Request.Cookies[RefreshTokenCookieName];
+        // Accept refresh token from: 1) httpOnly cookie (same-origin / allowed cross-origin)
+        //                            2) X-Refresh-Token header (cross-origin SPA fallback)
+        var refreshToken =
+            Request.Cookies[RefreshTokenCookieName]
+            ?? Request.Headers[RefreshTokenHeaderName].FirstOrDefault();
+
         if (string.IsNullOrEmpty(refreshToken))
             return Unauthorized(new { message = "No refresh token present." });
 
@@ -69,7 +72,10 @@ public class AuthController : BaseApiController
     [Authorize]
     public async Task<IActionResult> Logout()
     {
-        var refreshToken = Request.Cookies[RefreshTokenCookieName];
+        var refreshToken =
+            Request.Cookies[RefreshTokenCookieName]
+            ?? Request.Headers[RefreshTokenHeaderName].FirstOrDefault();
+
         if (!string.IsNullOrEmpty(refreshToken))
             await Mediator.Send(new LogoutCommand { RefreshToken = refreshToken });
 
@@ -80,10 +86,7 @@ public class AuthController : BaseApiController
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> Me()
-    {
-        var user = await Mediator.Send(new GetCurrentUserQuery());
-        return Ok(user);
-    }
+        => Ok(await Mediator.Send(new GetCurrentUserQuery()));
 
     private void SetRefreshTokenCookie(string token)
     {
@@ -91,8 +94,8 @@ public class AuthController : BaseApiController
         {
             HttpOnly = true,
             Secure   = true,
-            SameSite = SameSiteMode.None, // frontend and API on different origins
-            Expires  = DateTimeOffset.UtcNow.AddDays(7)
+            SameSite = SameSiteMode.None,  // required for cross-origin
+            Expires  = DateTimeOffset.UtcNow.AddDays(30)
         });
     }
 }

@@ -4,6 +4,7 @@ public class AuthResponseDto
 {
     public string AccessToken { get; set; } = string.Empty;
     public DateTime AccessTokenExpiresAt { get; set; }
+    public string? RefreshToken { get; set; }   // returned in body for cross-origin SPA use
     public UserDto User { get; set; } = null!;
 }
 

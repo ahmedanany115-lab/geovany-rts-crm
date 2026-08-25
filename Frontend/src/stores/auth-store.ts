@@ -3,21 +3,23 @@ import type { UserDto } from "@/features/auth/types";
 
 interface AuthState {
   accessToken: string | null;
+  refreshToken: string | null;   // stored in memory, sent as header for cross-origin refresh
   user: UserDto | null;
-  isInitializing: boolean; // true until the first silent-refresh attempt on app load resolves
-  setSession: (accessToken: string, user: UserDto) => void;
+  isInitializing: boolean;
+  setSession: (accessToken: string, user: UserDto, refreshToken?: string) => void;
   clearSession: () => void;
   setInitializing: (value: boolean) => void;
 }
 
-// Deliberately in-memory only (Zustand's default, no persist middleware) — the access
-// token must never touch localStorage/sessionStorage, per Architecture.md §5.
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
+  refreshToken: null,
   user: null,
   isInitializing: true,
-  setSession: (accessToken, user) => set({ accessToken, user, isInitializing: false }),
-  clearSession: () => set({ accessToken: null, user: null, isInitializing: false }),
+  setSession: (accessToken, user, refreshToken) =>
+    set({ accessToken, user, refreshToken: refreshToken ?? null, isInitializing: false }),
+  clearSession: () =>
+    set({ accessToken: null, refreshToken: null, user: null, isInitializing: false }),
   setInitializing: (value) => set({ isInitializing: value }),
 }));
 

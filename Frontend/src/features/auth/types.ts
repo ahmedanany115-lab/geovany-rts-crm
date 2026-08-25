@@ -11,6 +11,7 @@ export interface UserDto {
 export interface AuthResponseDto {
   accessToken: string;
   accessTokenExpiresAt: string;
+  refreshToken?: string;   // returned in body for cross-origin use
   user: UserDto;
 }
 

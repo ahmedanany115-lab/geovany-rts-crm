@@ -68,6 +68,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
             {
                 AccessToken = accessToken,
                 AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(15),
+                RefreshToken = rotation.Value.NewToken,   // also in body for cross-origin SPA
                 User = new UserDto
                 {
                     Id = user.Id,
