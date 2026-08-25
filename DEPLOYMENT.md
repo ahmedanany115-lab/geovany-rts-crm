@@ -3,125 +3,122 @@
 ## Architecture
 
 ```
-https://erp.rtegy.com     (Vercel — Next.js frontend)
+https://erp.rtegy.com        (Vercel — Next.js frontend, already deployed)
           ↓
-https://api.rtegy.com     (Railway / Render — .NET 8 API)
+https://api.rtegy.com        (Railway — .NET 8 API via Docker)
           ↓
-SQL Server Database       (Railway addon / Azure SQL / Supabase)
+Supabase PostgreSQL           (already provisioned)
 ```
 
 ---
 
-## 1. Deploy the Backend
+## Database — Supabase PostgreSQL
 
-### Option A — Railway (recommended, free tier available)
+In your **Supabase dashboard** → Project → Settings → Database:
 
-1. Go to **railway.app** → New Project → Deploy from GitHub
-2. Select repo: `ahmedanany115-lab/geovany-rts-crm`
+Copy the **Connection string** (URI format) or build it manually:
+
+```
+Host=db.<your-project>.supabase.co
+Port=5432
+Database=postgres
+Username=postgres
+Password=<your-db-password>
+SSL Mode=Require
+```
+
+Full connection string for Railway:
+```
+Host=db.<project>.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=<pass>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+> The API **auto-runs migrations** and **seeds data** on first startup — no manual SQL needed.
+
+---
+
+## Backend — Deploy on Railway
+
+### Step 1 — Create Railway project
+
+1. Go to **[railway.app](https://railway.app)** → New Project
+2. **Deploy from GitHub repo** → `ahmedanany115-lab/geovany-rts-crm`
 3. Set **Root Directory**: `Backend`
-4. Railway auto-detects the `Dockerfile`
+4. Railway detects the `Dockerfile` automatically
 
-**Add a SQL Server database:**
-- In your Railway project → Add Plugin → **Microsoft SQL Server**
-- Railway injects `${{SQLSERVER_URL}}` automatically
+### Step 2 — Set environment variables
 
-**Set these environment variables in Railway:**
+In Railway → your service → **Variables**:
 
 | Variable | Value |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ConnectionStrings__DefaultConnection` | `Server=<railway-sql-host>;Database=RTSErpDb;User Id=<user>;Password=<pass>;TrustServerCertificate=True;` |
-| `Jwt__SigningKey` | Generate with: `openssl rand -base64 48` (min 32 chars) |
+| `Jwt__SigningKey` | Run `openssl rand -base64 48` and paste result (min 32 chars) |
 | `Cors__AllowedOrigins__0` | `https://erp.rtegy.com` |
+| `ConnectionStrings__DefaultConnection` | `Host=db.<project>.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=<pass>;SSL Mode=Require;Trust Server Certificate=true` |
 
-**Set a custom domain:** Railway project → Settings → Domains → `api.rtegy.com`
+### Step 3 — Set custom domain
 
----
+Railway → Settings → Domains → Custom Domain → `api.rtegy.com`
 
-### Option B — Render
-
-1. Go to **render.com** → New Web Service → Connect GitHub
-2. Select repo, set **Root Directory**: `Backend`
-3. Render auto-detects the `Dockerfile`
-4. Set the same environment variables as above
-
----
-
-### Option C — Azure Container Apps / Azure App Service
-
-Use the provided `Dockerfile`. Set app settings:
-- `ConnectionStrings__DefaultConnection`
-- `Jwt__SigningKey`
-- `Cors__AllowedOrigins__0` = `https://erp.rtegy.com`
-- `ASPNETCORE_ENVIRONMENT` = `Production`
+Then add a CNAME in your DNS:
+```
+api  CNAME  <your-app>.railway.app
+```
 
 ---
 
-## 2. Configure Vercel (Frontend)
+## Frontend — Vercel environment variable
 
-In **Vercel Dashboard** → Project → Settings → Environment Variables:
+In **Vercel** → your project → Settings → Environment Variables:
 
-| Variable | Environment | Value |
+| Name | Environment | Value |
 |---|---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | Production | `https://api.rtegy.com/api/v1` |
-| `NEXT_PUBLIC_API_BASE_URL` | Preview | `https://api.rtegy.com/api/v1` |
-| `NEXT_PUBLIC_API_BASE_URL` | Development | `http://localhost:5210/api/v1` |
+| `NEXT_PUBLIC_API_BASE_URL` | Production, Preview | `https://api.rtegy.com/api/v1` |
 
-**Important:** After adding the variable, click **Redeploy** in Vercel.
+Then **Redeploy** in Vercel.
 
 ---
 
-## 3. DNS for api.rtegy.com
-
-In your DNS provider (wherever rtegy.com is managed):
-
-```
-Type: CNAME
-Name: api
-Value: <railway-or-render-provided-domain>
-TTL:  300
-```
-
----
-
-## 4. Verify Deployment
-
-After deploying, test:
+## Verify
 
 ```bash
-# Health check
+# 1. Health check
 curl https://api.rtegy.com/health
 
-# Login (should return accessToken)
+# 2. Login
 curl -X POST https://api.rtegy.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"sara.hassan@rts-erp.demo","password":"Admin@12345!"}'
 ```
 
-Default admin credentials (seeded automatically):
+Default admin seeded automatically:
 - **Email:** `sara.hassan@rts-erp.demo`
 - **Password:** `Admin@12345!`
 
 ---
 
-## 5. Required Secrets Summary
+## What Cannot Go on Vercel
 
-| Secret | Where | Never commit |
-|---|---|---|
-| `ConnectionStrings__DefaultConnection` | Railway/Render env vars | ✓ |
-| `Jwt__SigningKey` | Railway/Render env vars | ✓ |
+Vercel **does not support**:
+- .NET / C# runtimes
+- Custom Docker images
+- Long-running processes
 
-The signing key must be at least 32 characters. Generate one:
-```bash
-openssl rand -base64 48
-```
+The Next.js frontend stays on Vercel. The .NET API must be on Railway, Render, Azure, or any Docker host.
 
 ---
 
-## 6. What Happens on First Start
+## Local Development
 
-The API automatically:
-1. Runs all EF Core migrations (creates all tables)
-2. Seeds: permissions, roles, 25 demo employees/users, chart of accounts, currencies (EGP/USD), tax rates, bank accounts, fiscal periods
+```bash
+# Backend — needs PostgreSQL running locally or a Supabase connection
+cd Backend
+# Set connection string in appsettings.Development.json or user secrets
+dotnet run --project src/RTSErp.Api
 
-No manual database setup required.
+# Frontend
+cd Frontend
+cp .env.local.example .env.local
+# Edit NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
+npm install && npm run dev
+```

@@ -13,7 +13,7 @@ internal class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         builder.ToTable("Products");
         builder.HasKey(p => p.Id);
-        builder.HasIndex(p => p.SKU).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(p => p.SKU).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(p => p.SKU).HasMaxLength(50).IsRequired();
         builder.Property(p => p.Name).HasMaxLength(200).IsRequired();
         builder.Property(p => p.Description).HasMaxLength(1000);
@@ -66,7 +66,7 @@ internal class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
     {
         builder.ToTable("Warehouses");
         builder.HasKey(w => w.Id);
-        builder.HasIndex(w => w.Code).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(w => w.Code).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(w => w.Code).HasMaxLength(20).IsRequired();
         builder.Property(w => w.Name).HasMaxLength(200).IsRequired();
         builder.Property(w => w.Location).HasMaxLength(500);
@@ -146,7 +146,7 @@ internal class PurchaseOrderConfiguration : IEntityTypeConfiguration<PurchaseOrd
     {
         builder.ToTable("PurchaseOrders");
         builder.HasKey(o => o.Id);
-        builder.HasIndex(o => o.PONumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(o => o.PONumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(o => o.PONumber).HasMaxLength(30).IsRequired();
         builder.Property(o => o.Notes).HasMaxLength(1000);
         builder.Property(o => o.Status).HasConversion<int>();
@@ -214,7 +214,7 @@ internal class PurchaseReceiptConfiguration : IEntityTypeConfiguration<PurchaseR
     {
         builder.ToTable("PurchaseReceipts");
         builder.HasKey(r => r.Id);
-        builder.HasIndex(r => r.ReceiptNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(r => r.ReceiptNumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(r => r.ReceiptNumber).HasMaxLength(30).IsRequired();
         builder.Property(r => r.Notes).HasMaxLength(1000);
         builder.Property(r => r.ExchangeRate).HasPrecision(18, 6);
@@ -283,7 +283,7 @@ internal class SupplierInvoiceConfiguration : IEntityTypeConfiguration<SupplierI
     {
         builder.ToTable("SupplierInvoices");
         builder.HasKey(i => i.Id);
-        builder.HasIndex(i => i.InvoiceNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(i => i.InvoiceNumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(i => i.InvoiceNumber).HasMaxLength(30).IsRequired();
         builder.Property(i => i.SupplierInvoiceNumber).HasMaxLength(50);
         builder.Property(i => i.Status).HasConversion<int>();
@@ -357,7 +357,7 @@ internal class SalesOrderConfiguration : IEntityTypeConfiguration<SalesOrder>
     {
         builder.ToTable("SalesOrders");
         builder.HasKey(o => o.Id);
-        builder.HasIndex(o => o.SONumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(o => o.SONumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(o => o.SONumber).HasMaxLength(30).IsRequired();
         builder.Property(o => o.Notes).HasMaxLength(1000);
         builder.Property(o => o.Status).HasConversion<int>();
@@ -429,7 +429,7 @@ internal class SalesDeliveryConfiguration : IEntityTypeConfiguration<SalesDelive
     {
         builder.ToTable("SalesDeliveries");
         builder.HasKey(d => d.Id);
-        builder.HasIndex(d => d.DeliveryNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(d => d.DeliveryNumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(d => d.DeliveryNumber).HasMaxLength(30).IsRequired();
         builder.Property(d => d.Notes).HasMaxLength(1000);
         builder.Property(d => d.TotalCOGS).HasPrecision(18, 4);
@@ -491,7 +491,7 @@ internal class CustomerInvoiceConfiguration : IEntityTypeConfiguration<CustomerI
     {
         builder.ToTable("CustomerInvoices");
         builder.HasKey(i => i.Id);
-        builder.HasIndex(i => i.InvoiceNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(i => i.InvoiceNumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(i => i.InvoiceNumber).HasMaxLength(30).IsRequired();
         builder.Property(i => i.Status).HasConversion<int>();
         builder.Property(i => i.InvoiceType).HasConversion<int>();
@@ -575,7 +575,7 @@ internal class CustomerPaymentConfiguration : IEntityTypeConfiguration<CustomerP
     {
         builder.ToTable("CustomerPayments");
         builder.HasKey(p => p.Id);
-        builder.HasIndex(p => p.PaymentNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(p => p.PaymentNumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(p => p.PaymentNumber).HasMaxLength(30).IsRequired();
         builder.Property(p => p.PaymentMethod).HasConversion<int>();
         builder.Property(p => p.Status).HasConversion<int>();
@@ -621,7 +621,7 @@ internal class SupplierPaymentConfiguration : IEntityTypeConfiguration<SupplierP
     {
         builder.ToTable("SupplierPayments");
         builder.HasKey(p => p.Id);
-        builder.HasIndex(p => p.PaymentNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(p => p.PaymentNumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(p => p.PaymentNumber).HasMaxLength(30).IsRequired();
         builder.Property(p => p.PaymentMethod).HasConversion<int>();
         builder.Property(p => p.Status).HasConversion<int>();
@@ -661,7 +661,7 @@ internal class BankTransactionConfiguration : IEntityTypeConfiguration<BankTrans
     {
         builder.ToTable("BankTransactions");
         builder.HasKey(t => t.Id);
-        builder.HasIndex(t => t.TransactionNumber).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(t => t.TransactionNumber).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(t => t.TransactionNumber).HasMaxLength(30).IsRequired();
         builder.Property(t => t.TransactionType).HasConversion<int>();
         builder.Property(t => t.ExchangeRate).HasPrecision(18, 6);

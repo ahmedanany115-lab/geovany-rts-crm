@@ -28,7 +28,7 @@ internal class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.HasKey(a => a.Id);
 
         builder.HasIndex(a => a.Code).IsUnique()
-               .HasFilter("[IsDeleted] = 0");
+               .HasFilter("\"IsDeleted\" = false");
 
         builder.Property(a => a.Code).HasMaxLength(20).IsRequired();
         builder.Property(a => a.Name).HasMaxLength(200).IsRequired();
@@ -70,7 +70,7 @@ internal class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry
         builder.HasKey(e => e.Id);
 
         builder.HasIndex(e => e.EntryNumber).IsUnique()
-               .HasFilter("[IsDeleted] = 0");
+               .HasFilter("\"IsDeleted\" = false");
         builder.HasIndex(e => e.EntryDate);
         builder.HasIndex(e => e.Status);
         builder.HasIndex(e => new { e.ReferenceType, e.ReferenceId });
@@ -148,7 +148,7 @@ internal class TaxRateConfiguration : IEntityTypeConfiguration<TaxRate>
     {
         builder.ToTable("TaxRates");
         builder.HasKey(t => t.Id);
-        builder.HasIndex(t => t.Code).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(t => t.Code).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(t => t.Code).HasMaxLength(20).IsRequired();
         builder.Property(t => t.Name).HasMaxLength(100).IsRequired();
         builder.Property(t => t.Rate).HasPrecision(8, 4);
@@ -196,7 +196,7 @@ internal class BusinessPartnerConfiguration : IEntityTypeConfiguration<BusinessP
     {
         builder.ToTable("BusinessPartners");
         builder.HasKey(b => b.Id);
-        builder.HasIndex(b => b.Code).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(b => b.Code).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(b => b.Code).HasMaxLength(30).IsRequired();
         builder.Property(b => b.Name).HasMaxLength(200).IsRequired();
         builder.Property(b => b.NameAr).HasMaxLength(200);
@@ -228,7 +228,7 @@ internal class BankAccountConfiguration : IEntityTypeConfiguration<BankAccount>
     {
         builder.ToTable("BankAccounts");
         builder.HasKey(b => b.Id);
-        builder.HasIndex(b => b.Code).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(b => b.Code).IsUnique().HasFilter("\"IsDeleted\" = false");
         builder.Property(b => b.Code).HasMaxLength(30).IsRequired();
         builder.Property(b => b.Name).HasMaxLength(200).IsRequired();
         builder.Property(b => b.BankName).HasMaxLength(200);
