@@ -46,6 +46,10 @@ public static class DependencyInjection
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IEInvoiceService, MockEInvoiceService>();
 
+        // Runs EnsureCreated + seed AFTER the app is already listening —
+        // never blocks startup or causes health-check timeouts.
+        services.AddHostedService<DatabaseSeedingService>();
+
         return services;
     }
 

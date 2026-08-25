@@ -1,12 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
 using RTSErp.Api.Extensions;
 using RTSErp.Api.Middleware;
 using RTSErp.Application;
-using RTSErp.Domain.Entities.Identity;
 using RTSErp.Infrastructure;
-using RTSErp.Infrastructure.Persistence;
-using RTSErp.Infrastructure.Persistence.Seed;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,39 +41,11 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// ── Create schema and seed on startup ────────────────────────────────────────
-string? startupError = null;
-try
-{
-    using var scope = app.Services.CreateScope();
-    var db     = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    var umgr   = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    var rmgr   = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-    // 90-second total budget for schema creation + seed.
-    // If Supabase is cold/slow the app still starts; seed finishes on next restart.
-    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
-
-    logger.LogInformation("Ensuring database schema exists...");
-    await db.Database.EnsureCreatedAsync(cts.Token);
-    logger.LogInformation("Database schema OK. Running seed...");
-
-    await DbSeeder.SeedAsync(db, umgr, rmgr, logger);
-    logger.LogInformation("Seed complete.");
-}
-catch (OperationCanceledException)
-{
-    startupError = "Seed timed out after 90 s — app is running, seed will finish on next restart.";
-    var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogWarning(startupError);
-}
-catch (Exception ex)
-{
-    startupError = ex.ToString();
-    var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(ex, "STARTUP ERROR — database init or seed failed: {Message}", ex.Message);
-}
+// ── Schema + seed run in DatabaseSeedingService (BackgroundService) ───────────
+// This keeps startup instant — Railway's health check passes before the DB
+// is touched. The background service starts 2 s after the app begins listening
+// and retries every 30 s until seeding succeeds.
+string? startupError = null; // kept for the /diagnostics endpoint
 
 // ── Swagger (all environments) ────────────────────────────────────────────────
 app.UseSwagger();
