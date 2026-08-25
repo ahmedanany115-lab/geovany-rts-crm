@@ -20,7 +20,10 @@ public static class DependencyInjection
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql =>
-                npgsql.EnableRetryOnFailure(3)));
+            {
+                npgsql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+                npgsql.CommandTimeout(120);
+            }));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 

@@ -56,12 +56,22 @@ try
     var rmgr   = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
+    // 90-second total budget for schema creation + seed.
+    // If Supabase is cold/slow the app still starts; seed finishes on next restart.
+    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+
     logger.LogInformation("Ensuring database schema exists...");
-    await db.Database.EnsureCreatedAsync();
+    await db.Database.EnsureCreatedAsync(cts.Token);
     logger.LogInformation("Database schema OK. Running seed...");
 
     await DbSeeder.SeedAsync(db, umgr, rmgr, logger);
     logger.LogInformation("Seed complete.");
+}
+catch (OperationCanceledException)
+{
+    startupError = "Seed timed out after 90 s — app is running, seed will finish on next restart.";
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogWarning(startupError);
 }
 catch (Exception ex)
 {

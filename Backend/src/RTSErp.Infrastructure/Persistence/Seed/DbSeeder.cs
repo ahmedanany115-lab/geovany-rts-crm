@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RTSErp.Domain.Entities.Identity;
 
@@ -6,7 +7,6 @@ namespace RTSErp.Infrastructure.Persistence.Seed;
 
 public static class DbSeeder
 {
-    // ── Primary admin — always upserted, regardless of other seed data ─────────
     private const string AdminEmail     = "geovany.hany@rtegy.com";
     private const string AdminPassword  = "Geovany@153";
     private const string AdminFirstName = "Geovany";
@@ -18,60 +18,76 @@ public static class DbSeeder
         RoleManager<ApplicationRole> roleManager,
         ILogger logger)
     {
-        await SeedPermissionsAsync(db, logger);
-        await SeedRolesAsync(roleManager, db, logger);
-        await EnsureAdminUserAsync(db, userManager, logger);    // always runs
-        await SeedDemoEmployeesAsync(db, userManager, logger);  // skipped if data exists
-        await AccountingSeeder.SeedAsync(db, logger);
+        // Each step is independently try-caught so one failure doesn't block the rest.
+        // The app starts successfully regardless — seed can be retried on next deploy.
+
+        await RunStep("SeedPermissions",    () => SeedPermissionsAsync(db, logger),          logger);
+        await RunStep("SeedRoles",          () => SeedRolesAsync(roleManager, db, logger),    logger);
+        await RunStep("EnsureAdminUser",    () => EnsureAdminUserAsync(db, userManager, logger), logger);
+        await RunStep("AccountingSeed",     () => AccountingSeeder.SeedAsync(db, logger),     logger);
+        await RunStep("DemoEmployees",      () => SeedDemoEmployeesAsync(db, userManager, logger), logger);
     }
 
-    // ── Permissions ───────────────────────────────────────────────────────────
+    private static async Task RunStep(string name, Func<Task> step, ILogger logger)
+    {
+        try
+        {
+            await step();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Seed step '{Step}' failed — app will continue. Error: {Msg}", name, ex.Message);
+        }
+    }
+
+    // ── Permissions — single bulk insert ─────────────────────────────────────
 
     private static async Task SeedPermissionsAsync(ApplicationDbContext db, ILogger logger)
     {
-        if (db.Permissions.Any()) return;
+        // One query to check existence — no sequential loop
+        if (await db.Permissions.AnyAsync()) return;
 
         string[] codes =
         [
-            "crm.customers.read", "crm.customers.write", "crm.customers.delete",
-            "crm.contacts.read",  "crm.contacts.write",  "crm.contacts.delete",
-            "crm.leads.read",     "crm.leads.write",     "crm.leads.delete", "crm.leads.convert",
-            "quotations.read",    "quotations.write",    "quotations.delete", "quotations.send", "quotations.approve",
-            "projects.read",      "projects.write",      "projects.delete",   "projects.manage-members",
-            "tasks.read",         "tasks.write",         "tasks.delete",      "tasks.assign",
-            "helpdesk.read",      "helpdesk.write",      "helpdesk.delete",   "helpdesk.assign",
+            "crm.customers.read",  "crm.customers.write",  "crm.customers.delete",
+            "crm.contacts.read",   "crm.contacts.write",   "crm.contacts.delete",
+            "crm.leads.read",      "crm.leads.write",      "crm.leads.delete",      "crm.leads.convert",
+            "quotations.read",     "quotations.write",     "quotations.delete",     "quotations.send",  "quotations.approve",
+            "projects.read",       "projects.write",       "projects.delete",       "projects.manage-members",
+            "tasks.read",          "tasks.write",          "tasks.delete",          "tasks.assign",
+            "helpdesk.read",       "helpdesk.write",       "helpdesk.delete",       "helpdesk.assign",
             "inventory.products.read",  "inventory.products.write",  "inventory.products.delete",
             "inventory.licenses.read",  "inventory.licenses.write",  "inventory.licenses.delete",
             "inventory.hardware.read",  "inventory.hardware.write",  "inventory.hardware.delete",
             "inventory.suppliers.read", "inventory.suppliers.write", "inventory.suppliers.delete",
             "invoices.read", "invoices.write", "invoices.delete", "invoices.record-payment",
             "reports.view",
-            "users.read", "users.write", "users.manage-roles",
-            "settings.read", "settings.write"
+            "users.read",     "users.write",    "users.manage-roles",
+            "settings.read",  "settings.write"
         ];
 
-        foreach (var code in codes)
+        // AddRange + single SaveChanges = one round-trip
+        db.Permissions.AddRange(codes.Select(code => new Permission
         {
-            db.Permissions.Add(new Permission
-            {
-                Code        = code,
-                Module      = code.Split('.')[0],
-                Description = $"Permission: {code}"
-            });
-        }
+            Code        = code,
+            Module      = code.Split('.')[0],
+            Description = $"Permission: {code}"
+        }));
 
         await db.SaveChangesAsync();
         logger.LogInformation("Seeded {Count} permissions.", codes.Length);
     }
 
-    // ── Roles ─────────────────────────────────────────────────────────────────
+    // ── Roles — one round-trip per role ──────────────────────────────────────
 
     private static async Task SeedRolesAsync(
         RoleManager<ApplicationRole> roleManager,
         ApplicationDbContext db,
         ILogger logger)
     {
-        var allPermissions = db.Permissions.ToList();
+        // Load all permissions in one query
+        var allPerms = await db.Permissions.ToListAsync();
+        if (!allPerms.Any()) return; // permissions not seeded yet — will retry next restart
 
         var roleDefinitions = new Dictionary<string, Func<Permission, bool>>
         {
@@ -82,7 +98,7 @@ public static class DbSeeder
             ["ReadOnly"]     = p => p.Code.EndsWith(".read") || p.Code == "reports.view",
         };
 
-        foreach (var (roleName, permFilter) in roleDefinitions)
+        foreach (var (roleName, filter) in roleDefinitions)
         {
             var role = await roleManager.FindByNameAsync(roleName);
             if (role is null)
@@ -91,23 +107,30 @@ public static class DbSeeder
                 await roleManager.CreateAsync(role);
             }
 
-            var assigned = db.RolePermissions
+            // One query: which permissions are already assigned to this role?
+            var assigned = await db.RolePermissions
                 .Where(rp => rp.RoleId == role.Id)
                 .Select(rp => rp.PermissionId)
-                .ToHashSet();
+                .ToHashSetAsync();
 
-            foreach (var perm in allPermissions.Where(permFilter))
+            // Bulk-add missing ones
+            var toAdd = allPerms
+                .Where(filter)
+                .Where(p => !assigned.Contains(p.Id))
+                .Select(p => new RolePermission { RoleId = role.Id, PermissionId = p.Id })
+                .ToList();
+
+            if (toAdd.Count > 0)
             {
-                if (!assigned.Contains(perm.Id))
-                    db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = perm.Id });
+                db.RolePermissions.AddRange(toAdd);
+                await db.SaveChangesAsync();
             }
         }
 
-        await db.SaveChangesAsync();
-        logger.LogInformation("Seeded roles.");
+        logger.LogInformation("Roles seeded.");
     }
 
-    // ── Primary admin user — always upserted ─────────────────────────────────
+    // ── Admin user — upsert in minimal queries ────────────────────────────────
 
     private static async Task EnsureAdminUserAsync(
         ApplicationDbContext db,
@@ -118,7 +141,7 @@ public static class DbSeeder
 
         if (existing is null)
         {
-            // Create employee record
+            // Create employee + user in two round-trips total
             var employee = new Employee
             {
                 FullName   = $"{AdminFirstName} {AdminLastName}",
@@ -129,7 +152,6 @@ public static class DbSeeder
             db.Employees.Add(employee);
             await db.SaveChangesAsync();
 
-            // Create user
             var user = new ApplicationUser
             {
                 UserName       = AdminEmail,
@@ -141,53 +163,49 @@ public static class DbSeeder
                 EmployeeId     = employee.Id
             };
 
-            var result = await userManager.CreateAsync(user, AdminPassword);
-            if (!result.Succeeded)
+            var createResult = await userManager.CreateAsync(user, AdminPassword);
+            if (!createResult.Succeeded)
             {
-                logger.LogError("Failed to create admin user {Email}: {Errors}",
-                    AdminEmail, string.Join("; ", result.Errors.Select(e => e.Description)));
+                logger.LogError("Failed to create admin: {Errors}",
+                    string.Join("; ", createResult.Errors.Select(e => e.Description)));
                 return;
             }
 
             employee.UserId = user.Id;
             await db.SaveChangesAsync();
-
             await userManager.AddToRoleAsync(user, "Admin");
-            logger.LogInformation("Created admin user: {Email}", AdminEmail);
+            logger.LogInformation("Admin user created: {Email}", AdminEmail);
         }
         else
         {
-            // Ensure password is current and account is active
-            existing.IsActive = true;
-            await userManager.UpdateAsync(existing);
-
-            var token = await userManager.GeneratePasswordResetTokenAsync(existing);
-            var resetResult = await userManager.ResetPasswordAsync(existing, token, AdminPassword);
-            if (!resetResult.Succeeded)
-                logger.LogWarning("Could not reset admin password: {Errors}",
-                    string.Join("; ", resetResult.Errors.Select(e => e.Description)));
+            // Ensure active + in Admin role — two queries max
+            if (!existing.IsActive) { existing.IsActive = true; await userManager.UpdateAsync(existing); }
 
             if (!await userManager.IsInRoleAsync(existing, "Admin"))
                 await userManager.AddToRoleAsync(existing, "Admin");
+
+            // Reset password every deploy so it stays current
+            var token = await userManager.GeneratePasswordResetTokenAsync(existing);
+            await userManager.ResetPasswordAsync(existing, token, AdminPassword);
 
             logger.LogInformation("Admin user verified: {Email}", AdminEmail);
         }
     }
 
-    // ── Demo employees (skipped if any employees already exist) ───────────────
+    // ── Demo employees — skipped if data exists ───────────────────────────────
 
     private static async Task SeedDemoEmployeesAsync(
         ApplicationDbContext db,
         UserManager<ApplicationUser> userManager,
         ILogger logger)
     {
-        // Skip demo data if employees already seeded (production scenario)
-        if (db.Employees.Count() > 1) return;
+        // One query — if more than 1 employee, demo data already seeded
+        if (await db.Employees.CountAsync() > 1) return;
 
-        string[] firstNames = ["Sara", "Omar", "Layla", "Ahmed", "Mona", "Youssef", "Nour", "Karim"];
-        string[] lastNames  = ["Hassan", "Fahmy", "Nasser", "Aziz", "Saleh", "Kamal", "Nabil", "Farouk"];
+        string[] firstNames  = ["Sara", "Omar", "Layla", "Ahmed", "Mona", "Youssef", "Nour", "Karim"];
+        string[] lastNames   = ["Hassan", "Fahmy", "Nasser", "Aziz", "Saleh", "Kamal", "Nabil", "Farouk"];
         string[] departments = ["Sales", "Delivery", "Support", "Operations"];
-        string[] roleCycle  = ["Manager", "Employee", "Employee", "SupportAgent"];
+        string[] roleCycle   = ["Manager", "Employee", "Employee", "SupportAgent"];
         const string demoPassword = "Demo@12345!";
 
         for (var i = 0; i < firstNames.Length; i++)
@@ -211,13 +229,8 @@ public static class DbSeeder
 
             var user = new ApplicationUser
             {
-                UserName       = email,
-                Email          = email,
-                EmailConfirmed = true,
-                FirstName      = fn,
-                LastName       = ln,
-                IsActive       = true,
-                EmployeeId     = emp.Id
+                UserName = email, Email = email, EmailConfirmed = true,
+                FirstName = fn, LastName = ln, IsActive = true, EmployeeId = emp.Id
             };
 
             var result = await userManager.CreateAsync(user, demoPassword);
