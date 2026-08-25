@@ -7,7 +7,6 @@ COPY ["src/RTSErp.Application/RTSErp.Application.csproj",             "src/RTSEr
 COPY ["src/RTSErp.Domain/RTSErp.Domain.csproj",                       "src/RTSErp.Domain/"]
 COPY ["src/RTSErp.Infrastructure/RTSErp.Infrastructure.csproj",       "src/RTSErp.Infrastructure/"]
 COPY ["src/RTSErp.Shared/RTSErp.Shared.csproj",                       "src/RTSErp.Shared/"]
-COPY ["tests/",                                                         "tests/"]
 
 RUN dotnet restore "src/RTSErp.Api/RTSErp.Api.csproj"
 
