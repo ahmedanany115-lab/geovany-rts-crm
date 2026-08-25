@@ -1,0 +1,9 @@
+
+# ── Secrets / environment ─────────────────────────────────────────────────────
+.env.local
+.env.production
+.env.*.local
+**/appsettings.Secrets.json
+**/secrets.json
+**/usersecrets.json
+Backend/src/RTSErp.Api/appsettings.*.local.json

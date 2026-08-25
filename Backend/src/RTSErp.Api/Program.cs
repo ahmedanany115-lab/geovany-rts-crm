@@ -11,11 +11,11 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- Serilog ----
+// ── Serilog ───────────────────────────────────────────────────────────────────
 builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
-// ---- Layer composition (see Solution Architecture §6) ----
+// ── Layer composition ─────────────────────────────────────────────────────────
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
@@ -25,41 +25,63 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwtSupport();
 
+// ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+        var origins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? [];
+
+        policy.WithOrigins(origins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials(); // required: refresh token is an httpOnly cookie
     });
 });
 
+// ── Health checks ─────────────────────────────────────────────────────────────
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
-// ---- Dev-only: apply migrations + seed demo data on startup ----
-if (app.Environment.IsDevelopment())
+// ── Auto-migrate and seed on startup (all environments) ───────────────────────
+try
 {
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+    var db     = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var umgr   = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var rmgr   = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
     await db.Database.MigrateAsync();
-    await DbSeeder.SeedAsync(db, userManager, roleManager, logger);
+    await DbSeeder.SeedAsync(db, umgr, rmgr, logger);
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "Database migration/seed failed on startup.");
+    // Don't crash the app — it may still serve requests if DB was already migrated.
+}
 
+// ── Swagger (dev only) ────────────────────────────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ── Health endpoint ───────────────────────────────────────────────────────────
+app.MapHealthChecks("/health");
+app.MapGet("/", () => Results.Ok(new { status = "RTS ERP API", version = "2.0" }));
 
 app.MapControllers();
 
