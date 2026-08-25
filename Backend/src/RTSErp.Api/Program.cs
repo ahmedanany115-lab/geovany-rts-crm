@@ -46,7 +46,8 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// ── Auto-migrate and seed on startup (all environments) ───────────────────────
+// ── Create schema and seed on startup ────────────────────────────────────────
+string? startupError = null;
 try
 {
     using var scope = app.Services.CreateScope();
@@ -55,14 +56,18 @@ try
     var rmgr   = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    await db.Database.MigrateAsync();
+    logger.LogInformation("Ensuring database schema exists...");
+    await db.Database.EnsureCreatedAsync();
+    logger.LogInformation("Database schema OK. Running seed...");
+
     await DbSeeder.SeedAsync(db, umgr, rmgr, logger);
+    logger.LogInformation("Seed complete.");
 }
 catch (Exception ex)
 {
+    startupError = ex.ToString();
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(ex, "Database migration/seed failed on startup.");
-    // Don't crash the app — it may still serve requests if DB was already migrated.
+    logger.LogError(ex, "STARTUP ERROR — database init or seed failed: {Message}", ex.Message);
 }
 
 // ── Swagger (all environments) ────────────────────────────────────────────────
@@ -77,9 +82,20 @@ app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ── Health endpoint ───────────────────────────────────────────────────────────
+// ── Health + diagnostics endpoints ───────────────────────────────────────────
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Ok(new { status = "RTS ERP API", version = "2.0" }));
+
+// Diagnostics: returns startup error (if any) and key config state.
+// REMOVE this endpoint once the deployment is stable.
+app.MapGet("/diagnostics", (IConfiguration cfg) => Results.Ok(new
+{
+    startupError     = startupError ?? "none",
+    dbConfigured     = !string.IsNullOrEmpty(cfg.GetConnectionString("DefaultConnection")),
+    jwtKeyConfigured = !string.IsNullOrEmpty(cfg["Jwt:SigningKey"]),
+    corsOrigins      = cfg.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [],
+    environment      = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown"
+}));
 
 app.MapControllers();
 
