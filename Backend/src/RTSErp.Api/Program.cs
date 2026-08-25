@@ -68,16 +68,15 @@ app.MapGet("/", () => Results.Ok(new { status = "RTS ERP API", version = "2.0" }
 app.MapGet("/diagnostics", (IConfiguration cfg) =>
 {
     var rawCs = cfg.GetConnectionString("DefaultConnection") ?? "";
-    var normalized = RTSErp.Infrastructure.DependencyInjection.NormalizePostgresConnectionString(rawCs);
-    // Strip password from the diagnostic output
-    var safeCs = System.Text.RegularExpressions.Regex.Replace(
-        normalized, @"Password=[^;]*", "Password=***");
+    // Detect format without calling Infrastructure internals
+    var isUri = rawCs.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+             || rawCs.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase);
 
     return Results.Ok(new
     {
         startupError     = startupError ?? "none",
         dbConfigured     = !string.IsNullOrEmpty(rawCs),
-        dbConnectionSafe = safeCs,
+        dbFormat         = isUri ? "URI (will be converted to KV on use)" : "Key=Value",
         jwtKeyConfigured = !string.IsNullOrEmpty(cfg["Jwt:SigningKey"]),
         corsOrigins      = cfg.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [],
         environment      = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown"
