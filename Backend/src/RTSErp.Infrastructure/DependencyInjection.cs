@@ -21,8 +21,11 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql =>
             {
-                npgsql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
                 npgsql.CommandTimeout(120);
+                // NOTE: EnableRetryOnFailure is intentionally omitted.
+                // It requires connection pooling to be enabled in Npgsql, but
+                // Supabase's PgBouncer already handles retries and connection
+                // management at the proxy level.
             }));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
@@ -46,28 +49,21 @@ public static class DependencyInjection
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IEInvoiceService, MockEInvoiceService>();
 
-        // Runs schema creation + seed AFTER the app is already listening —
-        // never blocks startup or causes health-check timeouts.
         services.AddHostedService<DatabaseSeedingService>();
 
         return services;
     }
 
     /// <summary>
-    /// Converts a postgres:// or postgresql:// URI to Npgsql ADO.NET key=value format,
-    /// then appends connection parameters required for Supabase reliability:
+    /// Converts postgres:// or postgresql:// URIs to Npgsql ADO.NET key=value format.
+    /// Also appends safe defaults for Supabase connectivity.
     ///
-    ///   Pooling=false          — do not layer Npgsql pooling on top of PgBouncer;
-    ///                            Supabase's pooler manages connections itself
-    ///   No Reset On Close=true — skip the SET … commands Npgsql sends when returning
-    ///                            a connection to its pool (not supported in transaction mode)
-    ///   Command Timeout=120    — allow slow cold-start DDL statements to complete
+    /// IMPORTANT: Do NOT append Pooling=false — that breaks EnableRetryOnFailure
+    /// (Npgsql requires pooling when retries are enabled). Supabase's PgBouncer
+    /// handles connection pooling at the proxy level.
     ///
-    /// IMPORTANT — use the Session Mode pooler (port 5432) or Direct connection from Railway.
-    /// The Transaction Mode pooler (port 6543) does NOT support DDL (CREATE TABLE).
-    /// Supabase Dashboard → Project Settings → Database → Connection String
-    ///   Session mode:   postgres://postgres.XXXX:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres
-    ///   Direct:         postgres://postgres:PASSWORD@db.XXXX.supabase.co:5432/postgres
+    /// Use port 5432 (Session Mode or Direct), NOT 6543 (Transaction Mode).
+    /// Transaction Mode pooler does not support DDL (CREATE TABLE).
     /// </summary>
     internal static string NormalizePostgresConnectionString(string raw)
     {
@@ -92,15 +88,12 @@ public static class DependencyInjection
                 var username = Uri.UnescapeDataString(userInfo[0]);
                 var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty;
 
-                // Semicolons in the password break key=value parsing
                 var safePassword = password.Replace(";", "\\;");
-
                 kv = $"Host={host};Port={port};Database={database};Username={username};Password={safePassword};SSL Mode=Require;Trust Server Certificate=true;";
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(
-                    $"[DI] Could not parse PostgreSQL URI: {ex.Message}. Passing raw string.");
+                Console.Error.WriteLine($"[DI] Could not parse PostgreSQL URI: {ex.Message}");
                 kv = raw;
             }
         }
@@ -109,13 +102,7 @@ public static class DependencyInjection
             kv = raw;
         }
 
-        // Append Supabase-safe Npgsql parameters if not already present
-        if (!kv.Contains("Pooling=", StringComparison.OrdinalIgnoreCase))
-            kv += "Pooling=false;";
-
-        if (!kv.Contains("No Reset On Close", StringComparison.OrdinalIgnoreCase))
-            kv += "No Reset On Close=true;";
-
+        // Append command timeout if not already specified
         if (!kv.Contains("Command Timeout", StringComparison.OrdinalIgnoreCase) &&
             !kv.Contains("CommandTimeout", StringComparison.OrdinalIgnoreCase))
             kv += "Command Timeout=120;";
