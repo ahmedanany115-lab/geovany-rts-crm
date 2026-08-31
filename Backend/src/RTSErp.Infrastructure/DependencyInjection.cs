@@ -46,7 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IEInvoiceService, MockEInvoiceService>();
 
-        // Runs EnsureCreated + seed AFTER the app is already listening —
+        // Runs schema creation + seed AFTER the app is already listening —
         // never blocks startup or causes health-check timeouts.
         services.AddHostedService<DatabaseSeedingService>();
 
@@ -54,8 +54,20 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// Supabase and Railway expose the connection as a postgres:// URI.
-    /// Npgsql requires ADO.NET key=value format. Converts either form transparently.
+    /// Converts a postgres:// or postgresql:// URI to Npgsql ADO.NET key=value format,
+    /// then appends connection parameters required for Supabase reliability:
+    ///
+    ///   Pooling=false          — do not layer Npgsql pooling on top of PgBouncer;
+    ///                            Supabase's pooler manages connections itself
+    ///   No Reset On Close=true — skip the SET … commands Npgsql sends when returning
+    ///                            a connection to its pool (not supported in transaction mode)
+    ///   Command Timeout=120    — allow slow cold-start DDL statements to complete
+    ///
+    /// IMPORTANT — use the Session Mode pooler (port 5432) or Direct connection from Railway.
+    /// The Transaction Mode pooler (port 6543) does NOT support DDL (CREATE TABLE).
+    /// Supabase Dashboard → Project Settings → Database → Connection String
+    ///   Session mode:   postgres://postgres.XXXX:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres
+    ///   Direct:         postgres://postgres:PASSWORD@db.XXXX.supabase.co:5432/postgres
     /// </summary>
     internal static string NormalizePostgresConnectionString(string raw)
     {
@@ -64,31 +76,50 @@ public static class DependencyInjection
 
         raw = raw.Trim();
 
-        if (!raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
-            !raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
-            return raw;
+        string kv;
 
-        try
+        if (raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+            raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
         {
-            var uri      = new Uri(raw);
-            var host     = uri.Host;
-            var port     = uri.Port > 0 ? uri.Port : 5432;
-            var database = uri.AbsolutePath.TrimStart('/').Split('?')[0];
+            try
+            {
+                var uri      = new Uri(raw);
+                var host     = uri.Host;
+                var port     = uri.Port > 0 ? uri.Port : 5432;
+                var database = uri.AbsolutePath.TrimStart('/').Split('?')[0];
 
-            var userInfo = uri.UserInfo.Split(':', 2);
-            var username = Uri.UnescapeDataString(userInfo[0]);
-            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty;
+                var userInfo = uri.UserInfo.Split(':', 2);
+                var username = Uri.UnescapeDataString(userInfo[0]);
+                var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty;
 
-            // Semicolons inside the password value must be escaped for the KV parser
-            var safePassword = password.Replace(";", "\\;");
+                // Semicolons in the password break key=value parsing
+                var safePassword = password.Replace(";", "\\;");
 
-            return $"Host={host};Port={port};Database={database};Username={username};Password={safePassword};SSL Mode=Require;Trust Server Certificate=true;";
+                kv = $"Host={host};Port={port};Database={database};Username={username};Password={safePassword};SSL Mode=Require;Trust Server Certificate=true;";
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[DI] Could not parse PostgreSQL URI: {ex.Message}. Passing raw string.");
+                kv = raw;
+            }
         }
-        catch (Exception ex)
+        else
         {
-            Console.Error.WriteLine(
-                $"[DependencyInjection] Failed to parse PostgreSQL URI: {ex.Message}. Using raw value.");
-            return raw;
+            kv = raw;
         }
+
+        // Append Supabase-safe Npgsql parameters if not already present
+        if (!kv.Contains("Pooling=", StringComparison.OrdinalIgnoreCase))
+            kv += "Pooling=false;";
+
+        if (!kv.Contains("No Reset On Close", StringComparison.OrdinalIgnoreCase))
+            kv += "No Reset On Close=true;";
+
+        if (!kv.Contains("Command Timeout", StringComparison.OrdinalIgnoreCase) &&
+            !kv.Contains("CommandTimeout", StringComparison.OrdinalIgnoreCase))
+            kv += "Command Timeout=120;";
+
+        return kv;
     }
 }

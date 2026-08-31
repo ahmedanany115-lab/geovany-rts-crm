@@ -68,15 +68,29 @@ app.MapGet("/", () => Results.Ok(new { status = "RTS ERP API", version = "2.0" }
 app.MapGet("/diagnostics", (IConfiguration cfg) =>
 {
     var rawCs = cfg.GetConnectionString("DefaultConnection") ?? "";
-    // Detect format without calling Infrastructure internals
     var isUri = rawCs.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
              || rawCs.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase);
+
+    // Detect transaction-mode pooler (port 6543) — breaks DDL
+    var hasPort6543 = rawCs.Contains(":6543") || rawCs.Contains("Port=6543");
+
+    string dbAdvice = "";
+    if (!isUri && rawCs.Contains("Port=6543"))
+        dbAdvice = "WARNING: Port 6543 = Supabase Transaction Pooler — DDL (CREATE TABLE) will fail. Use port 5432 (Session pooler or direct connection).";
+    else if (isUri && rawCs.Contains(":6543"))
+        dbAdvice = "WARNING: Port 6543 = Supabase Transaction Pooler — DDL (CREATE TABLE) will fail. Use port 5432 (Session pooler or direct connection).";
+    else if (string.IsNullOrEmpty(rawCs))
+        dbAdvice = "ERROR: ConnectionStrings__DefaultConnection is not set in Railway environment variables.";
+    else
+        dbAdvice = "Port looks OK (5432). If connection still fails, ensure you use the Session Mode pooler or Direct connection from Supabase Dashboard > Project Settings > Database.";
 
     return Results.Ok(new
     {
         startupError     = startupError ?? "none",
         dbConfigured     = !string.IsNullOrEmpty(rawCs),
-        dbFormat         = isUri ? "URI (will be converted to KV on use)" : "Key=Value",
+        dbIsUri          = isUri,
+        dbHasPort6543    = hasPort6543,
+        dbAdvice,
         jwtKeyConfigured = !string.IsNullOrEmpty(cfg["Jwt:SigningKey"]),
         corsOrigins      = cfg.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [],
         environment      = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "unknown"
