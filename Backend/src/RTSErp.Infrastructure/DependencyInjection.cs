@@ -18,9 +18,11 @@ public static class DependencyInjection
         var rawCs = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
         var connectionString = NormalizePostgresConnectionString(rawCs);
 
-        // Build a NpgsqlDataSource so we can configure socket-level settings.
-        // "No IPv6=true" in the connection string tells Npgsql to only use IPv4
-        // when resolving hostnames — Railway containers have no IPv6 route.
+        // Resolve the Supabase hostname to an explicit IPv4 address at startup.
+        // Railway containers have no IPv6 route — if DNS returns an AAAA record
+        // first, every Npgsql connection attempt fails with SocketException 101.
+        connectionString = ResolveHostToIPv4(connectionString);
+
         var dataSource = new Npgsql.NpgsqlDataSourceBuilder(connectionString).Build();
 
         services.AddDbContext<ApplicationDbContext>(options =>
@@ -56,8 +58,42 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// Converts postgres:// or postgresql:// URIs to Npgsql ADO.NET key=value format.
-    /// Also appends safe defaults for Supabase connectivity.
+    /// Replaces the Host= value in an ADO.NET key=value connection string with
+    /// the first IPv4 address returned by DNS. This prevents Npgsql from connecting
+    /// via IPv6 on Railway, where IPv6 is unreachable (SocketException 101).
+    /// Called synchronously at startup — DNS lookup is fast and only happens once.
+    /// </summary>
+    private static string ResolveHostToIPv4(string connectionString)
+    {
+        try
+        {
+            var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            var hostPart = parts.FirstOrDefault(p =>
+                p.Trim().StartsWith("Host=", StringComparison.OrdinalIgnoreCase));
+
+            if (hostPart is null) return connectionString;
+
+            var hostname = hostPart.Trim()["Host=".Length..].Trim();
+
+            // Already an IP address — nothing to resolve
+            if (System.Net.IPAddress.TryParse(hostname, out _)) return connectionString;
+
+            var addresses = System.Net.Dns.GetHostAddresses(hostname);
+            var ipv4 = addresses.FirstOrDefault(a =>
+                a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+
+            if (ipv4 is null) return connectionString; // no IPv4 found — fall through
+
+            return connectionString.Replace(
+                $"Host={hostname}", $"Host={ipv4}",
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // DNS failure — return unchanged and let Npgsql handle the error
+            return connectionString;
+        }
+    }
     ///
     /// IMPORTANT: Do NOT append Pooling=false — that breaks EnableRetryOnFailure
     /// (Npgsql requires pooling when retries are enabled). Supabase's PgBouncer
@@ -107,12 +143,6 @@ public static class DependencyInjection
         if (!kv.Contains("Command Timeout", StringComparison.OrdinalIgnoreCase) &&
             !kv.Contains("CommandTimeout", StringComparison.OrdinalIgnoreCase))
             kv += "Command Timeout=120;";
-
-        // Force IPv4 — Railway containers have no IPv6 route.
-        // Without this, Npgsql resolves Supabase hostnames to IPv6 addresses
-        // and gets SocketException 101 (Network is unreachable).
-        if (!kv.Contains("No IPv6", StringComparison.OrdinalIgnoreCase))
-            kv += "No IPv6=true;";
 
         return kv;
     }
