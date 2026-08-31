@@ -18,25 +18,113 @@ public static class DbSeeder
         RoleManager<ApplicationRole> roleManager,
         ILogger logger)
     {
-        // Each step is independently try-caught so one failure doesn't block the rest.
-        // The app starts successfully regardless — seed can be retried on next deploy.
+        // Step 1 — Admin user is the critical path.
+        // It seeds the Admin role inline so it never depends on SeedRoles completing first.
+        await RunStep("EnsureAdminUser", () => EnsureAdminUserAsync(db, userManager, roleManager, logger), logger);
 
-        await RunStep("SeedPermissions",    () => SeedPermissionsAsync(db, logger),          logger);
-        await RunStep("SeedRoles",          () => SeedRolesAsync(roleManager, db, logger),    logger);
-        await RunStep("EnsureAdminUser",    () => EnsureAdminUserAsync(db, userManager, logger), logger);
-        await RunStep("AccountingSeed",     () => AccountingSeeder.SeedAsync(db, logger),     logger);
-        await RunStep("DemoEmployees",      () => SeedDemoEmployeesAsync(db, userManager, logger), logger);
+        // Steps 2-4 are best-effort — failures are logged but don't block login.
+        await RunStep("SeedPermissions",  () => SeedPermissionsAsync(db, logger), logger);
+        await RunStep("SeedRoles",        () => SeedRolesAsync(roleManager, db, logger), logger);
+        await RunStep("AccountingSeed",   () => AccountingSeeder.SeedAsync(db, logger), logger);
+        await RunStep("DemoEmployees",    () => SeedDemoEmployeesAsync(db, userManager, logger), logger);
     }
 
     private static async Task RunStep(string name, Func<Task> step, ILogger logger)
     {
-        try
-        {
-            await step();
-        }
+        try { await step(); }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Seed step '{Step}' failed — app will continue. Error: {Msg}", name, ex.Message);
+            logger.LogError(ex, "[Seed] Step '{Step}' failed: {Msg}", name, ex.Message);
+        }
+    }
+
+    // ── Admin user — completely self-contained, no external dependencies ───────
+    // Seeds the Admin role inline if it doesn't exist. Never depends on
+    // SeedPermissions or SeedRoles having run first.
+
+    private static async Task EnsureAdminUserAsync(
+        ApplicationDbContext db,
+        UserManager<ApplicationUser> userManager,
+        RoleManager<ApplicationRole> roleManager,
+        ILogger logger)
+    {
+        // Ensure Admin role exists (self-contained — no permission dependency)
+        if (!await roleManager.RoleExistsAsync("Admin"))
+        {
+            var roleResult = await roleManager.CreateAsync(new ApplicationRole { Name = "Admin" });
+            if (roleResult.Succeeded)
+                logger.LogInformation("[Seed] Admin role created.");
+            else
+                logger.LogWarning("[Seed] Could not create Admin role: {Errors}",
+                    string.Join("; ", roleResult.Errors.Select(e => e.Description)));
+        }
+
+        var existing = await userManager.FindByEmailAsync(AdminEmail);
+
+        if (existing is null)
+        {
+            // Create the employee record first
+            var employee = new Employee
+            {
+                FullName   = $"{AdminFirstName} {AdminLastName}",
+                JobTitle   = "System Administrator",
+                Department = "IT",
+                HireDate   = DateOnly.FromDateTime(DateTime.UtcNow)
+            };
+            db.Employees.Add(employee);
+            await db.SaveChangesAsync();
+
+            var user = new ApplicationUser
+            {
+                UserName       = AdminEmail,
+                Email          = AdminEmail,
+                NormalizedEmail       = AdminEmail.ToUpperInvariant(),
+                NormalizedUserName    = AdminEmail.ToUpperInvariant(),
+                EmailConfirmed = true,
+                FirstName      = AdminFirstName,
+                LastName       = AdminLastName,
+                IsActive       = true,
+                EmployeeId     = employee.Id,
+                SecurityStamp  = Guid.NewGuid().ToString()
+            };
+
+            var createResult = await userManager.CreateAsync(user, AdminPassword);
+            if (!createResult.Succeeded)
+            {
+                logger.LogError("[Seed] Failed to create admin user: {Errors}",
+                    string.Join("; ", createResult.Errors.Select(e => e.Description)));
+                return;
+            }
+
+            // Link employee back to user
+            employee.UserId = user.Id;
+            await db.SaveChangesAsync();
+
+            var roleAdd = await userManager.AddToRoleAsync(user, "Admin");
+            if (!roleAdd.Succeeded)
+                logger.LogWarning("[Seed] Could not add admin to Admin role: {Errors}",
+                    string.Join("; ", roleAdd.Errors.Select(e => e.Description)));
+
+            logger.LogInformation("[Seed] Admin user created: {Email}", AdminEmail);
+        }
+        else
+        {
+            // User exists — ensure they're active and have the Admin role
+            var changed = false;
+            if (!existing.IsActive) { existing.IsActive = true; changed = true; }
+            if (changed) await userManager.UpdateAsync(existing);
+
+            if (!await userManager.IsInRoleAsync(existing, "Admin"))
+                await userManager.AddToRoleAsync(existing, "Admin");
+
+            // Always reset the password so it stays in sync with the constant above
+            var resetToken = await userManager.GeneratePasswordResetTokenAsync(existing);
+            var resetResult = await userManager.ResetPasswordAsync(existing, resetToken, AdminPassword);
+            if (!resetResult.Succeeded)
+                logger.LogWarning("[Seed] Could not reset admin password: {Errors}",
+                    string.Join("; ", resetResult.Errors.Select(e => e.Description)));
+
+            logger.LogInformation("[Seed] Admin user verified: {Email}", AdminEmail);
         }
     }
 
@@ -44,7 +132,6 @@ public static class DbSeeder
 
     private static async Task SeedPermissionsAsync(ApplicationDbContext db, ILogger logger)
     {
-        // One query to check existence — no sequential loop
         if (await db.Permissions.AnyAsync()) return;
 
         string[] codes =
@@ -66,7 +153,6 @@ public static class DbSeeder
             "settings.read",  "settings.write"
         ];
 
-        // AddRange + single SaveChanges = one round-trip
         db.Permissions.AddRange(codes.Select(code => new Permission
         {
             Code        = code,
@@ -75,19 +161,18 @@ public static class DbSeeder
         }));
 
         await db.SaveChangesAsync();
-        logger.LogInformation("Seeded {Count} permissions.", codes.Length);
+        logger.LogInformation("[Seed] Seeded {Count} permissions.", codes.Length);
     }
 
-    // ── Roles — one round-trip per role ──────────────────────────────────────
+    // ── Roles with permissions ────────────────────────────────────────────────
 
     private static async Task SeedRolesAsync(
         RoleManager<ApplicationRole> roleManager,
         ApplicationDbContext db,
         ILogger logger)
     {
-        // Load all permissions in one query
         var allPerms = await db.Permissions.ToListAsync();
-        if (!allPerms.Any()) return; // permissions not seeded yet — will retry next restart
+        if (!allPerms.Any()) return;
 
         var roleDefinitions = new Dictionary<string, Func<Permission, bool>>
         {
@@ -107,14 +192,12 @@ public static class DbSeeder
                 await roleManager.CreateAsync(role);
             }
 
-            // One query: which permissions are already assigned to this role?
             var assigned = (await db.RolePermissions
                 .Where(rp => rp.RoleId == role.Id)
                 .Select(rp => rp.PermissionId)
                 .ToListAsync())
                 .ToHashSet();
 
-            // Bulk-add missing ones
             var toAdd = allPerms
                 .Where(filter)
                 .Where(p => !assigned.Contains(p.Id))
@@ -128,69 +211,7 @@ public static class DbSeeder
             }
         }
 
-        logger.LogInformation("Roles seeded.");
-    }
-
-    // ── Admin user — upsert in minimal queries ────────────────────────────────
-
-    private static async Task EnsureAdminUserAsync(
-        ApplicationDbContext db,
-        UserManager<ApplicationUser> userManager,
-        ILogger logger)
-    {
-        var existing = await userManager.FindByEmailAsync(AdminEmail);
-
-        if (existing is null)
-        {
-            // Create employee + user in two round-trips total
-            var employee = new Employee
-            {
-                FullName   = $"{AdminFirstName} {AdminLastName}",
-                JobTitle   = "System Administrator",
-                Department = "IT",
-                HireDate   = DateOnly.FromDateTime(DateTime.UtcNow)
-            };
-            db.Employees.Add(employee);
-            await db.SaveChangesAsync();
-
-            var user = new ApplicationUser
-            {
-                UserName       = AdminEmail,
-                Email          = AdminEmail,
-                EmailConfirmed = true,
-                FirstName      = AdminFirstName,
-                LastName       = AdminLastName,
-                IsActive       = true,
-                EmployeeId     = employee.Id
-            };
-
-            var createResult = await userManager.CreateAsync(user, AdminPassword);
-            if (!createResult.Succeeded)
-            {
-                logger.LogError("Failed to create admin: {Errors}",
-                    string.Join("; ", createResult.Errors.Select(e => e.Description)));
-                return;
-            }
-
-            employee.UserId = user.Id;
-            await db.SaveChangesAsync();
-            await userManager.AddToRoleAsync(user, "Admin");
-            logger.LogInformation("Admin user created: {Email}", AdminEmail);
-        }
-        else
-        {
-            // Ensure active + in Admin role — two queries max
-            if (!existing.IsActive) { existing.IsActive = true; await userManager.UpdateAsync(existing); }
-
-            if (!await userManager.IsInRoleAsync(existing, "Admin"))
-                await userManager.AddToRoleAsync(existing, "Admin");
-
-            // Reset password every deploy so it stays current
-            var token = await userManager.GeneratePasswordResetTokenAsync(existing);
-            await userManager.ResetPasswordAsync(existing, token, AdminPassword);
-
-            logger.LogInformation("Admin user verified: {Email}", AdminEmail);
-        }
+        logger.LogInformation("[Seed] Roles with permissions seeded.");
     }
 
     // ── Demo employees — skipped if data exists ───────────────────────────────
@@ -200,7 +221,6 @@ public static class DbSeeder
         UserManager<ApplicationUser> userManager,
         ILogger logger)
     {
-        // One query — if more than 1 employee, demo data already seeded
         if (await db.Employees.CountAsync() > 1) return;
 
         string[] firstNames  = ["Sara", "Omar", "Layla", "Ahmed", "Mona", "Youssef", "Nour", "Karim"];
@@ -231,7 +251,8 @@ public static class DbSeeder
             var user = new ApplicationUser
             {
                 UserName = email, Email = email, EmailConfirmed = true,
-                FirstName = fn, LastName = ln, IsActive = true, EmployeeId = emp.Id
+                FirstName = fn, LastName = ln, IsActive = true, EmployeeId = emp.Id,
+                SecurityStamp = Guid.NewGuid().ToString()
             };
 
             var result = await userManager.CreateAsync(user, demoPassword);
@@ -242,6 +263,6 @@ public static class DbSeeder
         }
 
         await db.SaveChangesAsync();
-        logger.LogInformation("Demo employees seeded.");
+        logger.LogInformation("[Seed] Demo employees seeded.");
     }
 }
