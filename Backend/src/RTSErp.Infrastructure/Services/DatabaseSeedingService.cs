@@ -41,8 +41,10 @@ public sealed class DatabaseSeedingService : BackgroundService
         {
             try
             {
-                // Step 1: Create schema using raw Npgsql (no EF involved)
+                // Step 1: Resolve to IPv4 then create schema using raw Npgsql (no EF involved)
                 var cs = GetConnectionString();
+                cs = await ResolveToIPv4ConnectionStringAsync(cs, _logger);
+
                 _logger.LogInformation("[Seed] Opening direct Npgsql connection for DDL...");
                 await CreateSchemaDirectAsync(cs, ct);
                 _logger.LogInformation("[Seed] Schema OK.");
@@ -71,6 +73,48 @@ public sealed class DatabaseSeedingService : BackgroundService
     {
         var raw = _configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
         return DependencyInjection.NormalizePostgresConnectionString(raw);
+    }
+
+    /// <summary>
+    /// Resolves the hostname in the connection string to an explicit IPv4 address,
+    /// replacing the hostname so Npgsql never attempts an IPv6 connection.
+    /// Railway containers have no IPv6 route — any IPv6 attempt gives SocketException 101.
+    /// </summary>
+    private static async Task<string> ResolveToIPv4ConnectionStringAsync(string connectionString, ILogger logger)
+    {
+        try
+        {
+            // Extract the Host= value from the key=value string
+            var hostKey = connectionString.Split(';')
+                .Select(p => p.Trim())
+                .FirstOrDefault(p => p.StartsWith("Host=", StringComparison.OrdinalIgnoreCase));
+
+            if (hostKey is null) return connectionString;
+
+            var hostname = hostKey["Host=".Length..].Trim();
+
+            // Skip if already an IP address
+            if (System.Net.IPAddress.TryParse(hostname, out _)) return connectionString;
+
+            var addresses = await System.Net.Dns.GetHostAddressesAsync(hostname);
+            var ipv4 = addresses.FirstOrDefault(a =>
+                a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+
+            if (ipv4 is null)
+            {
+                logger.LogWarning("[Seed] No IPv4 address found for {Host} — using hostname", hostname);
+                return connectionString;
+            }
+
+            var resolved = connectionString.Replace($"Host={hostname}", $"Host={ipv4}", StringComparison.OrdinalIgnoreCase);
+            logger.LogInformation("[Seed] Resolved {Host} → {IPv4}", hostname, ipv4);
+            return resolved;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[Seed] IPv4 resolution failed — using original connection string");
+            return connectionString;
+        }
     }
 
     /// <summary>

@@ -18,14 +18,15 @@ public static class DependencyInjection
         var rawCs = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
         var connectionString = NormalizePostgresConnectionString(rawCs);
 
+        // Build a NpgsqlDataSource so we can configure socket-level settings.
+        // "No IPv6=true" in the connection string tells Npgsql to only use IPv4
+        // when resolving hostnames — Railway containers have no IPv6 route.
+        var dataSource = new Npgsql.NpgsqlDataSourceBuilder(connectionString).Build();
+
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseNpgsql(connectionString, npgsql =>
+            options.UseNpgsql(dataSource, npgsql =>
             {
                 npgsql.CommandTimeout(120);
-                // NOTE: EnableRetryOnFailure is intentionally omitted.
-                // It requires connection pooling to be enabled in Npgsql, but
-                // Supabase's PgBouncer already handles retries and connection
-                // management at the proxy level.
             }));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
@@ -106,6 +107,12 @@ public static class DependencyInjection
         if (!kv.Contains("Command Timeout", StringComparison.OrdinalIgnoreCase) &&
             !kv.Contains("CommandTimeout", StringComparison.OrdinalIgnoreCase))
             kv += "Command Timeout=120;";
+
+        // Force IPv4 — Railway containers have no IPv6 route.
+        // Without this, Npgsql resolves Supabase hostnames to IPv6 addresses
+        // and gets SocketException 101 (Network is unreachable).
+        if (!kv.Contains("No IPv6", StringComparison.OrdinalIgnoreCase))
+            kv += "No IPv6=true;";
 
         return kv;
     }
