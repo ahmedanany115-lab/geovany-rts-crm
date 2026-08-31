@@ -40,7 +40,7 @@ public sealed class DatabaseSeedingService : BackgroundService
                 var rmgr = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
 
                 _logger.LogInformation("[Seed] Initialising schema via raw SQL...");
-                await CreateSchemaIfNeededAsync(db, stoppingToken);
+                await CreateSchemaAsync(db, stoppingToken);
 
                 _logger.LogInformation("[Seed] Running seeder...");
                 await DbSeeder.SeedAsync(db, umgr, rmgr, _logger);
