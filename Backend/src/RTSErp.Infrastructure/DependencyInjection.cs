@@ -65,7 +65,7 @@ public static class DependencyInjection
     /// Use port 5432 (Session Mode or Direct), NOT 6543 (Transaction Mode).
     /// Transaction Mode pooler does not support DDL (CREATE TABLE).
     /// </summary>
-    internal static string NormalizePostgresConnectionString(string raw)
+    public static string NormalizePostgresConnectionString(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
             return raw;
