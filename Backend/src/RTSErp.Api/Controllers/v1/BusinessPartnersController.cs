@@ -5,7 +5,7 @@ using RTSErp.Domain.Entities.Accounting;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant")]
 public class CustomersController : BaseApiController
 {
     [HttpGet]
@@ -32,7 +32,7 @@ public class CustomersController : BaseApiController
     { await Mediator.Send(new ToggleBusinessPartnerStatusCommand { Id = id }); return NoContent(); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant")]
 public class SuppliersController : BaseApiController
 {
     [HttpGet]

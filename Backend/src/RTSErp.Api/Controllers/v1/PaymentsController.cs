@@ -5,7 +5,7 @@ using RTSErp.Domain.Enums;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class CustomerPaymentsController : BaseApiController
 {
     [HttpGet]
@@ -17,7 +17,7 @@ public class CustomerPaymentsController : BaseApiController
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class SupplierPaymentsController : BaseApiController
 {
     [HttpGet]
@@ -29,7 +29,7 @@ public class SupplierPaymentsController : BaseApiController
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class ChequesController : BaseApiController
 {
     [HttpGet]
@@ -49,7 +49,7 @@ public class ChequesController : BaseApiController
     { await Mediator.Send(new BounceChequeCommand { Id = id, BounceDate = bounceDate }); return NoContent(); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class BankTransactionsController : BaseApiController
 {
     [HttpGet]
@@ -61,7 +61,7 @@ public class BankTransactionsController : BaseApiController
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class BankAccountsController : BaseApiController
 {
     [HttpGet]
@@ -77,7 +77,7 @@ public class BankAccountsController : BaseApiController
     { cmd.Id = id; await Mediator.Send(cmd); return NoContent(); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class CommissionsController : BaseApiController
 {
     [HttpGet]

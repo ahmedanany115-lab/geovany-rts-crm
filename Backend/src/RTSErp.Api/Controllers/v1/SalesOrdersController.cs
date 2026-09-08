@@ -5,7 +5,7 @@ using RTSErp.Domain.Enums;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant")]
 public class SalesOrdersController : BaseApiController
 {
     [HttpGet]
@@ -24,7 +24,7 @@ public class SalesOrdersController : BaseApiController
     { await Mediator.Send(new ApproveSalesOrderCommand { Id = id }); return NoContent(); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant")]
 public class SalesDeliveriesController : BaseApiController
 {
     [HttpGet]
@@ -36,7 +36,7 @@ public class SalesDeliveriesController : BaseApiController
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }
 }
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant")]
 public class CustomerInvoicesController : BaseApiController
 {
     [HttpGet]

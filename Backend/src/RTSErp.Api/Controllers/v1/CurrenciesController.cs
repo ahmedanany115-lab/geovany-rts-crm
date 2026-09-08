@@ -5,7 +5,7 @@ using RTSErp.Application.Accounting.Currencies.Queries;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class CurrenciesController : BaseApiController
 {
     [HttpGet]

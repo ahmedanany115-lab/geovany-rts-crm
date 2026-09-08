@@ -9,7 +9,7 @@ using RTSErp.Domain.Enums;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class JournalEntriesController : BaseApiController
 {
     [HttpGet]

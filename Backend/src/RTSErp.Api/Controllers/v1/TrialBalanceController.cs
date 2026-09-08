@@ -4,7 +4,7 @@ using RTSErp.Application.Accounting.TrialBalance.Queries;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class TrialBalanceController : BaseApiController
 {
     [HttpGet]

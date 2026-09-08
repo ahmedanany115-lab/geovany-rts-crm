@@ -4,7 +4,7 @@ using RTSErp.Application.Operational.Inventory;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant")]
 public class InventoryController : BaseApiController
 {
     [HttpGet("movements")]

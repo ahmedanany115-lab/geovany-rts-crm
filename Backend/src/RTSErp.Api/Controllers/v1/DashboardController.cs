@@ -4,7 +4,7 @@ using RTSErp.Application.Dashboard.Queries.GetKpis;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant,SupportAgent")]
 public class DashboardController : BaseApiController
 {
     [HttpGet("kpis")]

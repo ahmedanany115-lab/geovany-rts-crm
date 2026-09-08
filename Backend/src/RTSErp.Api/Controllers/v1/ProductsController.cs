@@ -4,7 +4,7 @@ using RTSErp.Application.Operational.Products;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Sales,Accountant")]
 public class ProductsController : BaseApiController
 {
     [HttpGet]

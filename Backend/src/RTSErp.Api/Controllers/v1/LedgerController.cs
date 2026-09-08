@@ -4,7 +4,7 @@ using RTSErp.Application.Accounting.Ledger.Queries;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize]
+[Authorize(Roles = "Admin,Accountant")]
 public class LedgerController : BaseApiController
 {
     [HttpGet("account/{accountId:guid}")]

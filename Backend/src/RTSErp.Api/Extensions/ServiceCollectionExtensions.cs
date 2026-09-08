@@ -59,9 +59,18 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAuthorizationPolicies(this IServiceCollection services)
     {
-        services.AddAuthorizationBuilder();
-        // Example, added per-module going forward:
-        // .AddPolicy("crm.customers.write", policy => policy.RequireClaim(AppClaimTypes.Permission, "crm.customers.write"));
+        services.AddAuthorizationBuilder()
+            // Admin — full access to everything
+            .AddPolicy("AdminOnly",      p => p.RequireRole("Admin"))
+
+            // Finance — Admin or Accountant
+            .AddPolicy("FinanceAccess",  p => p.RequireRole("Admin", "Accountant"))
+
+            // Sales — Admin, Manager, or Sales rep
+            .AddPolicy("SalesAccess",    p => p.RequireRole("Admin", "Manager", "Sales"))
+
+            // Any authenticated user (catches all named roles)
+            .AddPolicy("AnyRole",        p => p.RequireRole("Admin", "Manager", "Accountant", "Sales", "SupportAgent", "ReadOnly"));
 
         return services;
     }
