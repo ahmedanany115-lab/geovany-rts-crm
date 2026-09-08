@@ -26,6 +26,8 @@ import {
   TrendingUp,
   BookOpen,
   ArrowLeftRight,
+  CalendarDays,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-state";
@@ -60,37 +62,40 @@ const erpGroups: NavGroup[] = [
   {
     group: "Finance",
     items: [
-      { label: "Chart of Accounts", href: "/finance/accounts", icon: BookOpen },
-      { label: "Journal Entries", href: "/finance/journal-entries", icon: FileText },
-      { label: "Ledger", href: "/finance/ledger", icon: Receipt },
-      { label: "Trial Balance", href: "/finance/trial-balance", icon: BarChart3 },
-      { label: "Bank Accounts", href: "/erp/bank-accounts", icon: Landmark },
+      { label: "Chart of Accounts",  href: "/finance/accounts",        icon: BookOpen },
+      { label: "Journal Entries",    href: "/finance/journal-entries",  icon: FileText },
+      { label: "Ledger",             href: "/finance/ledger",           icon: Receipt },
+      { label: "Trial Balance",      href: "/finance/trial-balance",    icon: BarChart3 },
+      { label: "Fiscal Periods",     href: "/finance/fiscal-periods",   icon: CalendarDays },
+      { label: "Currencies",         href: "/finance/currencies",       icon: Coins },
+      { label: "Bank Accounts",      href: "/erp/bank-accounts",        icon: Landmark },
     ],
   },
   {
     group: "Sales",
     items: [
-      { label: "Customers", href: "/erp/customers", icon: Users },
-      { label: "Sales Orders", href: "/erp/sales-orders", icon: ShoppingCart },
-      { label: "Customer Invoices", href: "/erp/customer-invoices", icon: Receipt },
-      { label: "Payments", href: "/erp/payments", icon: DollarSign },
-      { label: "Cheques", href: "/erp/cheques", icon: CreditCard },
+      { label: "Customers",          href: "/erp/customers",            icon: Users },
+      { label: "Sales Orders",       href: "/erp/sales-orders",         icon: ShoppingCart },
+      { label: "Deliveries",         href: "/erp/deliveries",           icon: Truck },
+      { label: "Customer Invoices",  href: "/erp/customer-invoices",    icon: Receipt },
+      { label: "Payments",           href: "/erp/payments",             icon: DollarSign },
+      { label: "Cheques",            href: "/erp/cheques",              icon: CreditCard },
     ],
   },
   {
     group: "Purchasing",
     items: [
-      { label: "Suppliers", href: "/erp/suppliers", icon: Truck },
-      { label: "Purchase Orders", href: "/erp/purchase-orders", icon: ShoppingBag },
-      { label: "Supplier Invoices", href: "/erp/supplier-invoices", icon: FileText },
+      { label: "Suppliers",          href: "/erp/suppliers",            icon: Truck },
+      { label: "Purchase Orders",    href: "/erp/purchase-orders",      icon: ShoppingBag },
+      { label: "Supplier Invoices",  href: "/erp/supplier-invoices",    icon: FileText },
     ],
   },
   {
     group: "Inventory",
     items: [
-      { label: "Products", href: "/erp/products", icon: Package },
-      { label: "Warehouses", href: "/erp/warehouses", icon: Warehouse },
-      { label: "Stock & Movements", href: "/erp/inventory", icon: ArrowLeftRight },
+      { label: "Products",           href: "/erp/products",             icon: Package },
+      { label: "Warehouses",         href: "/erp/warehouses",           icon: Warehouse },
+      { label: "Stock & Movements",  href: "/erp/inventory",            icon: ArrowLeftRight },
     ],
   },
 ];

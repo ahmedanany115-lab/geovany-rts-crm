@@ -17,10 +17,12 @@ public static class DbSeeder
 
     private static readonly SeedUser[] ProductionUsers =
     [
-        new("geovany.hany@rtegy.com",  "Geovany@153", "Geovany", "Hany",    "System Administrator",   "IT",      "Admin"),
-        new("dr.mohamed@rtegy.com",    "Ceo@123",     "Mohamed", "Dr.",      "Chief Executive Officer", "Management", "Admin"),
-        new("Moetaz@rtegy.com",        "Moetaz@123",  "Moetaz",  "",        "Accountant",              "Finance", "Accountant"),
-        new("Mrim@rtegy.com",          "257993",      "Mrim",    "",        "Sales Representative",    "Sales",   "Sales"),
+        new("geovany.hany@rtegy.com",   "Geovany@153", "Geovany", "Hany",    "System Administrator",    "IT",         "Admin"),
+        new("dr.mohamed@rtegy.com",     "Ceo@123",     "Mohamed", "Dr.",      "Chief Executive Officer", "Management", "Admin"),
+        new("Moetaz@rtegy.com",         "Moetaz@123",  "Moetaz",  "",        "Accountant",               "Finance",    "Accountant"),
+        new("Mrim@rtegy.com",           "257993",      "Mrim",    "",        "Sales Representative",     "Sales",      "Sales"),
+        new("fatma@rtegy.com",          "Fatma@123",   "Fatma",   "",        "Accountant",               "Finance",    "Accountant"),
+        new("ahmed.rekaby@rtegy.com",   "Rekaby@123",  "Ahmed",   "Rekaby",  "Senior Accountant",        "Finance",    "Accountant"),
     ];
 
     // ── Role definitions ──────────────────────────────────────────────────────
