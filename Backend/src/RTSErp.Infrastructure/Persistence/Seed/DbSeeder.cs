@@ -174,6 +174,10 @@ public static class DbSeeder
     }
 
     // ── Individual user upsert ────────────────────────────────────────────────
+    // Completely explicit — every failure is logged with the full error list.
+    // Never silently drops a user. Always resets the password so the stored
+    // hash matches the constant in ProductionUsers, regardless of what
+    // previous seed runs may have written.
 
     private static async Task EnsureUserAsync(
         ApplicationDbContext db,
@@ -185,6 +189,8 @@ public static class DbSeeder
 
         if (existing is null)
         {
+            logger.LogInformation("[Seed] Creating user {Email} (role: {Role})...", spec.Email, spec.Role);
+
             var employee = new Employee
             {
                 FullName   = $"{spec.FirstName} {spec.LastName}".Trim(),
@@ -197,23 +203,26 @@ public static class DbSeeder
 
             var user = new ApplicationUser
             {
-                UserName              = spec.Email,
-                Email                 = spec.Email,
-                NormalizedEmail       = spec.Email.ToUpperInvariant(),
-                NormalizedUserName    = spec.Email.ToUpperInvariant(),
-                EmailConfirmed        = true,
-                FirstName             = spec.FirstName,
-                LastName              = spec.LastName,
-                IsActive              = true,
-                EmployeeId            = employee.Id,
-                SecurityStamp         = Guid.NewGuid().ToString(),
+                UserName           = spec.Email,
+                Email              = spec.Email,
+                NormalizedEmail    = spec.Email.ToUpperInvariant(),
+                NormalizedUserName = spec.Email.ToUpperInvariant(),
+                EmailConfirmed     = true,
+                FirstName          = spec.FirstName,
+                LastName           = spec.LastName,
+                IsActive           = true,
+                EmployeeId         = employee.Id,
+                SecurityStamp      = Guid.NewGuid().ToString(),
             };
 
             var created = await userManager.CreateAsync(user, spec.Password);
             if (!created.Succeeded)
             {
-                logger.LogError("[Seed] Failed to create {Email}: {Errors}",
-                    spec.Email, string.Join("; ", created.Errors.Select(e => e.Description)));
+                logger.LogError("[Seed] FAILED to create {Email}. Errors: {Errors}",
+                    spec.Email, string.Join(" | ", created.Errors.Select(e => $"{e.Code}: {e.Description}")));
+                // Remove the orphaned employee row so we can retry cleanly
+                db.Employees.Remove(employee);
+                await db.SaveChangesAsync();
                 return;
             }
 
@@ -224,25 +233,40 @@ public static class DbSeeder
             if (!roleAdd.Succeeded)
                 logger.LogWarning("[Seed] Could not assign role '{Role}' to {Email}: {Errors}",
                     spec.Role, spec.Email,
-                    string.Join("; ", roleAdd.Errors.Select(e => e.Description)));
+                    string.Join(" | ", roleAdd.Errors.Select(e => e.Description)));
 
-            logger.LogInformation("[Seed] Created user {Email} with role '{Role}'.", spec.Email, spec.Role);
+            logger.LogInformation("[Seed] ✓ Created {Email} with role '{Role}'.", spec.Email, spec.Role);
         }
         else
         {
-            // Ensure active + correct role; reset password to stay current
-            if (!existing.IsActive) { existing.IsActive = true; await userManager.UpdateAsync(existing); }
+            logger.LogInformation("[Seed] User {Email} exists — verifying role and password...", spec.Email);
 
+            // Ensure active
+            if (!existing.IsActive)
+            {
+                existing.IsActive = true;
+                await userManager.UpdateAsync(existing);
+            }
+
+            // Ensure correct role
             if (!await userManager.IsInRoleAsync(existing, spec.Role))
-                await userManager.AddToRoleAsync(existing, spec.Role);
+            {
+                var roleAdd = await userManager.AddToRoleAsync(existing, spec.Role);
+                if (!roleAdd.Succeeded)
+                    logger.LogWarning("[Seed] Could not assign role '{Role}' to {Email}: {Errors}",
+                        spec.Role, spec.Email,
+                        string.Join(" | ", roleAdd.Errors.Select(e => e.Description)));
+            }
 
-            var token  = await userManager.GeneratePasswordResetTokenAsync(existing);
-            var result = await userManager.ResetPasswordAsync(existing, token, spec.Password);
-            if (!result.Succeeded)
+            // Always reset password — ensures hash matches current constant
+            // even if a previous run stored it under stricter validation rules
+            var token = await userManager.GeneratePasswordResetTokenAsync(existing);
+            var reset = await userManager.ResetPasswordAsync(existing, token, spec.Password);
+            if (!reset.Succeeded)
                 logger.LogWarning("[Seed] Could not reset password for {Email}: {Errors}",
-                    spec.Email, string.Join("; ", result.Errors.Select(e => e.Description)));
+                    spec.Email, string.Join(" | ", reset.Errors.Select(e => $"{e.Code}: {e.Description}")));
 
-            logger.LogInformation("[Seed] Verified user {Email} (role: {Role}).", spec.Email, spec.Role);
+            logger.LogInformation("[Seed] ✓ Verified {Email} (role: {Role}).", spec.Email, spec.Role);
         }
     }
 }
