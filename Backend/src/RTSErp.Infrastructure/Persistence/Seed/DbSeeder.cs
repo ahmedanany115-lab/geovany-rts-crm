@@ -17,42 +17,73 @@ public static class DbSeeder
 
     private static readonly SeedUser[] ProductionUsers =
     [
-        new("geovany.hany@rtegy.com",   "Geovany@153", "Geovany", "Hany",    "System Administrator",    "IT",         "Admin"),
-        new("dr.mohamed@rtegy.com",     "Ceo@123",     "Mohamed", "Dr.",      "Chief Executive Officer", "Management", "Admin"),
-        new("Moetaz@rtegy.com",         "Moetaz@123",  "Moetaz",  "",        "Accountant",               "Finance",    "Accountant"),
-        new("Mrim@rtegy.com",           "257993",      "Mrim",    "",        "Sales Representative",     "Sales",      "Sales"),
-        new("fatma@rtegy.com",          "Fatma@123",   "Fatma",   "",        "Accountant",               "Finance",    "Accountant"),
-        new("ahmed.rekaby@rtegy.com",   "Rekaby@123",  "Ahmed",   "Rekaby",  "Senior Accountant",        "Finance",    "Accountant"),
+        // ── Admins ────────────────────────────────────────────────────────────
+        new("geovany.hany@rtegy.com",          "Geovany@153",  "Geovany",     "Hany",       "System Administrator",    "IT",          "Admin"),
+        new("dr.mohamed@rtegy.com",            "Ceo@123",      "Mohamed",     "",           "Chief Executive Officer", "Management",  "Admin"),
+
+        // ── Finance ───────────────────────────────────────────────────────────
+        new("Moataz@rtegy.com",                "Moataz@123",   "Moataz",      "",           "Accountant",              "Finance",     "Accountant"),
+        new("fatma@rtegy.com",                 "Fatma@123",    "Fatma",       "",           "Accountant",              "Finance",     "Accountant"),
+        new("ahmed.rekaby@rtegy.com",          "Rekaby@123",   "Ahmed",       "Rekaby",     "Senior Accountant",       "Finance",     "Accountant"),
+
+        // ── Sales ─────────────────────────────────────────────────────────────
+        new("Mrim@rtegy.com",                  "257993",       "Mrim",        "",           "Sales Representative",    "Sales",       "Sales"),
+        new("hanem.omar@rtegy.com",            "Hanem@123",    "Hanem",       "Omar",       "Sales Representative",    "Sales",       "Sales"),
+        new("Abdelrahman.Abdullah@rtegy.com",  "Abdo@123",     "Abdelrahman", "Abdullah",   "Sales Representative",    "Sales",       "Sales"),
+
+        // ── Sales Manager ─────────────────────────────────────────────────────
+        new("Ahmed.Anany@rtegy.com",           "Anany@123",    "Ahmed",       "Anany",      "Sales Manager",           "Sales",       "SalesManager"),
+
+        // ── Purchasing ────────────────────────────────────────────────────────
+        new("khaled.taleb@rtegy.com",          "Taleb@123",    "Khaled",      "Taleb",      "Purchasing Officer",       "Purchasing",  "Purchasing"),
+
+        // ── Maintenance / Support ─────────────────────────────────────────────
+        new("Ahmed.Mostafa@rtegy.com",         "Mostafa@123",  "Ahmed",       "Mostafa",    "Support Engineer",        "Maintenance", "SupportAgent"),
+        new("Hossam@rtegy.com",                "Hossam@123",   "Hossam",      "",           "Support Engineer",        "Maintenance", "SupportAgent"),
+        new("Mostafa@rtegy.com",               "Mosta@123",    "Mostafa",     "",           "Support Engineer",        "Maintenance", "SupportAgent"),
+        new("youssef.mounir@rtegy.com",        "Mounir@123",   "Youssef",     "Mounir",     "Support Engineer",        "Maintenance", "SupportAgent"),
+        new("youssef.mohamed@rtegy.com",       "Youssef@123",  "Youssef",     "Mohamed",    "Support Engineer",        "Maintenance", "SupportAgent"),
+        new("mahmoud.amr@rtegy.com",           "Mahmoud@123",  "Mahmoud",     "Amr",        "Support Engineer",        "Maintenance", "SupportAgent"),
+        new("karim.mahmoud@rtegy.com",         "Karim@123",    "Karim",       "Mahmoud",    "Support Engineer",        "Maintenance", "SupportAgent"),
+
+        // ── Delivery / Representatives ────────────────────────────────────────
+        new("mahmoud.nasrallah@rtegy.com",     "Nasrallah@123","Mahmoud",     "Nasrallah",  "Delivery Representative", "Operations",  "Delivery"),
+        new("hany.mahmoud@rtegy.com",          "Hany@123",     "Hany",        "Mahmoud",    "Delivery Representative", "Operations",  "Delivery"),
+        new("ahmed.reda@rtegy.com",            "Reda@123",     "Ahmed",       "Reda",       "Delivery Representative", "Operations",  "Delivery"),
     ];
 
     // ── Role definitions ──────────────────────────────────────────────────────
-    // Each entry: role name → predicate that selects which permissions it gets.
-
     public static readonly Dictionary<string, Func<Permission, bool>> RolePermissions = new()
     {
-        // Admin — everything
-        ["Admin"] = _ => true,
+        ["Admin"]        = _ => true,
+        ["Manager"]      = p => !p.Code.StartsWith("users.") && p.Code != "settings.write",
 
-        // Manager — everything except user management / settings write
-        ["Manager"] = p => !p.Code.StartsWith("users.") && p.Code != "settings.write",
+        // Sales Manager — full CRM + Sales + reports, no finance
+        ["SalesManager"] = p => p.Module is "crm" or "quotations" or "tasks" or "reports"
+                             || p.Code.StartsWith("inventory.products.read")
+                             || p.Code.StartsWith("inventory.hardware.read"),
 
-        // Accountant — finance modules only: invoices, accounts, journal entries,
-        //              fiscal periods, currencies, bank/payments, trial balance, reports
-        ["Accountant"] = p => p.Module is "invoices" or "reports"
-                           || p.Code.StartsWith("inventory.products.read")
-                           || p.Code.StartsWith("inventory.suppliers"),
+        ["Accountant"]   = p => p.Module is "invoices" or "reports"
+                             || p.Code.StartsWith("inventory.products.read")
+                             || p.Code.StartsWith("inventory.suppliers"),
 
-        // Sales — CRM, quotations, tasks, own inventory read, reports
-        // Strictly NO finance, NO admin, NO journal entries, NO accounts
-        ["Sales"] = p => p.Module is "crm" or "quotations" or "tasks" or "reports"
-                      || p.Code.StartsWith("inventory.products.read")
-                      || p.Code.StartsWith("inventory.hardware.read"),
+        ["Sales"]        = p => p.Module is "crm" or "quotations" or "tasks" or "reports"
+                             || p.Code.StartsWith("inventory.products.read")
+                             || p.Code.StartsWith("inventory.hardware.read"),
 
-        // Support / help-desk agent
+        // Purchasing — suppliers, purchase orders, inventory read, reports
+        ["Purchasing"]   = p => p.Code.StartsWith("inventory.suppliers")
+                             || p.Module == "reports"
+                             || p.Code.StartsWith("inventory.products.read"),
+
         ["SupportAgent"] = p => p.Module is "helpdesk" or "crm" || p.Code == "reports.view",
 
-        // Read-only observer
-        ["ReadOnly"] = p => p.Code.EndsWith(".read") || p.Code == "reports.view",
+        // Delivery — read-only on sales orders/customers/products, no finance
+        ["Delivery"]     = p => p.Code is "crm.customers.read"
+                             || p.Code.StartsWith("inventory.products.read")
+                             || p.Code == "reports.view",
+
+        ["ReadOnly"]     = p => p.Code.EndsWith(".read") || p.Code == "reports.view",
     };
 
     // ── Entry point ───────────────────────────────────────────────────────────
@@ -67,12 +98,46 @@ public static class DbSeeder
         await RunStep("SeedPermissions", () => SeedPermissionsAsync(db, logger), logger);
         await RunStep("SeedRoles",       () => SeedRolesAsync(roleManager, db, logger), logger);
 
+        // ── One-time email renames ──────────────────────────────────────────
+        await RunStep("RenameModetaz", () => RenameUserEmailAsync(
+            userManager, "Moetaz@rtegy.com", "Moataz@rtegy.com", logger), logger);
+
         // Production users — each is self-contained and retried independently
         foreach (var u in ProductionUsers)
             await RunStep($"EnsureUser:{u.Email}", () => EnsureUserAsync(db, userManager, u, logger), logger);
 
         // Accounting reference data
         await RunStep("AccountingSeed", () => AccountingSeeder.SeedAsync(db, logger), logger);
+    }
+
+    /// <summary>
+    /// Renames a user's email/username in-place. Idempotent — skips if old email
+    /// doesn't exist or new email already taken.
+    /// </summary>
+    private static async Task RenameUserEmailAsync(
+        UserManager<ApplicationUser> userManager,
+        string oldEmail, string newEmail, ILogger logger)
+    {
+        var existing = await userManager.FindByEmailAsync(oldEmail);
+        if (existing is null) return; // already renamed or never existed
+
+        if (await userManager.FindByEmailAsync(newEmail) is not null)
+        {
+            logger.LogInformation("[Seed] Email rename skipped — {New} already exists.", newEmail);
+            return;
+        }
+
+        existing.Email              = newEmail;
+        existing.NormalizedEmail    = newEmail.ToUpperInvariant();
+        existing.UserName           = newEmail;
+        existing.NormalizedUserName = newEmail.ToUpperInvariant();
+
+        var result = await userManager.UpdateAsync(existing);
+        if (result.Succeeded)
+            logger.LogInformation("[Seed] Renamed {Old} → {New}.", oldEmail, newEmail);
+        else
+            logger.LogWarning("[Seed] Could not rename {Old}: {Errors}", oldEmail,
+                string.Join("; ", result.Errors.Select(e => e.Description)));
     }
 
     private static async Task RunStep(string name, Func<Task> step, ILogger logger)

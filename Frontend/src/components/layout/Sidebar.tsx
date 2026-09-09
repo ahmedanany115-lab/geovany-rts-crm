@@ -167,7 +167,7 @@ export function Sidebar() {
         {/* Bottom items */}
         <div className="mt-4 pt-4 border-t border-border space-y-0.5">
           <NavLink item={{ label: "Reports", href: "/reports/sales", icon: BarChart3 }} />
-          <NavLink item={{ label: "Users", href: "/users", icon: UserCog }} />
+          <NavLink item={{ label: "Users", href: "/users/employees", icon: UserCog }} />
           <NavLink item={{ label: "Settings", href: "/settings/company", icon: Settings }} />
         </div>
       </nav>
