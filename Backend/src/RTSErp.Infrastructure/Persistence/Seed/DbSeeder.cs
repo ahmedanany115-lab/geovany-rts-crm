@@ -50,6 +50,12 @@ public static class DbSeeder
         new("mahmoud.nasrallah@rtegy.com",     "Nasrallah@123","Mahmoud",     "Nasrallah",  "Delivery Representative", "Operations",  "Delivery"),
         new("hany.mahmoud@rtegy.com",          "Hany@123",     "Hany",        "Mahmoud",    "Delivery Representative", "Operations",  "Delivery"),
         new("ahmed.reda@rtegy.com",            "Reda@123",     "Ahmed",       "Reda",       "Delivery Representative", "Operations",  "Delivery"),
+
+        // ── Marketing ─────────────────────────────────────────────────────────
+        new("dina.reda@rtegy.com",             "Dina@123",     "Dina",        "Reda",       "Marketing Specialist",    "Marketing",   "Marketing"),
+
+        // ── Sales (outdoor) ───────────────────────────────────────────────────
+        new("Ahmed.khaled@rtegy.com",          "Akhaled@123",  "Ahmed",       "Khaled",     "Sales Outdoor",           "Sales",       "Sales"),
     ];
 
     // ── Role definitions ──────────────────────────────────────────────────────
@@ -84,6 +90,10 @@ public static class DbSeeder
                              || p.Code == "reports.view",
 
         ["ReadOnly"]     = p => p.Code.EndsWith(".read") || p.Code == "reports.view",
+
+        // Marketing — CRM read, reports, quotations read
+        ["Marketing"]    = p => p.Code is "crm.customers.read" or "crm.leads.read" or "crm.contacts.read"
+                             || p.Code is "quotations.read" or "reports.view",
     };
 
     // ── Entry point ───────────────────────────────────────────────────────────

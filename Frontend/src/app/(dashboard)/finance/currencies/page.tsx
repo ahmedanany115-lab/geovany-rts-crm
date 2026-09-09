@@ -1,176 +1,82 @@
 "use client";
-
 import { useState } from "react";
-import { AlertCircle } from "lucide-react";
-import { useCreateCurrency, useCurrencies, useUpdateCurrency } from "@/features/finance/hooks";
-import type { CurrencyDto } from "@/features/finance/types";
+import { useCurrencies, useCreateCurrency, useUpdateCurrency } from "@/features/finance/hooks";
+import { useT } from "@/hooks/useT";
+import { Coins, Plus, Pencil, X } from "lucide-react";
 
 export default function CurrenciesPage() {
-  const { data: currencies, isLoading, isError } = useCurrencies();
-  const createCurrency = useCreateCurrency();
-  const updateCurrency = useUpdateCurrency();
-
+  const { t } = useT();
+  const { data, isLoading } = useCurrencies();
+  const create = useCreateCurrency();
+  const update = useUpdateCurrency();
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ code: "", name: "", symbol: "", exchangeRate: 1, isActive: true });
-  const [actionError, setActionError] = useState<string | null>(null);
 
-  function startEdit(c: CurrencyDto) {
-    setEditingId(c.id);
-    setForm({ code: c.code, name: c.name, symbol: c.symbol, exchangeRate: c.exchangeRate, isActive: c.isActive });
-    setShowForm(true);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setActionError(null);
-    try {
-      if (editingId) {
-        await updateCurrency.mutateAsync({ id: editingId, ...form });
-      } else {
-        await createCurrency.mutateAsync(form);
-      }
-      setShowForm(false);
-      setEditingId(null);
-      setForm({ code: "", name: "", symbol: "", exchangeRate: 1, isActive: true });
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Operation failed.");
+    if (editing) {
+      await update.mutateAsync({ id: editing, ...form });
+      setEditing(null);
+    } else {
+      await create.mutateAsync(form);
     }
-  }
+    setForm({ code: "", name: "", symbol: "", exchangeRate: 1, isActive: true });
+    setShowForm(false);
+  };
+
+  const startEdit = (c: typeof data extends (infer T)[] | undefined ? T : never) => {
+    setForm({ code: (c as any).code, name: (c as any).name, symbol: (c as any).symbol, exchangeRate: (c as any).exchangeRate, isActive: (c as any).isActive });
+    setEditing((c as any).id);
+    setShowForm(true);
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Currencies</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage supported currencies and their exchange rates relative to the base currency (EGP).
-          </p>
-        </div>
-        <button onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({ code: "", name: "", symbol: "", exchangeRate: 1, isActive: true }); }}
-          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-          + New Currency
-        </button>
+        <div className="flex items-center gap-3"><Coins className="h-6 w-6 text-primary" /><h1 className="text-2xl font-semibold">{t("currencies")}</h1></div>
+        <button onClick={() => { setShowForm(v => !v); setEditing(null); setForm({ code: "", name: "", symbol: "", exchangeRate: 1, isActive: true }); }} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm"><Plus className="h-4 w-4" />{showForm ? t("cancel") : t("add")}</button>
       </div>
-
-      {actionError && (
-        <div className="flex items-center gap-3 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm">
-          <AlertCircle className="h-4 w-4 shrink-0 text-danger" /> {actionError}
-        </div>
-      )}
-
       {showForm && (
-        <form onSubmit={handleSubmit} className="rounded-lg border bg-background p-4 space-y-4">
-          <h2 className="font-medium">{editingId ? "Edit Currency" : "New Currency"}</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Code *</label>
-              <input required value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                disabled={!!editingId} placeholder="USD" maxLength={3}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-sm font-medium">Name *</label>
-              <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="US Dollar"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Symbol *</label>
-              <input required value={form.symbol} onChange={e => setForm(f => ({ ...f, symbol: e.target.value }))}
-                placeholder="$" maxLength={10}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Exchange Rate (vs EGP) *</label>
-              <input required type="number" step="0.0001" min="0.0001"
-                value={form.exchangeRate}
-                onChange={e => setForm(f => ({ ...f, exchangeRate: parseFloat(e.target.value) }))}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            {editingId && (
-              <div className="flex items-end pb-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={form.isActive}
-                    onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))}
-                    className="h-4 w-4 rounded border"
-                  />
-                  Active
-                </label>
-              </div>
-            )}
+        <form onSubmit={handleSubmit} className="card p-5 space-y-3 border border-primary/20">
+          <div className="grid grid-cols-4 gap-3">
+            <div><label className="text-xs text-muted-foreground block mb-1">{t("code")} *</label><input required value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="input w-full" placeholder="EGP" /></div>
+            <div><label className="text-xs text-muted-foreground block mb-1">{t("name")} *</label><input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input w-full" /></div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Symbol *</label><input required value={form.symbol} onChange={e => setForm(f => ({ ...f, symbol: e.target.value }))} className="input w-full" placeholder="ج.م" /></div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Exchange Rate</label><input type="number" step="0.000001" value={form.exchangeRate} onChange={e => setForm(f => ({ ...f, exchangeRate: Number(e.target.value) }))} className="input w-full" /></div>
           </div>
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowForm(false)}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-accent">Cancel</button>
-            <button type="submit" disabled={createCurrency.isPending || updateCurrency.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
-              {createCurrency.isPending || updateCurrency.isPending ? "Saving…" : editingId ? "Update" : "Create"}
-            </button>
-          </div>
+          <button type="submit" disabled={create.isPending || update.isPending} className="btn-primary px-4 py-2 rounded-lg text-sm">{(create.isPending || update.isPending) ? t("saving") : t("save")}</button>
         </form>
       )}
-
-      {isLoading && <div className="h-40 animate-pulse rounded-lg bg-accent/40" />}
-      {isError && (
-        <div className="flex items-center gap-3 rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm">
-          <AlertCircle className="h-4 w-4 shrink-0 text-danger" /> Failed to load currencies.
-        </div>
-      )}
-
-      {currencies && (
-        <div className="overflow-x-auto rounded-lg border">
+      <div className="card overflow-hidden">
+        {isLoading ? <div className="p-8 text-center text-muted-foreground">{t("loading")}</div> : (
           <table className="w-full text-sm">
-            <thead className="bg-accent/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Symbol</th>
-                <th className="px-4 py-3 text-right">Exchange Rate</th>
-                <th className="px-4 py-3">Base</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {currencies.map(c => (
-                <tr key={c.id} className="hover:bg-accent/20">
-                  <td className="px-4 py-3 font-mono font-bold">{c.code}</td>
-                  <td className="px-4 py-3">{c.name}</td>
-                  <td className="px-4 py-3 font-mono">{c.symbol}</td>
-                  <td className="px-4 py-3 text-right font-mono">
-                    {c.isBaseCurrency ? "1.0000" : c.exchangeRate.toFixed(4)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {c.isBaseCurrency && (
-                      <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                        Base
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                      c.isActive ? "bg-emerald/10 text-emerald" : "bg-accent text-muted-foreground"
-                    }`}>
-                      {c.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {!c.isBaseCurrency && (
-                      <button onClick={() => startEdit(c)}
-                        className="text-xs text-primary hover:underline">Edit</button>
-                    )}
-                  </td>
+            <thead className="bg-muted/30"><tr>
+              <th className="text-left p-3 font-medium text-muted-foreground">{t("code")}</th>
+              <th className="text-left p-3 font-medium text-muted-foreground">{t("name")}</th>
+              <th className="text-left p-3 font-medium text-muted-foreground">Symbol</th>
+              <th className="text-right p-3 font-medium text-muted-foreground">Rate</th>
+              <th className="text-center p-3 font-medium text-muted-foreground">Base</th>
+              <th className="text-center p-3 font-medium text-muted-foreground">{t("status")}</th>
+              <th className="p-3"></th>
+            </tr></thead>
+            <tbody className="divide-y divide-border">
+              {data?.map(c => (
+                <tr key={c.id} className="hover:bg-muted/20">
+                  <td className="p-3 font-mono font-bold">{c.code}</td>
+                  <td className="p-3">{c.name}</td>
+                  <td className="p-3">{c.symbol}</td>
+                  <td className="p-3 text-right tabular-nums">{c.exchangeRate.toFixed(4)}</td>
+                  <td className="p-3 text-center">{c.isBaseCurrency ? <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Base</span> : "—"}</td>
+                  <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${c.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{c.isActive ? t("active") : t("inactive")}</span></td>
+                  <td className="p-3 text-right"><button onClick={() => startEdit(c as any)} className="text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button></td>
                 </tr>
               ))}
+              {!data?.length && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
