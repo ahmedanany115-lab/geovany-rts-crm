@@ -56,6 +56,9 @@ public static class DbSeeder
 
         // ── Sales (outdoor) ───────────────────────────────────────────────────
         new("Ahmed.khaled@rtegy.com",          "Akhaled@123",  "Ahmed",       "Khaled",     "Sales Outdoor",           "Sales",       "Sales"),
+
+        // ── No title ─────────────────────────────────────────────────────────
+        new("mhy@rtegy.com",                   "Mahy@123",     "Mahy",        "",           "",                        "",            "ReadOnly"),
     ];
 
     // ── Role definitions ──────────────────────────────────────────────────────
