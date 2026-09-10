@@ -1124,5 +1124,58 @@ public sealed class DatabaseSeedingService : BackgroundService
                     FOREIGN KEY ("CurrencyId") REFERENCES "Currencies"("Id") ON DELETE RESTRICT
             )
             """;
+
+        // ── HR / Employee Self-Service ────────────────────────────────────────
+        yield return """
+            CREATE TABLE IF NOT EXISTS "LeaveRequests" (
+                "Id"             uuid         NOT NULL DEFAULT gen_random_uuid(),
+                "EmployeeId"     uuid         NOT NULL,
+                "EmployeeEmail"  varchar(256) NOT NULL DEFAULT '',
+                "EmployeeName"   varchar(200) NOT NULL DEFAULT '',
+                "Type"           integer      NOT NULL DEFAULT 1,
+                "StartDate"      date         NOT NULL,
+                "EndDate"        date         NOT NULL,
+                "DaysCount"      integer      NOT NULL DEFAULT 1,
+                "Reason"         text         NOT NULL DEFAULT '',
+                "Status"         integer      NOT NULL DEFAULT 1,
+                "ReviewedByName" varchar(200),
+                "ReviewedAt"     timestamptz,
+                "ReviewNote"     text,
+                "CreatedAt"      timestamptz  NOT NULL DEFAULT NOW(),
+                "CreatedBy"      uuid,
+                "ModifiedAt"     timestamptz,
+                "ModifiedBy"     uuid,
+                "IsDeleted"      boolean      NOT NULL DEFAULT false,
+                CONSTRAINT "PK_LeaveRequests" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_LeaveRequests_EmployeeId" ON "LeaveRequests"("EmployeeId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_LeaveRequests_Status"     ON "LeaveRequests"("Status")""";
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "MeetingLogs" (
+                "Id"             uuid         NOT NULL DEFAULT gen_random_uuid(),
+                "EmployeeId"     uuid         NOT NULL,
+                "EmployeeEmail"  varchar(256) NOT NULL DEFAULT '',
+                "EmployeeName"   varchar(200) NOT NULL DEFAULT '',
+                "Title"          varchar(300) NOT NULL DEFAULT '',
+                "Description"    text,
+                "Type"           integer      NOT NULL DEFAULT 1,
+                "StartTime"      timestamptz  NOT NULL,
+                "EndTime"        timestamptz  NOT NULL,
+                "Location"       varchar(300),
+                "Attendees"      text,
+                "Outcome"        text,
+                "CreatedAt"      timestamptz  NOT NULL DEFAULT NOW(),
+                "CreatedBy"      uuid,
+                "ModifiedAt"     timestamptz,
+                "ModifiedBy"     uuid,
+                "IsDeleted"      boolean      NOT NULL DEFAULT false,
+                CONSTRAINT "PK_MeetingLogs" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_MeetingLogs_EmployeeId" ON "MeetingLogs"("EmployeeId")""";
     }
 }

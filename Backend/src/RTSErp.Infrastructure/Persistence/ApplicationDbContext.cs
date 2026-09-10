@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
+using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Operational;
 using RTSErp.Infrastructure.Persistence.Configurations.Accounting;
@@ -58,6 +59,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<BankTransaction> BankTransactions => Set<BankTransaction>();
     public DbSet<Cheque> Cheques => Set<Cheque>();
     public DbSet<SalesCommission> SalesCommissions => Set<SalesCommission>();
+
+    // ── HR / Employee Self-Service ────────────────────────────────────────────
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<MeetingLog>   MeetingLogs   => Set<MeetingLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

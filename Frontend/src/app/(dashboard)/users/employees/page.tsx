@@ -2,6 +2,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useT } from "@/hooks/useT";
+import { useRoles } from "@/hooks/useRoles";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Users, RefreshCw, PowerOff, Shield, Search } from "lucide-react";
 import { useState } from "react";
 
@@ -17,8 +20,17 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function UsersPage() {
   const { t } = useT();
+  const { isAdmin } = useRoles();
+  const router = useRouter();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+
+  // Redirect non-admins immediately
+  useEffect(() => {
+    if (!isAdmin) router.replace("/dashboard");
+  }, [isAdmin, router]);
+
+  if (!isAdmin) return null;
   const { data: users, isLoading, refetch } = useQuery({ queryKey: ["system-users"], queryFn: () => apiFetch<SystemUser[]>("/users") });
   const toggle = useMutation({
     mutationFn: (id: string) => apiFetch<{ id: string; isActive: boolean }>(`/users/${id}/toggle-active`, { method: "PATCH" }),
