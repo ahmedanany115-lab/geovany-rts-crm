@@ -14,9 +14,9 @@ public class JournalEntryLine : BaseEntity
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
 
-    // Foreign currency support
-    public Guid CurrencyId { get; set; }
-    public Currency Currency { get; set; } = null!;
+    // Foreign currency support — nullable so existing rows without CurrencyId don't break
+    public Guid? CurrencyId { get; set; }
+    public Currency? Currency { get; set; }
     public decimal ExchangeRate { get; set; } = 1m;
 
     // Base currency equivalents (EGP)

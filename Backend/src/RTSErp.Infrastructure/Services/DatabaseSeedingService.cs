@@ -465,27 +465,28 @@ public sealed class DatabaseSeedingService : BackgroundService
 
         yield return """
             CREATE TABLE IF NOT EXISTS "JournalEntries" (
-                "Id"              uuid          NOT NULL DEFAULT gen_random_uuid(),
-                "EntryNumber"     varchar(30)   NOT NULL,
-                "EntryDate"       date          NOT NULL,
-                "Description"     varchar(1000) NOT NULL DEFAULT '',
-                "Status"          integer       NOT NULL DEFAULT 1,
-                "ReferenceType"   integer       NOT NULL DEFAULT 0,
-                "ReferenceId"     uuid,
-                "ReferenceNumber" varchar(50),
-                "CurrencyId"      uuid          NOT NULL,
-                "ExchangeRate"    numeric(18,6) NOT NULL DEFAULT 1,
-                "TotalDebit"      numeric(18,4) NOT NULL DEFAULT 0,
-                "TotalCredit"     numeric(18,4) NOT NULL DEFAULT 0,
-                "PostedAt"        timestamptz,
-                "PostedBy"        uuid,
-                "ReversedEntryId" uuid,
-                "FiscalPeriodId"  uuid,
-                "CreatedAt"       timestamptz   NOT NULL DEFAULT NOW(),
-                "CreatedBy"       uuid,
-                "ModifiedAt"      timestamptz,
-                "ModifiedBy"      uuid,
-                "IsDeleted"       boolean       NOT NULL DEFAULT false,
+                "Id"                uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "EntryNumber"       varchar(30)   NOT NULL,
+                "EntryDate"         date          NOT NULL,
+                "Description"       varchar(1000) NOT NULL DEFAULT '',
+                "Status"            integer       NOT NULL DEFAULT 1,
+                "ReferenceType"     integer       NOT NULL DEFAULT 0,
+                "ReferenceId"       uuid,
+                "ReferenceNumber"   varchar(50),
+                "CurrencyId"        uuid          NOT NULL,
+                "ExchangeRate"      numeric(18,6) NOT NULL DEFAULT 1,
+                "TotalDebit"        numeric(18,4) NOT NULL DEFAULT 0,
+                "TotalCredit"       numeric(18,4) NOT NULL DEFAULT 0,
+                "PostedAt"          timestamptz,
+                "PostedBy"          uuid,
+                "ReversedByEntryId" uuid,
+                "ReversesEntryId"   uuid,
+                "FiscalPeriodId"    uuid,
+                "CreatedAt"         timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"         uuid,
+                "ModifiedAt"        timestamptz,
+                "ModifiedBy"        uuid,
+                "IsDeleted"         boolean       NOT NULL DEFAULT false,
                 CONSTRAINT "PK_JournalEntries" PRIMARY KEY ("Id"),
                 CONSTRAINT "FK_JournalEntries_Currencies_CurrencyId"
                     FOREIGN KEY ("CurrencyId") REFERENCES "Currencies"("Id") ON DELETE RESTRICT
@@ -493,14 +494,22 @@ public sealed class DatabaseSeedingService : BackgroundService
             """;
         yield return """CREATE UNIQUE INDEX IF NOT EXISTS "IX_JournalEntries_EntryNumber" ON "JournalEntries"("EntryNumber")""";
 
+        // Idempotent: add columns that may be missing from earlier deployments
+        yield return """ALTER TABLE "JournalEntries" ADD COLUMN IF NOT EXISTS "ReversedByEntryId" uuid""";
+        yield return """ALTER TABLE "JournalEntries" ADD COLUMN IF NOT EXISTS "ReversesEntryId"   uuid""";
+
         yield return """
             CREATE TABLE IF NOT EXISTS "JournalEntryLines" (
                 "Id"             uuid          NOT NULL DEFAULT gen_random_uuid(),
                 "JournalEntryId" uuid          NOT NULL,
                 "AccountId"      uuid          NOT NULL,
-                "Description"    varchar(500),
+                "CurrencyId"     uuid,
+                "ExchangeRate"   numeric(18,6) NOT NULL DEFAULT 1,
                 "Debit"          numeric(18,4) NOT NULL DEFAULT 0,
                 "Credit"         numeric(18,4) NOT NULL DEFAULT 0,
+                "DebitBase"      numeric(18,4) NOT NULL DEFAULT 0,
+                "CreditBase"     numeric(18,4) NOT NULL DEFAULT 0,
+                "Description"    varchar(500),
                 "SortOrder"      integer       NOT NULL DEFAULT 0,
                 "CreatedAt"      timestamptz   NOT NULL DEFAULT NOW(),
                 "CreatedBy"      uuid,
@@ -513,6 +522,21 @@ public sealed class DatabaseSeedingService : BackgroundService
                 CONSTRAINT "FK_JournalEntryLines_Accounts_AccountId"
                     FOREIGN KEY ("AccountId") REFERENCES "Accounts"("Id") ON DELETE RESTRICT
             )
+            """;
+
+        // Idempotent: add columns that may be missing from earlier deployments
+        // CurrencyId added as nullable first, then filled, then NOT NULL would require migration
+        // — keep nullable in DDL to stay safe across existing deployments
+        yield return """ALTER TABLE "JournalEntryLines" ADD COLUMN IF NOT EXISTS "CurrencyId"   uuid""";
+        yield return """ALTER TABLE "JournalEntryLines" ADD COLUMN IF NOT EXISTS "ExchangeRate" numeric(18,6) NOT NULL DEFAULT 1""";
+        yield return """ALTER TABLE "JournalEntryLines" ADD COLUMN IF NOT EXISTS "DebitBase"    numeric(18,4) NOT NULL DEFAULT 0""";
+        yield return """ALTER TABLE "JournalEntryLines" ADD COLUMN IF NOT EXISTS "CreditBase"   numeric(18,4) NOT NULL DEFAULT 0""";
+        // Back-fill CurrencyId with base currency for any rows that have it NULL
+        yield return """
+            UPDATE "JournalEntryLines" jl
+               SET "CurrencyId" = (SELECT "Id" FROM "Currencies" WHERE "IsBaseCurrency" = true LIMIT 1)
+             WHERE jl."CurrencyId" IS NULL
+               AND EXISTS (SELECT 1 FROM "Currencies" WHERE "IsBaseCurrency" = true)
             """;
 
         // ── Operational ───────────────────────────────────────────────────────

@@ -136,6 +136,7 @@ internal class JournalEntryLineConfiguration : IEntityTypeConfiguration<JournalE
         builder.HasOne(l => l.Currency)
                .WithMany(c => c.JournalEntryLines)
                .HasForeignKey(l => l.CurrencyId)
+               .IsRequired(false)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasQueryFilter(l => !l.IsDeleted);
