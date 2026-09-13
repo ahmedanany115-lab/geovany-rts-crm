@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useT } from "@/hooks/useT";
 import { useRoles } from "@/hooks/useRoles";
+import { useAuthStore } from "@/stores/auth-store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Users, RefreshCw, PowerOff, Shield, Search } from "lucide-react";
@@ -21,14 +22,20 @@ const ROLE_COLORS: Record<string, string> = {
 export default function UsersPage() {
   const { t } = useT();
   const { isAdmin } = useRoles();
+  const { isInitializing } = useAuthStore();
   const router = useRouter();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
 
-  // Redirect non-admins immediately
+  // Only redirect once auth state is resolved — avoids race with silent refresh
   useEffect(() => {
-    if (!isAdmin) router.replace("/dashboard");
-  }, [isAdmin, router]);
+    if (!isInitializing && !isAdmin) router.replace("/dashboard");
+  }, [isInitializing, isAdmin, router]);
+
+  // Show loading spinner while auth resolves
+  if (isInitializing) {
+    return <div className="flex items-center justify-center min-h-[60vh] text-muted-foreground">{t("loading")}</div>;
+  }
 
   if (!isAdmin) return null;
   const { data: users, isLoading, refetch } = useQuery({ queryKey: ["system-users"], queryFn: () => apiFetch<SystemUser[]>("/users") });
@@ -37,7 +44,13 @@ export default function UsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["system-users"] }),
   });
 
-  const filtered = (users ?? []).filter(u => !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()) || u.roles.some(r => r.toLowerCase().includes(search.toLowerCase())));
+  const filtered = (users ?? [])
+    .filter(u => !u.roles.includes("ReadOnly"))   // hide ReadOnly accounts from the list
+    .filter(u => !search ||
+      u.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.roles.some(r => r.toLowerCase().includes(search.toLowerCase()))
+    );
 
   const roleGroups = ["Admin","Manager","SalesManager","Accountant","Sales","Purchasing","SupportAgent","Delivery","Marketing","ReadOnly"];
   const groupCounts = roleGroups.reduce<Record<string,number>>((a,r) => { a[r] = (users??[]).filter(u=>u.roles.includes(r)).length; return a; }, {});

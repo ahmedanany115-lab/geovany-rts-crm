@@ -37,8 +37,13 @@ public class HrController : BaseApiController
         return (await _userManager.FindByNameAsync(name))!;
     }
 
-    private bool CanReview() =>
-        User.IsInRole("Admin") || User.IsInRole("Accountant") || User.IsInRole("SalesManager");
+    /// <summary>Can see ALL employees' records (not just own).</summary>
+    private bool CanSeeAll() =>
+        User.IsInRole("Admin") || User.IsInRole("Accountant") || User.IsInRole("Marketing");
+
+    /// <summary>Can approve or reject leave requests — strictly Admin + Accountant.</summary>
+    private bool CanApprove() =>
+        User.IsInRole("Admin") || User.IsInRole("Accountant");
 
     // ────────────────────────────────────────────────────────────────────────────
     // LEAVE REQUESTS
@@ -54,8 +59,8 @@ public class HrController : BaseApiController
             .Where(r => !r.IsDeleted)
             .AsQueryable();
 
-        // Non-reviewers see only their own records
-        if (!CanReview())
+        // Only Admin, Accountant, and Marketing (Dina) can see all records
+        if (!CanSeeAll())
         {
             var me = await GetCurrentUserAsync();
             query  = query.Where(r => r.EmployeeId == me.Id);
@@ -116,7 +121,7 @@ public class HrController : BaseApiController
     [HttpPatch("leaves/{id:guid}/review")]
     public async Task<IActionResult> ReviewLeave(Guid id, [FromBody] ReviewRequest req)
     {
-        if (!CanReview()) return Forbid();
+        if (!CanApprove()) return Forbid();
 
         var leave = await _db.LeaveRequests.FindAsync(id);
         if (leave is null || leave.IsDeleted) return NotFound();
@@ -168,7 +173,7 @@ public class HrController : BaseApiController
             .Where(m => !m.IsDeleted)
             .AsQueryable();
 
-        if (!CanReview())
+        if (!CanSeeAll())
         {
             var me = await GetCurrentUserAsync();
             query  = query.Where(m => m.EmployeeId == me.Id);

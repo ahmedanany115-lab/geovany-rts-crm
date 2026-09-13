@@ -48,8 +48,8 @@ function fmt(dateStr: string) {
 
 export default function MeetingsPage() {
   const { t, lang } = useT();
-  const { isFinance, isAdmin } = useRoles();
-  const canViewAll = isFinance || isAdmin;
+  const { isFinance, isAdmin, hasRole } = useRoles();
+  const canViewAll = isAdmin || hasRole("Accountant", "Marketing");  // Dina sees all
   const qc = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);

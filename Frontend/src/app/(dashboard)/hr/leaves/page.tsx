@@ -41,8 +41,9 @@ const LEAVE_TYPES = [
 
 export default function LeavesPage() {
   const { t, lang } = useT();
-  const { isFinance, isAdmin } = useRoles();
-  const canReview = isFinance || isAdmin;
+  const { isFinance, isAdmin, hasRole } = useRoles();
+  const canSeeAll = isAdmin || hasRole("Accountant", "Marketing");   // Dina sees all
+  const canApprove = isAdmin || hasRole("Accountant");               // only Admin + Accountant approve
   const qc = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
@@ -98,7 +99,7 @@ export default function LeavesPage() {
           <div>
             <h1 className="text-2xl font-semibold">{t("leaves")}</h1>
             <p className="text-sm text-muted-foreground">
-              {canReview ? t("hr_approval") : t("my_requests")}
+              {canSeeAll ? t("hr_approval") : t("my_requests")}
             </p>
           </div>
         </div>
@@ -189,7 +190,7 @@ export default function LeavesPage() {
       )}
 
       {/* Tabs — reviewers can see all */}
-      {canReview && (
+      {canSeeAll && (
         <div className="flex gap-1 border-b border-border">
           {(["mine", "all"] as const).map(k => (
             <button
@@ -218,7 +219,7 @@ export default function LeavesPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   {/* Show employee name for reviewers */}
-                  {canReview && (
+                  {canSeeAll && (
                     <p className="text-xs text-muted-foreground mb-0.5">
                       {req.employeeName || req.employeeEmail}
                     </p>
@@ -250,7 +251,7 @@ export default function LeavesPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
                   {/* HR review buttons */}
-                  {canReview && req.statusId === 1 && (
+                  {canSeeAll && req.statusId === 1 && (
                     reviewingId === req.id ? (
                       <div className="flex flex-col gap-2 min-w-[200px]">
                         <input
