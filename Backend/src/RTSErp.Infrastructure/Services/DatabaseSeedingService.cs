@@ -76,10 +76,12 @@ public sealed class DatabaseSeedingService : BackgroundService
     /// Opens a plain NpgsqlConnection and runs each CREATE TABLE IF NOT EXISTS
     /// individually. No EF involved — immune to model state, query filters,
     /// and interceptor interference.
+    /// ALTER TABLE migration statements always run regardless of whether
+    /// tables already exist, so new columns are added to existing deployments.
     /// </summary>
     private async Task CreateSchemaDirectAsync(string connectionString, CancellationToken ct)
     {
-        // First check if AspNetUsers already exists — if so, skip DDL entirely
+        // Check if AspNetUsers already exists — if so, skip CREATE TABLE block
         await using var checkConn = new NpgsqlConnection(connectionString);
         await checkConn.OpenAsync(ct);
 
@@ -89,27 +91,39 @@ public sealed class DatabaseSeedingService : BackgroundService
             WHERE table_schema = 'public'
             AND table_name = 'AspNetUsers'
             """;
-        var exists = Convert.ToInt64(await checkCmd.ExecuteScalarAsync(ct)) > 0;
+        var tablesExist = Convert.ToInt64(await checkCmd.ExecuteScalarAsync(ct)) > 0;
 
-        if (exists)
-        {
-            _logger.LogInformation("[Seed] Tables already exist — skipping DDL.");
-            return;
-        }
-
-        _logger.LogInformation("[Seed] Tables not found — running CREATE TABLE IF NOT EXISTS for all tables...");
-
-        // Use a single open connection for all DDL — one statement at a time
         await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync(ct);
 
-        var statements = SchemaStatements().ToList();
-        _logger.LogInformation("[Seed] Running {Count} DDL statements.", statements.Count);
+        // Separate CREATE TABLE statements from ALTER TABLE / migration statements
+        var allStatements = SchemaStatements().ToList();
+        var createStatements     = allStatements.Where(s => !s.TrimStart().StartsWith("ALTER") && !s.TrimStart().StartsWith("UPDATE")).ToList();
+        var migrationStatements  = allStatements.Where(s => s.TrimStart().StartsWith("ALTER") || s.TrimStart().StartsWith("UPDATE")).ToList();
 
+        // Always run migrations (ALTER TABLE ADD COLUMN IF NOT EXISTS is idempotent)
+        _logger.LogInformation("[Seed] Running {Count} migration statements (always).", migrationStatements.Count);
+        await RunStatementsAsync(conn, migrationStatements, ct);
+
+        if (tablesExist)
+        {
+            _logger.LogInformation("[Seed] Tables already exist — skipping CREATE TABLE block.");
+        }
+        else
+        {
+            _logger.LogInformation("[Seed] Tables not found — running {Count} CREATE TABLE statements.", createStatements.Count);
+            await RunStatementsAsync(conn, createStatements, ct);
+        }
+
+        _logger.LogInformation("[Seed] Schema phase complete.");
+    }
+
+    private async Task RunStatementsAsync(NpgsqlConnection conn, List<string> statements, CancellationToken ct)
+    {
         for (var i = 0; i < statements.Count; i++)
         {
-            var sql = statements[i];
-            var label = sql.Length > 80 ? sql[..80].Replace('\n', ' ').Trim() : sql.Replace('\n', ' ').Trim();
+            var sql   = statements[i];
+            var label = sql.Length > 100 ? sql[..100].Replace('\n', ' ').Trim() : sql.Replace('\n', ' ').Trim();
             try
             {
                 await using var cmd = conn.CreateCommand();
@@ -121,11 +135,16 @@ public sealed class DatabaseSeedingService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[Schema] FAILED statement {N}/{Total}: {Label}", i + 1, statements.Count, label);
+                // Non-fatal for CREATE INDEX IF NOT EXISTS — keep going
+                if (sql.TrimStart().StartsWith("CREATE INDEX") || sql.TrimStart().StartsWith("CREATE UNIQUE INDEX"))
+                {
+                    _logger.LogWarning("[Schema] Ignoring index error and continuing.");
+                    continue;
+                }
+                // Fatal for everything else
                 throw;
             }
         }
-
-        _logger.LogInformation("[Seed] All DDL statements completed successfully.");
     }
 
     private static IEnumerable<string> SchemaStatements()

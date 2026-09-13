@@ -66,11 +66,16 @@ export async function apiFetch<T>(path: string, init?: RequestInit, isRetry = fa
   if (!response.ok) {
     const problem = await response.json().catch(() => null);
     const err = new Error(problem?.title ?? `API error ${response.status}: ${response.statusText}`) as any;
-    err.status  = response.status;
-    err.errors  = problem?.errors ?? {};
-    // If the backend sent exception details, append the real message
-    const inner = problem?.errors?.message?.[0] ?? problem?.errors?.exception?.[0];
-    if (inner && inner !== err.message) err.message = `${err.message} — ${inner}`;
+    err.status = response.status;
+    err.errors = problem?.errors ?? {};
+    // Walk all inner exception levels to get the real Postgres error
+    const details = [
+      problem?.errors?.message?.[0],
+      problem?.errors?.inner1?.[0],
+      problem?.errors?.inner2?.[0],
+      problem?.errors?.inner3?.[0],
+    ].filter(Boolean).join(" → ");
+    if (details) err.message = `${err.message} — ${details}`;
     throw err;
   }
 

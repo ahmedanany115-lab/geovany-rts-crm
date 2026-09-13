@@ -57,7 +57,9 @@ public class ExceptionHandlingMiddleware
                 {
                     ["exception"] = [ex.GetType().Name],
                     ["message"]   = [ex.Message],
-                    ["inner"]     = [ex.InnerException?.Message ?? "none"],
+                    ["inner1"]    = [ex.InnerException?.Message ?? "none"],
+                    ["inner2"]    = [ex.InnerException?.InnerException?.Message ?? "none"],
+                    ["inner3"]    = [ex.InnerException?.InnerException?.InnerException?.Message ?? "none"],
                     ["source"]    = [ex.Source ?? "unknown"]
                 });
         }
