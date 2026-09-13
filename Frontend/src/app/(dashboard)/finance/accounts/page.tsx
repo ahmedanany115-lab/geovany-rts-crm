@@ -35,7 +35,7 @@ export default function AccountsPage() {
         code:        form.code.trim(),
         name:        form.name.trim(),
         nameAr:      form.nameAr.trim() || undefined,
-        accountType: form.accountType,          // already correct enum int
+        accountType: form.accountType,
         isGroup:     form.isGroup,
         parentId:    form.parentId || undefined,
       });
@@ -43,7 +43,11 @@ export default function AccountsPage() {
       setForm(INIT);
       setShowForm(false);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to save account.";
+      // apiFetch throws Error whose message = problem.title
+      // Backend also sends errors.message[] and errors.exception[] — we try to expose them
+      let msg = err?.message ?? "Failed to save account.";
+      // If the raw response body is on the error, extract the inner message
+      if (err?.errors?.message?.[0]) msg += ` — ${err.errors.message[0]}`;
       setError(msg);
       toast(msg, "error");
     }

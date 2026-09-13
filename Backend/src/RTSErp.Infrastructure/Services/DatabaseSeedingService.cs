@@ -355,8 +355,9 @@ public sealed class DatabaseSeedingService : BackgroundService
                 "NameAr"      varchar(200),
                 "AccountType" integer      NOT NULL DEFAULT 1,
                 "IsGroup"     boolean      NOT NULL DEFAULT false,
-                "ParentId"    uuid,
                 "IsActive"    boolean      NOT NULL DEFAULT true,
+                "ParentId"    uuid,
+                "CurrencyId"  uuid,
                 "CreatedAt"   timestamptz  NOT NULL DEFAULT NOW(),
                 "CreatedBy"   uuid,
                 "ModifiedAt"  timestamptz,
@@ -367,7 +368,11 @@ public sealed class DatabaseSeedingService : BackgroundService
                     FOREIGN KEY ("ParentId") REFERENCES "Accounts"("Id") ON DELETE RESTRICT
             )
             """;
-        yield return """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Accounts_Code" ON "Accounts"("Code")""";
+
+        // Idempotent column addition for existing deployments that were created without CurrencyId
+        yield return """ALTER TABLE "Accounts" ADD COLUMN IF NOT EXISTS "CurrencyId" uuid""";
+
+        yield return """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Accounts_Code" ON "Accounts"("Code") WHERE "IsDeleted" = false""";
 
         yield return """
             CREATE TABLE IF NOT EXISTS "TaxRates" (
