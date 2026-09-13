@@ -13,6 +13,8 @@ public class LedgerLineDto
     public DateOnly EntryDate { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? LineDescription { get; set; }
+    public string? ReferenceNumber { get; set; }     // e.g. invoice / contract number
+    public string? PartnerName { get; set; }         // customer / supplier name from JE description
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
     public decimal RunningBalance { get; set; }
@@ -93,6 +95,7 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
                 l.JournalEntry.EntryNumber,
                 l.JournalEntry.EntryDate,
                 EntryDescription = l.JournalEntry.Description,
+                l.JournalEntry.ReferenceNumber,
                 l.Description,
                 l.DebitBase,
                 l.CreditBase
@@ -106,16 +109,30 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
         foreach (var line in periodLines)
         {
             runningBalance += line.DebitBase - line.CreditBase;
+            // Extract partner name: JE descriptions follow "Invoice INV-001 — Customer Name"
+            // or "Payment from Customer Name" patterns — pull text after " — " or after "from "
+            var desc = line.EntryDescription;
+            var partnerName = default(string?);
+            var dashIdx = desc.IndexOf(" — ", StringComparison.Ordinal);
+            if (dashIdx >= 0) partnerName = desc[(dashIdx + 3)..].Trim();
+            else
+            {
+                var fromIdx = desc.IndexOf("from ", StringComparison.OrdinalIgnoreCase);
+                if (fromIdx >= 0) partnerName = desc[(fromIdx + 5)..].Trim();
+            }
+
             ledgerLines.Add(new LedgerLineDto
             {
-                JournalEntryId = line.JournalEntryId,
-                EntryNumber = line.EntryNumber,
-                EntryDate = line.EntryDate,
-                Description = line.EntryDescription,
+                JournalEntryId  = line.JournalEntryId,
+                EntryNumber     = line.EntryNumber,
+                EntryDate       = line.EntryDate,
+                Description     = line.EntryDescription,
                 LineDescription = line.Description,
-                Debit = line.DebitBase,
-                Credit = line.CreditBase,
-                RunningBalance = runningBalance
+                ReferenceNumber = line.ReferenceNumber,
+                PartnerName     = string.IsNullOrWhiteSpace(partnerName) ? null : partnerName,
+                Debit           = line.DebitBase,
+                Credit          = line.CreditBase,
+                RunningBalance  = runningBalance
             });
         }
 

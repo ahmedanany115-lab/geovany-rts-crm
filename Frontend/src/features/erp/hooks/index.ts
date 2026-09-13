@@ -44,6 +44,14 @@ export const useToggleCustomerStatus = () => {
   return useMutation({ mutationFn: customersApi.toggleStatus, onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }) });
 };
 
+export const useDeleteCustomer = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => customersApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
 // ── Suppliers ─────────────────────────────────────────────────────────────────
 
 export const useSuppliers = (p?: Parameters<typeof suppliersApi.list>[0]) =>

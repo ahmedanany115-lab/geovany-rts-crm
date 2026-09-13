@@ -36,6 +36,7 @@ export const customersApi = {
   update: (id: string, data: UpsertBusinessPartnerRequest) =>
     apiFetch<void>(`/customers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   toggleStatus: (id: string) => apiFetch<void>(`/customers/${id}/toggle-status`, { method: "PATCH" }),
+  delete: (id: string) => apiFetch<void>(`/customers/${id}`, { method: "DELETE" }),
 };
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
