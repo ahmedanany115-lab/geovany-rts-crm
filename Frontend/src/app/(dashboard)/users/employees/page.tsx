@@ -38,7 +38,12 @@ export default function UsersPage() {
   }
 
   if (!isAdmin) return null;
-  const { data: users, isLoading, refetch } = useQuery({ queryKey: ["system-users"], queryFn: () => apiFetch<SystemUser[]>("/users") });
+  const { data: users, isLoading, isError, refetch } = useQuery({
+    queryKey: ["system-users"],
+    queryFn: () => apiFetch<SystemUser[]>("/users"),
+    retry: 2,
+    staleTime: 30_000,
+  });
   const toggle = useMutation({
     mutationFn: (id: string) => apiFetch<{ id: string; isActive: boolean }>(`/users/${id}/toggle-active`, { method: "PATCH" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["system-users"] }),
@@ -70,7 +75,15 @@ export default function UsersPage() {
         ))}
       </div>
       <div className="relative max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search") + "..."} className="input pl-10 w-full" /></div>
-      {isLoading ? <div className="text-center py-12 text-muted-foreground">{t("loading")}</div> : (
+      {isLoading ? (
+        <div className="text-center py-12 text-muted-foreground">{t("loading")}</div>
+      ) : isError ? (
+        <div className="card p-8 text-center space-y-3">
+          <p className="text-red-600 font-medium">Failed to load users.</p>
+          <p className="text-sm text-muted-foreground">Check that your session is still active and you have Admin privileges.</p>
+          <button onClick={() => refetch()} className="btn-primary px-4 py-2 rounded-lg text-sm">Retry</button>
+        </div>
+      ) : (
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/30"><tr>

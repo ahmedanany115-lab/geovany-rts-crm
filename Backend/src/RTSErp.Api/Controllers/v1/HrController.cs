@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Infrastructure.Persistence;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace RTSErp.Api.Controllers.v1;
 
@@ -27,14 +28,28 @@ public class HrController : BaseApiController
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private async Task<ApplicationUser> GetCurrentUserAsync()
+    /// <summary>
+    /// Resolves the current user from the JWT sub claim (user ID).
+    /// Returns null only if the token is malformed — the [Authorize] attribute
+    /// already guarantees a valid token exists at this point.
+    /// </summary>
+    private async Task<ApplicationUser?> GetCurrentUserAsync()
     {
-        var name = User.Identity?.Name ?? User.Claims
-            .FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name ||
-                                 c.Type == System.Security.Claims.ClaimTypes.Email ||
-                                 c.Type == "sub" || c.Type == "email")?.Value
-            ?? string.Empty;
-        return (await _userManager.FindByNameAsync(name))!;
+        // Try sub claim first (user GUID — most reliable)
+        var sub = User.Claims
+            .FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier
+                              || c.Type == "sub")?.Value;
+
+        if (!string.IsNullOrEmpty(sub) && Guid.TryParse(sub, out var userId))
+            return await _userManager.FindByIdAsync(userId.ToString());
+
+        // Fall back to email claim
+        var email = User.Claims
+            .FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email
+                              || c.Type == "email"
+                              || c.Type == System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
+
+        return string.IsNullOrEmpty(email) ? null : await _userManager.FindByEmailAsync(email);
     }
 
     /// <summary>Can see ALL employees' records (not just own).</summary>
@@ -96,19 +111,21 @@ public class HrController : BaseApiController
         var me = await GetCurrentUserAsync();
         if (me is null) return Unauthorized();
 
-        var days = (req.EndDate.ToDateTime(TimeOnly.MinValue) -
-                    req.StartDate.ToDateTime(TimeOnly.MinValue)).Days + 1;
+        // Guard against invalid date range
+        var startDt = req.StartDate.ToDateTime(TimeOnly.MinValue);
+        var endDt   = req.EndDate.ToDateTime(TimeOnly.MinValue);
+        var days    = Math.Max(1, (int)(endDt - startDt).TotalDays + 1);
 
         var leave = new LeaveRequest
         {
             EmployeeId    = me.Id,
-            EmployeeEmail = me.Email!,
+            EmployeeEmail = me.Email ?? string.Empty,
             EmployeeName  = $"{me.FirstName} {me.LastName}".Trim(),
             Type          = req.Type,
             StartDate     = req.StartDate,
             EndDate       = req.EndDate,
             DaysCount     = days,
-            Reason        = req.Reason,
+            Reason        = req.Reason ?? string.Empty,
             Status        = LeaveStatus.Pending,
             CreatedBy     = me.Id
         };
@@ -129,7 +146,8 @@ public class HrController : BaseApiController
         var me = await GetCurrentUserAsync();
 
         leave.Status         = req.Approve ? LeaveStatus.Approved : LeaveStatus.Rejected;
-        leave.ReviewedByName = $"{me?.FirstName} {me?.LastName}".Trim();
+        leave.ReviewedByName = me is null ? "Admin"
+                             : $"{me.FirstName} {me.LastName}".Trim().NullIfEmpty() ?? me.Email ?? "Admin";
         leave.ReviewedAt     = DateTime.UtcNow;
         leave.ReviewNote     = req.Note;
         leave.ModifiedAt     = DateTime.UtcNow;
@@ -145,8 +163,9 @@ public class HrController : BaseApiController
         var leave = await _db.LeaveRequests.FindAsync(id);
         if (leave is null || leave.IsDeleted) return NotFound();
 
-        // Only owner or admin can delete; only if still Pending
         var me = await GetCurrentUserAsync();
+        if (me is null) return Unauthorized();
+
         if (leave.EmployeeId != me.Id && !User.IsInRole("Admin"))
             return Forbid();
         if (leave.Status != LeaveStatus.Pending && !User.IsInRole("Admin"))
@@ -154,6 +173,7 @@ public class HrController : BaseApiController
 
         leave.IsDeleted  = true;
         leave.ModifiedAt = DateTime.UtcNow;
+        leave.ModifiedBy = me.Id;
         await _db.SaveChangesAsync();
         return NoContent();
     }
@@ -188,19 +208,31 @@ public class HrController : BaseApiController
         if (!string.IsNullOrEmpty(toDate) && DateTime.TryParse(toDate, out var td))
             query = query.Where(m => m.StartTime <= td);
 
-        var items = await query
+        // Fetch raw data first — DateTime subtraction is not SQL-translatable
+        var raw = await query
             .OrderByDescending(m => m.StartTime)
             .Select(m => new
             {
                 m.Id, m.EmployeeId, m.EmployeeEmail, m.EmployeeName,
                 m.Title, m.Description,
-                type    = m.Type.ToString(),
-                typeId  = (int)m.Type,
+                type   = m.Type.ToString(),
+                typeId = (int)m.Type,
                 m.StartTime, m.EndTime,
-                durationMinutes = (int)(m.EndTime - m.StartTime).TotalMinutes,
                 m.Location, m.Attendees, m.Outcome, m.CreatedAt
             })
             .ToListAsync(ct);
+
+        // Compute duration client-side (not SQL-translatable)
+        var items = raw.Select(m => new
+        {
+            m.Id, m.EmployeeId, m.EmployeeEmail, m.EmployeeName,
+            m.Title, m.Description,
+            m.type, m.typeId,
+            startTime       = m.StartTime,
+            endTime         = m.EndTime,
+            durationMinutes = (int)(m.EndTime - m.StartTime).TotalMinutes,
+            m.Location, m.Attendees, m.Outcome, m.CreatedAt
+        }).ToList();
 
         return Ok(items);
     }
@@ -214,13 +246,13 @@ public class HrController : BaseApiController
         var meeting = new MeetingLog
         {
             EmployeeId    = me.Id,
-            EmployeeEmail = me.Email!,
+            EmployeeEmail = me.Email ?? string.Empty,
             EmployeeName  = $"{me.FirstName} {me.LastName}".Trim(),
-            Title         = req.Title,
+            Title         = req.Title ?? string.Empty,
             Description   = req.Description,
             Type          = req.Type,
             StartTime     = req.StartTime,
-            EndTime       = req.EndTime,
+            EndTime       = req.EndTime > req.StartTime ? req.EndTime : req.StartTime.AddHours(1),
             Location      = req.Location,
             Attendees     = req.Attendees,
             Outcome       = req.Outcome,
@@ -239,11 +271,14 @@ public class HrController : BaseApiController
         if (meeting is null || meeting.IsDeleted) return NotFound();
 
         var me = await GetCurrentUserAsync();
+        if (me is null) return Unauthorized();
+
         if (meeting.EmployeeId != me.Id && !User.IsInRole("Admin"))
             return Forbid();
 
         meeting.IsDeleted  = true;
         meeting.ModifiedAt = DateTime.UtcNow;
+        meeting.ModifiedBy = me.Id;
         await _db.SaveChangesAsync();
         return NoContent();
     }
@@ -254,12 +289,12 @@ public class HrController : BaseApiController
         LeaveType Type,
         DateOnly  StartDate,
         DateOnly  EndDate,
-        string    Reason);
+        string?   Reason);
 
     public record ReviewRequest(bool Approve, string? Note);
 
     public record LogMeetingRequest(
-        string      Title,
+        string?     Title,
         string?     Description,
         MeetingType Type,
         DateTime    StartTime,
@@ -267,4 +302,10 @@ public class HrController : BaseApiController
         string?     Location,
         string?     Attendees,
         string?     Outcome);
+}
+
+internal static class HrStringExtensions
+{
+    internal static string? NullIfEmpty(this string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s;
 }

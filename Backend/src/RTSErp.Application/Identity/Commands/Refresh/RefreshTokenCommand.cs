@@ -58,7 +58,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissionCodes);
+        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissionCodes, roleNames);
 
         return new RefreshTokenResult
         {

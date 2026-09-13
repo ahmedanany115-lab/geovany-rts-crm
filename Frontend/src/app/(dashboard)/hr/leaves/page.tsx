@@ -234,7 +234,7 @@ export default function LeavesPage() {
                         : req.status}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {req.startDate} → {req.endDate} ({req.daysCount} {t("days_count")})
+                      {req?.startDate} → {req?.endDate} ({req?.daysCount ?? 0} {t("days_count")})
                     </span>
                   </div>
                   {req.reason && (

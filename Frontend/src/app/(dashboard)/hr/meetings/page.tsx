@@ -248,12 +248,12 @@ export default function MeetingsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                      <span>{fmt(m.startTime)} → {fmt(m.endTime)}</span>
+                      <span>{m?.startTime ? fmt(m.startTime) : "—"} → {m?.endTime ? fmt(m.endTime) : "—"}</span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {m.durationMinutes >= 60
-                          ? `${Math.floor(m.durationMinutes/60)}h ${m.durationMinutes%60}m`
-                          : `${m.durationMinutes}m`}
+                        {(m?.durationMinutes ?? 0) >= 60
+                          ? `${Math.floor((m?.durationMinutes ?? 0)/60)}h ${(m?.durationMinutes ?? 0)%60}m`
+                          : `${m?.durationMinutes ?? 0}m`}
                       </span>
                       {m.location && <span>📍 {m.location}</span>}
                     </div>
