@@ -220,3 +220,76 @@ export const useCreateBankTransaction = () => {
 // ── Currency helpers ──────────────────────────────────────────────────────────
 // Re-export finance currencies so ERP forms can use them without cross-feature imports
 export { useCurrencies } from "@/features/finance/hooks";
+
+// ── Maintenance & Service Contracts ───────────────────────────────────────────
+
+import { maintenanceApi } from "../api/erpApi";
+
+export const useMaintenanceContracts = (p?: Parameters<typeof maintenanceApi.listContracts>[0]) =>
+  useQuery({ queryKey: ["maintenance-contracts", p], queryFn: () => maintenanceApi.listContracts(p) });
+
+export const useMaintenanceContract = (id: string) =>
+  useQuery({ queryKey: ["maintenance-contract", id], queryFn: () => maintenanceApi.getContract(id), enabled: !!id });
+
+export const useCreateMaintenanceContract = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: maintenanceApi.createContract,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance-contracts"] }),
+  });
+};
+
+export const useChangeContractStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: number }) =>
+      maintenanceApi.changeStatus(id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maintenance-contracts"] });
+      qc.invalidateQueries({ queryKey: ["maintenance-contract"] });
+    },
+  });
+};
+
+export const useMaintenanceVisits = (p?: Parameters<typeof maintenanceApi.listVisits>[0]) =>
+  useQuery({ queryKey: ["maintenance-visits", p], queryFn: () => maintenanceApi.listVisits(p) });
+
+export const useScheduleVisit = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: maintenanceApi.scheduleVisit,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maintenance-visits"] });
+      qc.invalidateQueries({ queryKey: ["maintenance-contract"] });
+    },
+  });
+};
+
+export const useCompleteVisit = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      maintenanceApi.completeVisit(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maintenance-visits"] });
+      qc.invalidateQueries({ queryKey: ["maintenance-contract"] });
+    },
+  });
+};
+
+export const useCancelVisit = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      maintenanceApi.cancelVisit(id, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance-visits"] }),
+  });
+};
+
+export const useUpsertEquipment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: maintenanceApi.upsertEquipment,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance-contract"] }),
+  });
+};

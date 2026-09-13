@@ -4,6 +4,7 @@ using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
+using RTSErp.Domain.Entities.Maintenance;
 using RTSErp.Domain.Entities.Operational;
 using RTSErp.Infrastructure.Persistence.Configurations.Accounting;
 using RTSErp.Infrastructure.Persistence.Configurations.Operational;
@@ -63,6 +64,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // ── HR / Employee Self-Service ────────────────────────────────────────────
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<MeetingLog>   MeetingLogs   => Set<MeetingLog>();
+
+    // ── Maintenance & Service Contracts ───────────────────────────────────────
+    public DbSet<MaintenanceContract> MaintenanceContracts => Set<MaintenanceContract>();
+    public DbSet<ContractQuarter>     ContractQuarters     => Set<ContractQuarter>();
+    public DbSet<MaintenanceVisit>    MaintenanceVisits    => Set<MaintenanceVisit>();
+    public DbSet<ContractEquipment>   ContractEquipments   => Set<ContractEquipment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

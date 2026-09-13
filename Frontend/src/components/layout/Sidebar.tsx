@@ -7,7 +7,7 @@ import {
   Package, Receipt, BarChart3, UserCog, Settings, ChevronsLeft, ChevronsRight,
   Landmark, ShoppingCart, ShoppingBag, Truck, CreditCard, DollarSign,
   Warehouse, TrendingUp, BookOpen, ArrowLeftRight, CalendarDays, Coins,
-  HeartHandshake,
+  HeartHandshake, Wrench, ClipboardList, HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-state";
@@ -91,6 +91,17 @@ export function Sidebar() {
           <NavLink href="/hr/leaves"   label={t("leaves")}   icon={HeartHandshake} />
           <NavLink href="/hr/meetings" label={t("meetings")} icon={CalendarDays} />
         </div>
+
+        {/* ── Maintenance section (all ERP-visible roles) ── */}
+        {showErp && (
+          <div className="mt-3 pt-2 border-t border-border/50">
+            <SectionLabel text={t("maintenance")} />
+            <NavLink href="/erp/maintenance"           label={t("maintenance")}            icon={Wrench} />
+            <NavLink href="/erp/maintenance/contracts" label={t("maintenance_contracts")}  icon={ClipboardList} />
+            <NavLink href="/erp/maintenance/visits"    label={t("maintenance_visits")}     icon={CalendarDays} />
+            <NavLink href="/erp/maintenance/equipment" label={t("maintenance_equipment")}  icon={HardDrive} />
+          </div>
+        )}
 
         {/* ── Finance & ERP toggle ── */}
         {showErp && (

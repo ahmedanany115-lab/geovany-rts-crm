@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Identity;
+using RTSErp.Domain.Entities.Maintenance;
 using RTSErp.Domain.Entities.Operational;
 
 namespace RTSErp.Application.Common.Interfaces;
@@ -47,6 +48,12 @@ public interface IApplicationDbContext
     DbSet<BankTransaction> BankTransactions { get; }
     DbSet<Cheque> Cheques { get; }
     DbSet<SalesCommission> SalesCommissions { get; }
+
+    // ── Maintenance & Service Contracts ───────────────────────────────────────
+    DbSet<MaintenanceContract> MaintenanceContracts { get; }
+    DbSet<ContractQuarter>     ContractQuarters     { get; }
+    DbSet<MaintenanceVisit>    MaintenanceVisits    { get; }
+    DbSet<ContractEquipment>   ContractEquipments   { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

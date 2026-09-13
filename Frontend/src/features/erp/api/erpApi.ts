@@ -168,3 +168,69 @@ export const bankAccountsApi = {
 export const erpDashboardApi = {
   kpis: () => apiFetch<ErpDashboardKpiDto>("/erpdashboard/kpis"),
 };
+
+// ── Maintenance & Service Contracts ───────────────────────────────────────────
+
+export interface MaintenanceContractDto {
+  id: string; contractNumber: string;
+  customerId: string; customerName: string;
+  startDate: string; endDate: string;
+  totalVisitsPerQuarter: number; contractValue: number; currencyCode: string;
+  status: number; statusName: string; notes?: string;
+  totalQuarters: number; activeQuarter: number; remainingVisitsThisQuarter: number;
+  createdAt: string;
+}
+
+export interface MaintenanceVisitDto {
+  id: string; quarterId: string; quarterNumber: number;
+  contractId: string; contractNumber: string; customerName: string;
+  scheduledDate: string; actualDate?: string;
+  technicianName?: string;
+  status: number; statusName: string;
+  workDescription?: string;
+  extraChargesAmount: number; extraChargesNotes?: string;
+  notes?: string; createdAt: string;
+}
+
+export interface ContractEquipmentDto {
+  id: string; contractId: string; itemName: string;
+  serialNumber?: string; brand?: string; model?: string;
+  location?: string; installDate?: string; notes?: string; productName?: string;
+}
+
+const qs2 = (p: Record<string, unknown>) => {
+  const q = Object.entries(p).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  return q.length ? "?" + q.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&") : "";
+};
+
+export const maintenanceApi = {
+  listContracts: (p?: { status?: number; customerId?: string; search?: string }) =>
+    apiFetch<MaintenanceContractDto[]>(`/maintenance/contracts${qs2(p ?? {})}`),
+
+  getContract: (id: string) =>
+    apiFetch<any>(`/maintenance/contracts/${id}`),
+
+  createContract: (data: unknown) =>
+    apiFetch<{ id: string }>("/maintenance/contracts", { method: "POST", body: JSON.stringify(data) }),
+
+  changeStatus: (id: string, status: number) =>
+    apiFetch(`/maintenance/contracts/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+
+  listVisits: (p?: { contractId?: string; status?: number; fromDate?: string; toDate?: string }) =>
+    apiFetch<MaintenanceVisitDto[]>(`/maintenance/visits${qs2(p ?? {})}`),
+
+  scheduleVisit: (data: unknown) =>
+    apiFetch<{ id: string }>("/maintenance/visits/schedule", { method: "POST", body: JSON.stringify(data) }),
+
+  completeVisit: (id: string, data: unknown) =>
+    apiFetch(`/maintenance/visits/${id}/complete`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  cancelVisit: (id: string, reason?: string) =>
+    apiFetch(`/maintenance/visits/${id}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+
+  upsertEquipment: (data: unknown) =>
+    apiFetch<{ id: string }>("/maintenance/equipment", { method: "POST", body: JSON.stringify(data) }),
+
+  deleteEquipment: (id: string) =>
+    apiFetch(`/maintenance/equipment/${id}`, { method: "DELETE" }),
+};

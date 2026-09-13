@@ -1177,5 +1177,114 @@ public sealed class DatabaseSeedingService : BackgroundService
             """;
 
         yield return """CREATE INDEX IF NOT EXISTS "IX_MeetingLogs_EmployeeId" ON "MeetingLogs"("EmployeeId")""";
+
+        // ── Maintenance & Service Contracts ───────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "MaintenanceContracts" (
+                "Id"                       uuid         NOT NULL DEFAULT gen_random_uuid(),
+                "ContractNumber"           varchar(50)  NOT NULL DEFAULT '',
+                "CustomerId"               uuid         NOT NULL,
+                "StartDate"                date         NOT NULL,
+                "EndDate"                  date         NOT NULL,
+                "TotalVisitsPerQuarter"    integer      NOT NULL DEFAULT 1,
+                "CurrencyId"               uuid         NOT NULL,
+                "ContractValue"            numeric(18,4) NOT NULL DEFAULT 0,
+                "RevenueAccountId"         uuid,
+                "ReceivableAccountId"      uuid,
+                "DeferredRevenueAccountId" uuid,
+                "InitialJournalEntryId"    uuid,
+                "Status"                   integer      NOT NULL DEFAULT 1,
+                "Notes"                    text,
+                "CreatedAt"                timestamptz  NOT NULL DEFAULT NOW(),
+                "CreatedBy"                uuid,
+                "ModifiedAt"               timestamptz,
+                "ModifiedBy"               uuid,
+                "IsDeleted"                boolean      NOT NULL DEFAULT false,
+                CONSTRAINT "PK_MaintenanceContracts" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_MaintenanceContracts_CustomerId" ON "MaintenanceContracts"("CustomerId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_MaintenanceContracts_Status"     ON "MaintenanceContracts"("Status")""";
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "ContractQuarters" (
+                "Id"                    uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "ContractId"            uuid          NOT NULL,
+                "QuarterNumber"         integer       NOT NULL DEFAULT 1,
+                "StartDate"             date          NOT NULL,
+                "EndDate"               date          NOT NULL,
+                "AllocatedVisits"       integer       NOT NULL DEFAULT 1,
+                "UsedVisits"            integer       NOT NULL DEFAULT 0,
+                "Status"                integer       NOT NULL DEFAULT 1,
+                "RevenueJournalEntryId" uuid,
+                "QuarterValue"          numeric(18,4) NOT NULL DEFAULT 0,
+                "CreatedAt"             timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"             uuid,
+                "ModifiedAt"            timestamptz,
+                "ModifiedBy"            uuid,
+                "IsDeleted"             boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_ContractQuarters" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_ContractQuarters_MaintenanceContracts"
+                    FOREIGN KEY ("ContractId") REFERENCES "MaintenanceContracts"("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_ContractQuarters_ContractId" ON "ContractQuarters"("ContractId")""";
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "MaintenanceVisits" (
+                "Id"                           uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "QuarterId"                    uuid          NOT NULL,
+                "ScheduledDate"                date          NOT NULL,
+                "ActualDate"                   date,
+                "TechnicianId"                 uuid,
+                "TechnicianName"               varchar(200),
+                "Status"                       integer       NOT NULL DEFAULT 1,
+                "WorkDescription"              text,
+                "CustomerFeedback"             text,
+                "ExtraChargesAmount"           numeric(18,4) NOT NULL DEFAULT 0,
+                "ExtraChargesNotes"            text,
+                "ExtraChargesJournalEntryId"   uuid,
+                "Notes"                        text,
+                "CreatedAt"                    timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"                    uuid,
+                "ModifiedAt"                   timestamptz,
+                "ModifiedBy"                   uuid,
+                "IsDeleted"                    boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_MaintenanceVisits" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_MaintenanceVisits_ContractQuarters"
+                    FOREIGN KEY ("QuarterId") REFERENCES "ContractQuarters"("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_MaintenanceVisits_QuarterId" ON "MaintenanceVisits"("QuarterId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_MaintenanceVisits_Status"    ON "MaintenanceVisits"("Status")""";
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "ContractEquipments" (
+                "Id"           uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "ContractId"   uuid          NOT NULL,
+                "ItemName"     varchar(300)  NOT NULL DEFAULT '',
+                "SerialNumber" varchar(100),
+                "Brand"        varchar(100),
+                "Model"        varchar(100),
+                "Location"     varchar(200),
+                "InstallDate"  date,
+                "Notes"        text,
+                "ProductId"    uuid,
+                "CreatedAt"    timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"    uuid,
+                "ModifiedAt"   timestamptz,
+                "ModifiedBy"   uuid,
+                "IsDeleted"    boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_ContractEquipments" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_ContractEquipments_MaintenanceContracts"
+                    FOREIGN KEY ("ContractId") REFERENCES "MaintenanceContracts"("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_ContractEquipments_ContractId" ON "ContractEquipments"("ContractId")""";
     }
 }

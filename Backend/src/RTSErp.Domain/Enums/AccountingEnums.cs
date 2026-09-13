@@ -39,4 +39,7 @@ public enum ReferenceType
     ChequeBounce     = 11,
     SalesDelivery    = 12,
     PurchaseReceipt  = 13,
+    MaintenanceContract = 14,
+    MaintenanceVisit    = 15,
+    QuarterRecognition  = 16,
 }
