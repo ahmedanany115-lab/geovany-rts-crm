@@ -41,6 +41,9 @@ export const accountsApi = {
 
   toggleStatus: (id: string) =>
     apiFetch<void>(`/accounts/${id}/toggle-status`, { method: "PATCH" }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/accounts/${id}`, { method: "DELETE" }),
 };
 
 // ── Journal Entries ───────────────────────────────────────────────────────────

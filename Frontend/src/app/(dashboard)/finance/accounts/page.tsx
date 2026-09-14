@@ -1,12 +1,22 @@
 "use client";
+
 import { useState } from "react";
-import { useAccounts, useCreateAccount, useToggleAccountStatus } from "@/features/finance/hooks";
+import {
+  useAccounts,
+  useCreateAccount,
+  useUpdateAccount,
+  useDeleteAccount,
+  useToggleAccountStatus,
+} from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
-import { AccountType, AccountTypeLabels } from "@/features/finance/types";
-import { BookOpen, Plus, RefreshCw, PowerOff, ChevronRight } from "lucide-react";
+import { AccountType, AccountTypeLabels, type AccountDto } from "@/features/finance/types";
+import {
+  BookOpen, Plus, RefreshCw, PowerOff, ChevronRight,
+  Pencil, Trash2, X, Check, AlertTriangle,
+} from "lucide-react";
 
-const ACCOUNT_TYPE_OPTIONS = [
+const TYPE_OPTS = [
   { value: AccountType.Asset,       label: "Asset" },
   { value: AccountType.Liability,   label: "Liability" },
   { value: AccountType.Equity,      label: "Equity" },
@@ -15,55 +25,165 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: AccountType.Expense,     label: "Expense" },
 ];
 
-const INIT = { code: "", name: "", nameAr: "", accountType: AccountType.Asset, parentId: "", isGroup: false };
+const INIT = {
+  code: "", name: "", nameAr: "",
+  accountType: AccountType.Asset as AccountType,
+  parentId: "", isGroup: false,
+};
+
+type FormState = typeof INIT;
 
 export default function AccountsPage() {
   const { t } = useT();
   const { toast } = useToast();
   const { data, isLoading, refetch } = useAccounts();
-  const create = useCreateAccount();
-  const toggle = useToggleAccountStatus();
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(INIT);
-  const [error, setError] = useState<string | null>(null);
 
+  const create = useCreateAccount();
+  const update = useUpdateAccount();
+  const del    = useDeleteAccount();
+  const toggle = useToggleAccountStatus();
+
+  // Create / edit form
+  const [showForm,  setShowForm]  = useState(false);
+  const [editing,   setEditing]   = useState<AccountDto | null>(null);
+  const [form,      setForm]      = useState<FormState>(INIT);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<AccountDto | null>(null);
+
+  /* ── helpers ── */
+  const openCreate = () => {
+    setEditing(null);
+    setForm(INIT);
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (a: AccountDto) => {
+    setEditing(a);
+    setForm({
+      code:        a.code,
+      name:        a.name,
+      nameAr:      a.nameAr ?? "",
+      accountType: a.accountType as AccountType,
+      parentId:    a.parentId ?? "",
+      isGroup:     a.isGroup,
+    });
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditing(null);
+    setForm(INIT);
+    setFormError(null);
+  };
+
+  /* ── submit (create or update) ── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+
+    if (!form.name.trim()) { setFormError("Name is required."); return; }
+    if (!editing && !form.code.trim()) { setFormError("Code is required."); return; }
+
     try {
-      await create.mutateAsync({
-        code:        form.code.trim(),
-        name:        form.name.trim(),
-        nameAr:      form.nameAr.trim() || undefined,
-        accountType: form.accountType,
-        isGroup:     form.isGroup,
-        parentId:    form.parentId || undefined,
-      });
-      toast(`Account "${form.name}" created successfully.`, "success");
-      setForm(INIT);
-      setShowForm(false);
+      if (editing) {
+        await update.mutateAsync({
+          id: editing.id,
+          data: {
+            name:     form.name.trim(),
+            nameAr:   form.nameAr.trim() || undefined,
+            isGroup:  form.isGroup,
+            parentId: form.parentId || undefined,
+          },
+        });
+        toast(`"${form.name}" updated.`, "success");
+      } else {
+        await create.mutateAsync({
+          code:        form.code.trim(),
+          name:        form.name.trim(),
+          nameAr:      form.nameAr.trim() || undefined,
+          accountType: form.accountType,
+          isGroup:     form.isGroup,
+          parentId:    form.parentId || undefined,
+        });
+        toast(`Account "${form.name}" created.`, "success");
+      }
+      closeForm();
     } catch (err: any) {
-      // apiFetch throws Error whose message = problem.title
-      // Backend also sends errors.message[] and errors.exception[] — we try to expose them
-      let msg = err?.message ?? "Failed to save account.";
-      // If the raw response body is on the error, extract the inner message
-      if (err?.errors?.message?.[0]) msg += ` — ${err.errors.message[0]}`;
-      setError(msg);
+      const msg = err?.message ?? "Failed to save.";
+      setFormError(msg);
       toast(msg, "error");
     }
   };
 
-  const handleToggle = async (id: string, name: string, current: boolean) => {
+  /* ── toggle active ── */
+  const handleToggle = async (a: AccountDto) => {
     try {
-      await toggle.mutateAsync(id);
-      toast(`"${name}" ${current ? "deactivated" : "activated"}.`, "success");
-    } catch {
-      toast("Could not update status.", "error");
+      await toggle.mutateAsync(a.id);
+      toast(`"${a.name}" ${a.isActive ? "deactivated" : "activated"}.`, "success");
+    } catch (err: any) { toast(err?.message ?? "Failed.", "error"); }
+  };
+
+  /* ── delete ── */
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await del.mutateAsync(deleteTarget.id);
+      toast(`"${deleteTarget.name}" deleted.`, "info");
+      setDeleteTarget(null);
+    } catch (err: any) {
+      toast(err?.message ?? "Failed to delete.", "error");
+      setDeleteTarget(null);
     }
+  };
+
+  /* ── group accounts for parent selector ── */
+  const groupAccounts = data?.filter(a => a.isGroup && a.isActive) ?? [];
+
+  /* ── type badge colours ── */
+  const TYPE_CLS: Record<AccountType, string> = {
+    [AccountType.Asset]:       "bg-blue-100 text-blue-700",
+    [AccountType.Liability]:   "bg-red-100 text-red-700",
+    [AccountType.Equity]:      "bg-purple-100 text-purple-700",
+    [AccountType.Revenue]:     "bg-emerald-100 text-emerald-700",
+    [AccountType.CostOfSales]: "bg-orange-100 text-orange-700",
+    [AccountType.Expense]:     "bg-amber-100 text-amber-700",
   };
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* ── Delete confirm modal ── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl border shadow-xl p-6 max-w-sm w-full space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <h2 className="font-semibold">{t("confirm_delete")}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Delete <strong>{deleteTarget.code} — {deleteTarget.name}</strong>?
+              {" "}Accounts with existing journal entries cannot be deleted.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteTarget(null)}
+                className="btn-ghost px-4 py-2 rounded-lg text-sm">
+                Cancel
+              </button>
+              <button onClick={handleDelete} disabled={del.isPending}
+                className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                {del.isPending ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <BookOpen className="h-6 w-6 text-primary" />
@@ -74,81 +194,110 @@ export default function AccountsPage() {
             <RefreshCw className="h-4 w-4" />
           </button>
           <button
-            onClick={() => { setShowForm(v => !v); setError(null); setForm(INIT); }}
+            onClick={showForm ? closeForm : openCreate}
             className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
           >
-            <Plus className="h-4 w-4" />
+            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {showForm ? t("cancel") : t("add")}
           </button>
         </div>
       </div>
 
-      {/* Create form */}
+      {/* ── Create / Edit form ── */}
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-5 space-y-4 border border-primary/20">
-          <h2 className="font-semibold text-sm">New Account</h2>
-          {error && (
+          <h2 className="font-semibold text-sm">
+            {editing ? `Edit: ${editing.code} — ${editing.name}` : "New Account"}
+          </h2>
+
+          {formError && (
             <div className="rounded-md bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
-              {error}
+              {formError}
             </div>
           )}
+
           <div className="grid grid-cols-2 gap-3">
+            {/* Code — only editable on create */}
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">{t("code")} *</label>
+              <label className="text-xs text-muted-foreground block mb-1">
+                {t("code")} {!editing && "*"}
+              </label>
               <input
-                required
+                required={!editing}
+                disabled={!!editing}
                 value={form.code}
                 onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                className="input w-full font-mono"
+                className="input w-full font-mono disabled:opacity-50"
                 placeholder="e.g. 1010"
               />
             </div>
+
+            {/* English name */}
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">{t("name")} (EN) *</label>
+              <label className="text-xs text-muted-foreground block mb-1">
+                {t("name")} (EN) *
+              </label>
               <input
                 required
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 className="input w-full"
-                placeholder="e.g. Cash at Hand"
               />
             </div>
+
+            {/* Arabic name */}
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">Name (AR)</label>
+              <label className="text-xs text-muted-foreground block mb-1">
+                {t("name")} (AR)
+              </label>
               <input
                 value={form.nameAr}
                 onChange={e => setForm(f => ({ ...f, nameAr: e.target.value }))}
                 className="input w-full"
                 dir="rtl"
-                placeholder="e.g. النقدية في الصندوق"
+                placeholder="الاسم بالعربية"
               />
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">{t("type")} *</label>
-              <select
-                value={form.accountType}
-                onChange={e => setForm(f => ({ ...f, accountType: Number(e.target.value) as AccountType }))}
-                className="input w-full"
-              >
-                {ACCOUNT_TYPE_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-span-2">
-              <label className="text-xs text-muted-foreground block mb-1">Parent Account (optional)</label>
+
+            {/* Type — only on create */}
+            {!editing && (
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  {t("type")} *
+                </label>
+                <select
+                  value={form.accountType}
+                  onChange={e => setForm(f => ({ ...f, accountType: Number(e.target.value) as AccountType }))}
+                  className="input w-full"
+                >
+                  {TYPE_OPTS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Parent account */}
+            <div className={editing ? "col-span-2 md:col-span-1" : ""}>
+              <label className="text-xs text-muted-foreground block mb-1">
+                Parent Account (optional)
+              </label>
               <select
                 value={form.parentId}
                 onChange={e => setForm(f => ({ ...f, parentId: e.target.value }))}
                 className="input w-full"
               >
                 <option value="">— None (top-level) —</option>
-                {data?.filter(a => a.isGroup).map(a => (
-                  <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
-                ))}
+                {groupAccounts
+                  .filter(a => !editing || a.id !== editing.id)
+                  .map(a => (
+                    <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                  ))}
               </select>
             </div>
-            <div className="flex items-center gap-2">
+
+            {/* Group checkbox */}
+            <div className="flex items-center gap-2 mt-4">
               <input
                 type="checkbox"
                 id="isGroup"
@@ -156,29 +305,29 @@ export default function AccountsPage() {
                 onChange={e => setForm(f => ({ ...f, isGroup: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <label htmlFor="isGroup" className="text-sm cursor-pointer">Group / Header Account</label>
+              <label htmlFor="isGroup" className="text-sm cursor-pointer">
+                Group / Header Account
+              </label>
             </div>
           </div>
+
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={create.isPending}
-              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50"
+              disabled={create.isPending || update.isPending}
+              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2"
             >
-              {create.isPending ? t("saving") : t("save")}
+              <Check className="h-4 w-4" />
+              {(create.isPending || update.isPending) ? t("saving") : t("save")}
             </button>
-            <button
-              type="button"
-              onClick={() => { setShowForm(false); setError(null); setForm(INIT); }}
-              className="btn-ghost px-4 py-2 rounded-lg text-sm"
-            >
+            <button type="button" onClick={closeForm} className="btn-ghost px-4 py-2 rounded-lg text-sm">
               {t("cancel")}
             </button>
           </div>
         </form>
       )}
 
-      {/* Accounts table */}
+      {/* ── Accounts table ── */}
       <div className="card overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-muted-foreground">{t("loading")}</div>
@@ -186,54 +335,87 @@ export default function AccountsPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/30">
               <tr>
-                <th className="text-left p-3 font-medium text-muted-foreground">{t("code")}</th>
+                <th className="text-left p-3 font-medium text-muted-foreground w-24">{t("code")}</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">{t("name")}</th>
-                <th className="text-left p-3 font-medium text-muted-foreground">{t("type")}</th>
-                <th className="text-center p-3 font-medium text-muted-foreground">Group</th>
-                <th className="text-center p-3 font-medium text-muted-foreground">{t("status")}</th>
-                <th className="p-3 w-10"></th>
+                <th className="text-left p-3 font-medium text-muted-foreground w-32">{t("type")}</th>
+                <th className="text-center p-3 font-medium text-muted-foreground w-20">Group</th>
+                <th className="text-center p-3 font-medium text-muted-foreground w-24">{t("status")}</th>
+                <th className="p-3 w-28 text-right text-muted-foreground">{t("actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {data?.map(a => (
                 <tr
                   key={a.id}
-                  className={`hover:bg-muted/20 ${a.isGroup ? "font-medium" : ""}`}
+                  className={`hover:bg-muted/20 ${a.isGroup ? "font-semibold" : ""} ${!a.isActive ? "opacity-50" : ""}`}
                 >
                   <td className="p-3 font-mono text-xs">{a.code}</td>
                   <td className="p-3">
                     <div className="flex items-center gap-1">
-                      {a.parentId && <ChevronRight className="h-3 w-3 text-muted-foreground/50" />}
-                      {a.name}
-                      {a.nameAr && <span className="text-xs text-muted-foreground mr-2">/ {a.nameAr}</span>}
+                      {a.parentId && !a.isGroup && (
+                        <ChevronRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                      )}
+                      <span>{a.name}</span>
+                      {a.nameAr && (
+                        <span className="text-muted-foreground font-normal text-xs mr-1">
+                          / {a.nameAr}
+                        </span>
+                      )}
                     </div>
                   </td>
-                  <td className="p-3 text-muted-foreground">
-                    {AccountTypeLabels[a.accountType as AccountType] ?? a.accountType}
+                  <td className="p-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_CLS[a.accountType as AccountType] ?? "bg-muted"}`}>
+                      {AccountTypeLabels[a.accountType as AccountType] ?? a.accountType}
+                    </span>
                   </td>
                   <td className="p-3 text-center">
-                    {a.isGroup && <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Group</span>}
+                    {a.isGroup && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
+                        Group
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 text-center">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      a.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
-                    }`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
                       {a.isActive ? t("active") : t("inactive")}
                     </span>
                   </td>
-                  <td className="p-3 text-right">
-                    <button
-                      onClick={() => handleToggle(a.id, a.name, a.isActive)}
-                      title={a.isActive ? "Deactivate" : "Activate"}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <PowerOff className="h-4 w-4" />
-                    </button>
+                  <td className="p-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Edit */}
+                      <button
+                        onClick={() => openEdit(a)}
+                        title={t("edit")}
+                        className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      {/* Toggle active */}
+                      <button
+                        onClick={() => handleToggle(a)}
+                        title={a.isActive ? t("deactivate") : t("activate")}
+                        className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                      >
+                        <PowerOff className="h-3.5 w-3.5" />
+                      </button>
+                      {/* Delete */}
+                      <button
+                        onClick={() => setDeleteTarget(a)}
+                        title={t("delete")}
+                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {!data?.length && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    {t("no_data")}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
