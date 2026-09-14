@@ -149,6 +149,11 @@ export const useApproveSalesOrder = () => {
   return useMutation({ mutationFn: salesOrdersApi.approve, onSuccess: () => qc.invalidateQueries({ queryKey: ["sales-orders"] }) });
 };
 
+export const useCancelSalesOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: salesOrdersApi.cancel, onSuccess: () => qc.invalidateQueries({ queryKey: ["sales-orders"] }) });
+};
+
 // ── Customer Invoices ─────────────────────────────────────────────────────────
 
 export const useCustomerInvoices = (p?: Parameters<typeof customerInvoicesApi.list>[0]) =>

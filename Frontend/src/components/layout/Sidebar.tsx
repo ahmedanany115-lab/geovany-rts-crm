@@ -115,7 +115,6 @@ export function Sidebar() {
         {/* ── CRM ── */}
         <Divider label="CRM" />
         <NavLink href="/crm/customers" label={t("customers")} icon={Users} />
-        <NavLink href="/crm/contacts"  label={t("contacts")}  icon={Users} />
         <NavLink href="/crm/leads"     label={t("leads")}     icon={TrendingUp} />
         <NavLink href="/quotations"    label={t("quotations")} icon={FileCheck2} />
 

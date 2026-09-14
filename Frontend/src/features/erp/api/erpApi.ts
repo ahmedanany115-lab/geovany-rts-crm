@@ -114,6 +114,7 @@ export const salesOrdersApi = {
   create: (data: unknown) =>
     apiFetch<{ id: string }>("/salesorders", { method: "POST", body: JSON.stringify(data) }),
   approve: (id: string) => apiFetch<void>(`/salesorders/${id}/approve`, { method: "POST" }),
+  cancel: (id: string) => apiFetch<void>(`/salesorders/${id}/cancel`, { method: "PATCH" }),
   createDelivery: (data: unknown) =>
     apiFetch<{ id: string }>("/salesdeliveries", { method: "POST", body: JSON.stringify(data) }),
 };

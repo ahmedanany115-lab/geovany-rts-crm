@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RTSErp.Application.Common.Interfaces;
 using RTSErp.Application.Operational.SalesOrders;
 using RTSErp.Domain.Enums;
 
@@ -22,6 +23,23 @@ public class SalesOrdersController : BaseApiController
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id)
     { await Mediator.Send(new ApproveSalesOrderCommand { Id = id }); return NoContent(); }
+
+    [HttpPatch("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var order = await db.SalesOrders.FindAsync([id], ct);
+        if (order is null || order.IsDeleted) return NotFound();
+        if (order.Status == Domain.Enums.SalesOrderStatus.Delivered)
+            return Conflict(new { message = "Cannot cancel a delivered order." });
+
+        order.Status     = Domain.Enums.SalesOrderStatus.Cancelled;
+        order.ModifiedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }
 
 [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
