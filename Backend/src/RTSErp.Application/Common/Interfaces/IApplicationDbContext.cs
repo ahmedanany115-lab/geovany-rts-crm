@@ -3,6 +3,7 @@ using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Documents;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
+using RTSErp.Domain.Entities.Notifications;
 using RTSErp.Domain.Entities.Operational;
 
 namespace RTSErp.Application.Common.Interfaces;
@@ -58,6 +59,9 @@ public interface IApplicationDbContext
 
     // ── Company Documents ─────────────────────────────────────────────────────
     DbSet<CompanyDocument> CompanyDocuments { get; }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    DbSet<AppNotification> Notifications { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

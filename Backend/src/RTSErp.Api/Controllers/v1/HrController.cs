@@ -132,6 +132,27 @@ public class HrController : BaseApiController
 
         _db.LeaveRequests.Add(leave);
         await _db.SaveChangesAsync();
+
+        // Notify all Admin/Manager users that a new leave request is pending
+        var managers = await _db.Users
+            .Where(u => u.IsActive && !u.IsDeleted)
+            .ToListAsync();
+        foreach (var mgr in managers)
+        {
+            var roles = await _userManager.GetRolesAsync(mgr);
+            if (!roles.Any(r => r is "Admin" or "Manager")) continue;
+            _db.Notifications.Add(new RTSErp.Domain.Entities.Notifications.AppNotification
+            {
+                UserId       = mgr.Id,
+                Title        = "New Leave Request",
+                Body         = $"{leave.EmployeeName} submitted a {leave.Type} leave request ({leave.StartDate:d} – {leave.EndDate:d}).",
+                Type         = "info",
+                RelatedRoute = "/hr/leaves",
+                RelatedId    = leave.Id,
+                CreatedBy    = me.Id,
+            });
+        }
+        await _db.SaveChangesAsync();
         return Ok(new { leave.Id });
     }
 
@@ -154,6 +175,22 @@ public class HrController : BaseApiController
         leave.ModifiedBy     = me?.Id;
 
         await _db.SaveChangesAsync();
+
+        // Notify the employee of the decision
+        _db.Notifications.Add(new RTSErp.Domain.Entities.Notifications.AppNotification
+        {
+            UserId       = leave.EmployeeId,
+            Title        = req.Approve ? "Leave Request Approved" : "Leave Request Rejected",
+            Body         = req.Approve
+                         ? $"Your {leave.Type} leave ({leave.StartDate:d} – {leave.EndDate:d}) has been approved."
+                         : $"Your {leave.Type} leave ({leave.StartDate:d} – {leave.EndDate:d}) was not approved.{(req.Note != null ? " Note: " + req.Note : "")}",
+            Type         = req.Approve ? "success" : "warning",
+            RelatedRoute = "/hr/leaves",
+            RelatedId    = leave.Id,
+            CreatedBy    = me?.Id,
+        });
+        await _db.SaveChangesAsync();
+
         return Ok(new { leave.Id, status = leave.Status.ToString() });
     }
 

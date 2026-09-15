@@ -1366,5 +1366,30 @@ public sealed class DatabaseSeedingService : BackgroundService
             """;
 
         yield return """CREATE INDEX IF NOT EXISTS "IX_CompanyDocuments_Category" ON "CompanyDocuments"("Category")""";
+
+        // ── Notifications ─────────────────────────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "Notifications" (
+                "Id"           uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "UserId"       uuid          NOT NULL,
+                "Title"        varchar(300)  NOT NULL DEFAULT '',
+                "Body"         text          NOT NULL DEFAULT '',
+                "Type"         varchar(20)   NOT NULL DEFAULT 'info',
+                "RelatedRoute" varchar(300),
+                "RelatedId"    uuid,
+                "IsRead"       boolean       NOT NULL DEFAULT false,
+                "ReadAt"       timestamptz,
+                "CreatedAt"    timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"    uuid,
+                "ModifiedAt"   timestamptz,
+                "ModifiedBy"   uuid,
+                "IsDeleted"    boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_Notifications" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_Notifications_UserId"  ON "Notifications"("UserId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_Notifications_IsRead"  ON "Notifications"("UserId", "IsRead")""";
     }
 }

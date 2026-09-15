@@ -6,6 +6,7 @@ using RTSErp.Domain.Entities.Documents;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
+using RTSErp.Domain.Entities.Notifications;
 using RTSErp.Domain.Entities.Operational;
 using RTSErp.Infrastructure.Persistence.Configurations.Accounting;
 using RTSErp.Infrastructure.Persistence.Configurations.Operational;
@@ -74,6 +75,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // ── Company Documents ─────────────────────────────────────────────────────
     public DbSet<CompanyDocument> CompanyDocuments => Set<CompanyDocument>();
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    public DbSet<AppNotification> Notifications => Set<AppNotification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
