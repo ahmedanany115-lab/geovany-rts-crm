@@ -159,6 +159,8 @@ export const chequesApi = {
 
 export const bankAccountsApi = {
   list: (p?: { isActive?: boolean }) => apiFetch<BankAccountDto[]>(`/bankaccounts${qs(p ?? {})}`),
+  create: (data: unknown) => apiFetch<{ id: string }>("/bankaccounts", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: unknown) => apiFetch<void>(`/bankaccounts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   transactions: (p?: { bankAccountId?: string; fromDate?: string; toDate?: string }) =>
     apiFetch<BankTransactionDto[]>(`/banktransactions${qs(p ?? {})}`),
   createTransaction: (data: unknown) =>

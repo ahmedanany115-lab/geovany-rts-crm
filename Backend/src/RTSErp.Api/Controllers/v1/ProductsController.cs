@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Operational.Products;
 
 namespace RTSErp.Api.Controllers.v1;
@@ -35,4 +36,23 @@ public class ProductsController : BaseApiController
     [HttpPatch("{id:guid}/toggle-status")]
     public async Task<IActionResult> Toggle(Guid id)
     { await Mediator.Send(new ToggleProductStatusCommand { Id = id }); return NoContent(); }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] RTSErp.Application.Common.Interfaces.IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var hasMovements = await db.InventoryMovements.AnyAsync(m => m.ProductId == id && !m.IsDeleted, ct);
+        if (hasMovements)
+            return Conflict(new { message = "Cannot delete product with inventory history. Deactivate it instead." });
+
+        var product = await db.Products.FindAsync([id], ct);
+        if (product is null || product.IsDeleted) return NotFound();
+        product.IsDeleted  = true;
+        product.ModifiedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import {
   bankAccountsApi,
   chequesApi,
@@ -83,6 +84,22 @@ export const useCreateProduct = () => {
   return useMutation({ mutationFn: productsApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }) });
 };
 
+export const useUpdateProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof productsApi.update>[1] }) => productsApi.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+  });
+};
+
+export const useDeleteProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/products/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+  });
+};
+
 export const useToggleProductStatus = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: productsApi.toggleStatus, onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }) });
@@ -96,6 +113,14 @@ export const useWarehouses = (p?: Parameters<typeof warehousesApi.list>[0]) =>
 export const useCreateWarehouse = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: warehousesApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ["warehouses"] }) });
+};
+
+export const useUpdateWarehouse = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof warehousesApi.update>[1] }) => warehousesApi.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["warehouses"] }),
+  });
 };
 
 export const useToggleWarehouseStatus = () => {
@@ -218,6 +243,19 @@ export const useDepositCheque = () => {
 
 export const useBankAccounts = (p?: Parameters<typeof bankAccountsApi.list>[0]) =>
   useQuery({ queryKey: ["bank-accounts", p], queryFn: () => bankAccountsApi.list(p) });
+
+export const useCreateBankAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: bankAccountsApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ["bank-accounts"] }) });
+};
+
+export const useUpdateBankAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) => bankAccountsApi.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bank-accounts"] }),
+  });
+};
 
 export const useBankTransactions = (p?: Parameters<typeof bankAccountsApi.transactions>[0]) =>
   useQuery({ queryKey: ["bank-transactions", p], queryFn: () => bankAccountsApi.transactions(p) });
