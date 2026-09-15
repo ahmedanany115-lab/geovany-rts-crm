@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
+using RTSErp.Domain.Entities.Documents;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
@@ -70,6 +71,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<ContractQuarter>     ContractQuarters     => Set<ContractQuarter>();
     public DbSet<MaintenanceVisit>    MaintenanceVisits    => Set<MaintenanceVisit>();
     public DbSet<ContractEquipment>   ContractEquipments   => Set<ContractEquipment>();
+
+    // ── Company Documents ─────────────────────────────────────────────────────
+    public DbSet<CompanyDocument> CompanyDocuments => Set<CompanyDocument>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

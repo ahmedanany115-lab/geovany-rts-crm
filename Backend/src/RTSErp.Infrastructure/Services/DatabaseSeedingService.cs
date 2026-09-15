@@ -1009,14 +1009,16 @@ public sealed class DatabaseSeedingService : BackgroundService
             CREATE TABLE IF NOT EXISTS "Cheques" (
                 "Id"                    uuid          NOT NULL DEFAULT gen_random_uuid(),
                 "ChequeNumber"          varchar(50)   NOT NULL,
-                "CustomerId"            uuid          NOT NULL,
+                "Direction"             integer       NOT NULL DEFAULT 1,
+                "CustomerId"            uuid,
+                "SupplierId"            uuid,
                 "BankName"              varchar(200)  NOT NULL,
                 "CurrencyId"            uuid          NOT NULL,
                 "Amount"                numeric(18,4) NOT NULL DEFAULT 0,
                 "AmountBase"            numeric(18,4) NOT NULL DEFAULT 0,
                 "IssueDate"             date          NOT NULL,
                 "DueDate"               date          NOT NULL,
-                "ReceivedDate"          date          NOT NULL,
+                "ReceivedDate"          date,
                 "BankAccountId"         uuid,
                 "Status"                integer       NOT NULL DEFAULT 1,
                 "Notes"                 text,
@@ -1028,13 +1030,15 @@ public sealed class DatabaseSeedingService : BackgroundService
                 "ModifiedAt"            timestamptz,
                 "ModifiedBy"            uuid,
                 "IsDeleted"             boolean       NOT NULL DEFAULT false,
-                CONSTRAINT "PK_Cheques" PRIMARY KEY ("Id"),
-                CONSTRAINT "FK_Cheques_BusinessPartners_CustomerId"
-                    FOREIGN KEY ("CustomerId") REFERENCES "BusinessPartners"("Id") ON DELETE RESTRICT,
-                CONSTRAINT "FK_Cheques_Currencies_CurrencyId"
-                    FOREIGN KEY ("CurrencyId") REFERENCES "Currencies"("Id") ON DELETE RESTRICT
+                CONSTRAINT "PK_Cheques" PRIMARY KEY ("Id")
             )
             """;
+
+        // Idempotent: add new Cheque columns for existing deployments
+        yield return """ALTER TABLE "Cheques" ADD COLUMN IF NOT EXISTS "Direction"   integer NOT NULL DEFAULT 1""";
+        yield return """ALTER TABLE "Cheques" ADD COLUMN IF NOT EXISTS "SupplierId"  uuid""";
+        yield return """ALTER TABLE "Cheques" ALTER COLUMN "CustomerId"    DROP NOT NULL""";
+        yield return """ALTER TABLE "Cheques" ALTER COLUMN "ReceivedDate"  DROP NOT NULL""";
 
         yield return """
             CREATE TABLE IF NOT EXISTS "CustomerPayments" (
@@ -1334,5 +1338,33 @@ public sealed class DatabaseSeedingService : BackgroundService
             """;
 
         yield return """CREATE INDEX IF NOT EXISTS "IX_ContractEquipments_ContractId" ON "ContractEquipments"("ContractId")""";
+
+        // ── Company Documents ─────────────────────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "CompanyDocuments" (
+                "Id"               uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "Name"             varchar(300)  NOT NULL DEFAULT '',
+                "Category"         varchar(100)  NOT NULL DEFAULT '',
+                "Description"      text,
+                "DocumentNumber"   varchar(100),
+                "FileName"         varchar(300)  NOT NULL DEFAULT '',
+                "OriginalName"     varchar(300)  NOT NULL DEFAULT '',
+                "ContentType"      varchar(100)  NOT NULL DEFAULT '',
+                "FileSizeBytes"    bigint        NOT NULL DEFAULT 0,
+                "StoragePath"      varchar(500)  NOT NULL DEFAULT '',
+                "UploadedByName"   varchar(200)  NOT NULL DEFAULT '',
+                "ExpiryDate"       date,
+                "IsPublic"         boolean       NOT NULL DEFAULT true,
+                "CreatedAt"        timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"        uuid,
+                "ModifiedAt"       timestamptz,
+                "ModifiedBy"       uuid,
+                "IsDeleted"        boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_CompanyDocuments" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_CompanyDocuments_Category" ON "CompanyDocuments"("Category")""";
     }
 }

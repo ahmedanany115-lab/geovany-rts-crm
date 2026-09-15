@@ -105,8 +105,14 @@ public class Cheque : BaseEntity
 {
     public string ChequeNumber { get; set; } = string.Empty;
 
-    public Guid CustomerId { get; set; }
-    public BusinessPartner Customer { get; set; } = null!;
+    // Receivable: from customer. Payable: to supplier.
+    public ChequeDirection Direction { get; set; } = ChequeDirection.Receivable;
+
+    public Guid? CustomerId { get; set; }
+    public BusinessPartner? Customer { get; set; }
+
+    public Guid? SupplierId { get; set; }
+    public BusinessPartner? Supplier { get; set; }
 
     public string BankName { get; set; } = string.Empty;
 
@@ -117,7 +123,7 @@ public class Cheque : BaseEntity
 
     public DateOnly IssueDate { get; set; }
     public DateOnly DueDate { get; set; }
-    public DateOnly ReceivedDate { get; set; }
+    public DateOnly? ReceivedDate { get; set; }
 
     // Where the cheque was deposited (filled when status = Deposited)
     public Guid? BankAccountId { get; set; }
@@ -127,9 +133,9 @@ public class Cheque : BaseEntity
     public string? Notes { get; set; }
 
     // Accounting entries
-    public Guid? ReceiptJournalEntryId { get; set; }    // on receipt
-    public Guid? DepositJournalEntryId { get; set; }    // on deposit
-    public Guid? BounceJournalEntryId { get; set; }     // on bounce
+    public Guid? ReceiptJournalEntryId { get; set; }
+    public Guid? DepositJournalEntryId { get; set; }
+    public Guid? BounceJournalEntryId { get; set; }
 }
 
 // ── Sales Commission ──────────────────────────────────────────────────────────

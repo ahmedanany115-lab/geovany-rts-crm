@@ -138,9 +138,13 @@ export function Sidebar() {
                 { href: "/finance/journal-entries", label: t("journal_entries"),   icon: FileText },
                 { href: "/finance/ledger",           label: t("ledger"),            icon: Receipt },
                 { href: "/finance/trial-balance",    label: t("trial_balance"),     icon: BarChart3 },
+                { href: "/finance/income-statement", label: lang === "ar" ? "قائمة الدخل" : "Income Statement", icon: TrendingUp },
+                { href: "/finance/profit-loss",      label: lang === "ar" ? "الأرباح والخسائر" : "Profit & Loss",  icon: BarChart3 },
                 { href: "/finance/fiscal-periods",   label: t("fiscal_periods"),    icon: CalendarDays },
                 { href: "/finance/currencies",       label: t("currencies"),        icon: Coins },
                 { href: "/erp/bank-accounts",        label: t("bank_accounts"),     icon: Landmark },
+                { href: "/erp/customer-invoices",    label: t("customer_invoices"), icon: Receipt },
+                { href: "/erp/supplier-invoices",    label: lang === "ar" ? "فواتير الموردين" : "Supplier Invoices", icon: FileText },
               ].map(i => <NavLink key={i.href} {...i} indent />)}
             </Collapsible>
           </>
@@ -219,7 +223,8 @@ export function Sidebar() {
 
         {/* ── Bottom ── */}
         <Divider />
-        <NavLink href="/reports/sales" label={t("reports")} icon={BarChart3} />
+        <NavLink href="/reports/sales"    label={t("reports")}   icon={BarChart3} />
+        <NavLink href="/documents"        label={lang === "ar" ? "وثائق الشركة" : "Documents"} icon={FileText} />
         {isAdmin && <NavLink href="/users/employees" label={t("users")} icon={UserCog} />}
         <NavLink href="/settings/company" label={t("settings")} icon={Settings} />
       </nav>

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RTSErp.Application.Common.Interfaces;
 using RTSErp.Application.Maintenance;
 using RTSErp.Domain.Entities.Maintenance;
 
@@ -89,6 +91,63 @@ public class MaintenanceController : BaseApiController
     }
 
     // ── Equipment ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generate a Customer Invoice from an active Maintenance Contract.
+    /// Safe to call multiple times — prevents duplicate invoices per contract
+    /// unless a billing period is specified.
+    /// </summary>
+    [HttpPost("contracts/{id:guid}/generate-invoice")]
+    [Authorize(Roles = "Admin,Manager,Accountant")]
+    public async Task<IActionResult> GenerateContractInvoice(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        [FromServices] ICurrentUserService user,
+        CancellationToken ct)
+    {
+        var contract = await db.MaintenanceContracts
+            .Include(c => c.Customer)
+            .Include(c => c.Currency)
+            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, ct);
+        if (contract is null) return NotFound();
+
+        if (contract.Status != Domain.Entities.Maintenance.ContractStatus.Active)
+            return BadRequest(new { message = "Contract must be Active to generate an invoice." });
+
+        if (contract.ContractValue <= 0)
+            return BadRequest(new { message = "Contract value must be > 0." });
+
+        // Prevent duplicate: check if an unposted invoice already exists for this contract
+        var existing = await db.CustomerInvoices
+            .FirstOrDefaultAsync(i => i.Notes != null && i.Notes.Contains(contract.ContractNumber)
+                && !i.IsDeleted && i.Status == Domain.Enums.InvoiceStatus.Draft, ct);
+        if (existing is not null)
+            return Conflict(new { message = "A draft invoice already exists for this contract.", invoiceId = existing.Id });
+
+        var count = await db.CustomerInvoices.CountAsync(ct);
+        var invoiceNumber = $"INV-{DateTime.UtcNow.Year}-{(count + 1):D5}";
+
+        var invoice = new Domain.Entities.Operational.CustomerInvoice
+        {
+            InvoiceNumber = invoiceNumber,
+            CustomerId    = contract.CustomerId,
+            InvoiceDate   = DateOnly.FromDateTime(DateTime.UtcNow),
+            DueDate       = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
+            CurrencyId    = contract.CurrencyId,
+            ExchangeRate  = 1m,
+            Status        = Domain.Enums.InvoiceStatus.Draft,
+            Notes         = $"Maintenance Contract {contract.ContractNumber} — {contract.StartDate} to {contract.EndDate}",
+            TotalAmount   = contract.ContractValue,
+            SubTotal      = contract.ContractValue,
+            TaxAmount     = 0,
+            CreatedBy     = user.UserId,
+        };
+
+        db.CustomerInvoices.Add(invoice);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new { invoiceId = invoice.Id, invoiceNumber });
+    }
 
     [HttpPost("equipment")]
     public async Task<IActionResult> UpsertEquipment(

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RTSErp.Application.Common.Interfaces;
 using RTSErp.Application.Operational.Payments;
 using RTSErp.Domain.Enums;
 
@@ -33,8 +35,38 @@ public class SupplierPaymentsController : BaseApiController
 public class ChequesController : BaseApiController
 {
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] ChequeStatus? status, [FromQuery] Guid? customerId)
-        => Ok(await Mediator.Send(new GetChequesQuery { Status = status, CustomerId = customerId }));
+    public async Task<IActionResult> List(
+        [FromQuery] int? direction,
+        [FromQuery] ChequeStatus? status,
+        [FromQuery] Guid? customerId,
+        [FromServices] IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var q = db.Cheques
+            .Include(c => c.Customer)
+            .Include(c => c.Supplier)
+            .Include(c => c.Currency)
+            .Where(c => !c.IsDeleted);
+
+        if (direction.HasValue) q = q.Where(c => (int)c.Direction == direction.Value);
+        if (status.HasValue)    q = q.Where(c => c.Status == status.Value);
+        if (customerId.HasValue) q = q.Where(c => c.CustomerId == customerId.Value);
+
+        var items = await q.OrderByDescending(c => c.DueDate)
+            .Select(c => new
+            {
+                c.Id, c.ChequeNumber, c.Direction,
+                customerName = c.Customer != null ? c.Customer.Name : null,
+                supplierName = c.Supplier != null ? c.Supplier.Name : null,
+                c.BankName, c.Amount, c.AmountBase,
+                currencyCode = c.Currency.Code,
+                c.IssueDate, c.DueDate, c.ReceivedDate, c.Status,
+                statusName   = c.Status.ToString(),
+                c.Notes, c.CreatedAt,
+            }).ToListAsync(ct);
+
+        return Ok(items);
+    }
 
     [HttpPost]
     public async Task<IActionResult> Receive(ReceiveChequeCommand cmd)

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Domain.Entities.Accounting;
+using RTSErp.Domain.Entities.Documents;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
 using RTSErp.Domain.Entities.Operational;
@@ -54,6 +55,9 @@ public interface IApplicationDbContext
     DbSet<ContractQuarter>     ContractQuarters     { get; }
     DbSet<MaintenanceVisit>    MaintenanceVisits    { get; }
     DbSet<ContractEquipment>   ContractEquipments   { get; }
+
+    // ── Company Documents ─────────────────────────────────────────────────────
+    DbSet<CompanyDocument> CompanyDocuments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -1,7 +1,10 @@
 "use client";
 import { useSalesOrders, useApproveSalesOrder } from "@/features/erp/hooks";
 import { useT } from "@/hooks/useT";
-import { ShoppingCart, RefreshCw, CheckCircle } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { ShoppingCart, RefreshCw, CheckCircle, FileText } from "lucide-react";
 
 const STATUS: Record<number, { label: string; cls: string }> = {
   1: { label: "Draft",     cls: "bg-muted text-muted-foreground" },
@@ -13,8 +16,21 @@ const STATUS: Record<number, { label: string; cls: string }> = {
 
 export default function SalesOrdersPage() {
   const { t } = useT();
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const { data, isLoading, refetch } = useSalesOrders({});
   const approve = useApproveSalesOrder();
+
+  const generateInvoice = useMutation({
+    mutationFn: (id: string) => apiFetch<{ invoiceId: string; invoiceNumber: string }>(`/salesorders/${id}/generate-invoice`, { method: "POST" }),
+    onSuccess: (r) => { toast(`Invoice ${r.invoiceNumber} created. Go to Customer Invoices to post it.`, "success"); qc.invalidateQueries({ queryKey: ["customer-invoices"] }); },
+    onError: (e: any) => toast(e?.message ?? "Failed.", "error"),
+  });
+
+  const handleApprove = async (id: string) => {
+    try { await approve.mutateAsync(id); toast("Order confirmed.", "success"); }
+    catch (e: any) { toast(e?.message ?? "Failed.", "error"); }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -44,7 +60,13 @@ export default function SalesOrdersPage() {
                     <td className="p-3 text-right tabular-nums">{o.totalAmount.toLocaleString()}</td>
                     <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span></td>
                     <td className="p-3 text-right">
-                      {o.status === 1 && <button onClick={() => approve.mutate(o.id)} className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-accent text-emerald-600"><CheckCircle className="h-3.5 w-3.5" />{t("approve")}</button>}
+                      {o.status === 1 && <button onClick={() => handleApprove(o.id)} disabled={approve.isPending} className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-accent text-emerald-600"><CheckCircle className="h-3.5 w-3.5" />{t("approve")}</button>}
+                      {(o.status === 2 || o.status === 3) && (
+                        <button onClick={() => generateInvoice.mutate(o.id)} disabled={generateInvoice.isPending}
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50">
+                          <FileText className="h-3.5 w-3.5" /> Generate Invoice
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

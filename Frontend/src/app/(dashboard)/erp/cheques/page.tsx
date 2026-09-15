@@ -1,209 +1,283 @@
 "use client";
-import { useState } from "react";
-import { CreditCard, RefreshCw, ArrowDownToLine, Plus, X } from "lucide-react";
-import { useCheques, useDepositCheque, useReceiveCheque, useBankAccounts, useCustomers } from "@/features/erp/hooks";
-import { ChequeStatusLabels } from "@/features/erp/types";
-import { useEgpCurrencyId } from "@/features/erp/hooks/useCurrency";
 
-const STATUS_COLORS: Record<number, string> = {
-  1: "bg-blue-100 text-blue-700",
-  2: "bg-amber-100 text-amber-700",
-  3: "bg-emerald-100 text-emerald-700",
-  4: "bg-red-100 text-red-700",
-  5: "bg-muted text-muted-foreground",
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { useCustomers, useSuppliers, useBankAccounts } from "@/features/erp/hooks";
+import { useCurrencies } from "@/features/finance/hooks";
+import { useT } from "@/hooks/useT";
+import { useToast } from "@/components/ui/toast";
+import { CreditCard, RefreshCw, Plus, X, Check, AlertTriangle } from "lucide-react";
+
+const STATUS: Record<number, { label: string; cls: string }> = {
+  1: { label: "Received",  cls: "bg-blue-100 text-blue-700" },
+  2: { label: "Deposited", cls: "bg-emerald-100 text-emerald-700" },
+  3: { label: "Cleared",   cls: "bg-emerald-200 text-emerald-800" },
+  4: { label: "Bounced",   cls: "bg-red-100 text-red-700" },
+  5: { label: "Cancelled", cls: "bg-muted text-muted-foreground" },
 };
 
-export default function ChequesPage() {
-  const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
-  const [showReceiveForm, setShowReceiveForm] = useState(false);
-  const [depositModal, setDepositModal] = useState<{ id: string; amount: number; customer: string } | null>(null);
-  const [bankAccountId, setBankAccountId] = useState("");
-  const [depositDate, setDepositDate] = useState(new Date().toISOString().split("T")[0]);
-  const today = new Date().toISOString().split("T")[0];
+const INIT_REC = { customerId:"", chequeNumber:"", bankName:"", currencyId:"", amount:"", issueDate:"", dueDate:"", receivedDate:new Date().toISOString().split("T")[0], notes:"" };
+const INIT_PAY = { supplierId:"", chequeNumber:"", bankName:"", currencyId:"", amount:"", issueDate:"", dueDate:"", notes:"" };
 
-  const [recvForm, setRecvForm] = useState({
-    customerId: "", chequeNumber: "", bankName: "", amount: "",
-    currencyId: "", issueDate: today, dueDate: today, receivedDate: today, notes: "",
+export default function ChequesPage() {
+  const { t } = useT();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [tab, setTab]       = useState<"receivable" | "payable">("receivable");
+  const [showForm, setShowForm] = useState(false);
+  const [recForm, setRecForm]   = useState(INIT_REC);
+  const [payForm, setPayForm]   = useState(INIT_PAY);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  /* ── queries ── */
+  const recQ = useQuery({ queryKey: ["cheques", "receivable"], queryFn: () => apiFetch<any[]>("/cheques?direction=1") });
+  const payQ = useQuery({ queryKey: ["cheques", "payable"],    queryFn: () => apiFetch<any[]>("/cheques?direction=2") });
+
+  const { data: customers  } = useCustomers({});
+  const { data: suppliers  } = useSuppliers({});
+  const { data: currencies } = useCurrencies();
+  const { data: bankAccts  } = useBankAccounts({ isActive: true });
+
+  /* ── mutations ── */
+  const createRec = useMutation({
+    mutationFn: (data: any) => apiFetch<{ id: string }>("/cheques", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["cheques"] }); toast("Cheque receivable recorded.", "success"); setShowForm(false); setRecForm(INIT_REC); },
+    onError: (e: any) => { toast(e?.message ?? "Failed.", "error"); },
   });
 
-  const { data: cheques, isLoading, refetch } = useCheques({ status: statusFilter });
-  const { data: bankAccounts } = useBankAccounts({ isActive: true });
-  const { data: customers } = useCustomers({ isActive: true });
-  const deposit = useDepositCheque();
-  const receive = useReceiveCheque();
-  const egpId = useEgpCurrencyId();
+  const createPay = useMutation({
+    mutationFn: (data: any) => apiFetch<{ id: string }>("/cheques", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["cheques"] }); toast("Cheque payable recorded.", "success"); setShowForm(false); setPayForm(INIT_PAY); },
+    onError: (e: any) => { toast(e?.message ?? "Failed.", "error"); },
+  });
 
-  const totalReceived = cheques?.filter(c => c.status === 1).reduce((s, c) => s + c.amount, 0) ?? 0;
-  const totalDeposited = cheques?.filter(c => c.status === 2).reduce((s, c) => s + c.amount, 0) ?? 0;
+  const depositMut = useMutation({
+    mutationFn: ({ id, bankAccountId, depositDate }: { id: string; bankAccountId: string; depositDate: string }) =>
+      apiFetch<void>(`/cheques/${id}/deposit`, { method: "POST", body: JSON.stringify({ bankAccountId, depositDate }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["cheques"] }); toast("Cheque deposited.", "success"); },
+    onError: (e: any) => toast(e?.message ?? "Failed.", "error"),
+  });
 
-  const handleDeposit = async () => {
-    if (!depositModal || !bankAccountId) return;
-    await deposit.mutateAsync({ id: depositModal.id, data: { bankAccountId, depositDate } });
-    setDepositModal(null); setBankAccountId("");
+  const bounceMut = useMutation({
+    mutationFn: ({ id, date }: { id: string; date: string }) =>
+      apiFetch<void>(`/cheques/${id}/bounce`, { method: "POST", body: JSON.stringify(date) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["cheques"] }); toast("Cheque marked bounced.", "info"); },
+    onError: (e: any) => toast(e?.message ?? "Failed.", "error"),
+  });
+
+  const [depositingId, setDepositingId] = useState<string | null>(null);
+  const [depositBankId, setDepositBankId] = useState("");
+  const [depositDate, setDepositDate] = useState(new Date().toISOString().split("T")[0]);
+
+  const handleSubmitRec = async (e: React.FormEvent) => {
+    e.preventDefault(); setFormError(null);
+    if (!recForm.customerId) { setFormError("Select a customer."); return; }
+    if (!recForm.currencyId) { setFormError("Select a currency."); return; }
+    if (!recForm.amount || Number(recForm.amount) <= 0) { setFormError("Amount must be > 0."); return; }
+    createRec.mutate({ ...recForm, amount: Number(recForm.amount), direction: 1 });
   };
 
-  const handleReceive = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // currencyId: use EGP from seeded data
-    const egpCurrencyId = egpId || recvForm.currencyId;
-    await receive.mutateAsync({
-      ...recvForm,
-      amount: parseFloat(recvForm.amount),
-      amountBase: parseFloat(recvForm.amount),
-      currencyId: recvForm.currencyId || egpCurrencyId,
-      exchangeRate: 1,
-    });
-    setRecvForm({ customerId: "", chequeNumber: "", bankName: "", amount: "", currencyId: "", issueDate: today, dueDate: today, receivedDate: today, notes: "" });
-    setShowReceiveForm(false);
+  const handleSubmitPay = async (e: React.FormEvent) => {
+    e.preventDefault(); setFormError(null);
+    if (!payForm.supplierId) { setFormError("Select a supplier."); return; }
+    if (!payForm.currencyId) { setFormError("Select a currency."); return; }
+    if (!payForm.amount || Number(payForm.amount) <= 0) { setFormError("Amount must be > 0."); return; }
+    createPay.mutate({ ...payForm, amount: Number(payForm.amount), direction: 2 });
   };
+
+  const data    = tab === "receivable" ? recQ.data  : payQ.data;
+  const loading = tab === "receivable" ? recQ.isLoading : payQ.isLoading;
+  const refetch = tab === "receivable" ? recQ.refetch : payQ.refetch;
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* Deposit modal */}
+      {depositingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl border shadow-xl p-6 max-w-sm w-full space-y-4">
+            <h2 className="font-semibold">Deposit Cheque</h2>
+            <div className="space-y-3">
+              <div><label className="text-xs text-muted-foreground block mb-1">Deposit to Bank Account *</label>
+                <select value={depositBankId} onChange={e => setDepositBankId(e.target.value)} className="input w-full">
+                  <option value="">Select…</option>
+                  {(bankAccts ?? []).map((b: any) => <option key={b.id} value={b.id}>{b.name} — {b.bankName}</option>)}
+                </select>
+              </div>
+              <div><label className="text-xs text-muted-foreground block mb-1">Deposit Date *</label>
+                <input type="date" value={depositDate} onChange={e => setDepositDate(e.target.value)} className="input w-full" />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDepositingId(null)} className="btn-ghost px-4 py-2 rounded-lg text-sm">Cancel</button>
+              <button onClick={() => { depositMut.mutate({ id: depositingId, bankAccountId: depositBankId, depositDate }); setDepositingId(null); }}
+                disabled={!depositBankId || depositMut.isPending}
+                className="btn-primary px-4 py-2 rounded-lg text-sm disabled:opacity-50">Deposit</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3"><CreditCard className="h-6 w-6 text-primary" /><h1 className="text-2xl font-semibold">Cheques Receivable</h1></div>
+        <div className="flex items-center gap-3">
+          <CreditCard className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-semibold">{t("cheques")}</h1>
+        </div>
         <div className="flex gap-2">
           <button onClick={() => refetch()} className="btn-ghost p-2 rounded-lg"><RefreshCw className="h-4 w-4" /></button>
-          <button onClick={() => setShowReceiveForm(v => !v)} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
-            {showReceiveForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {showReceiveForm ? "Cancel" : "Receive Cheque"}
+          <button onClick={() => { setShowForm(v => !v); setFormError(null); }}
+            className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
+            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {showForm ? t("cancel") : (tab === "receivable" ? "Receive Cheque" : "Record Payable Cheque")}
           </button>
         </div>
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card p-4">
-          <p className="text-sm text-muted-foreground">Received (Pending Deposit)</p>
-          <p className="text-2xl font-bold mt-1 text-blue-600">{totalReceived.toLocaleString("en-EG", { style: "currency", currency: "EGP" })}</p>
-          <p className="text-xs text-muted-foreground mt-1">Dr Cheques Receivable / Cr Customer AR</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm text-muted-foreground">Deposited (In Bank)</p>
-          <p className="text-2xl font-bold mt-1 text-amber-600">{totalDeposited.toLocaleString("en-EG", { style: "currency", currency: "EGP" })}</p>
-          <p className="text-xs text-muted-foreground mt-1">Dr Bank / Cr Cheques Receivable</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm text-muted-foreground">Total Cheques</p>
-          <p className="text-2xl font-bold mt-1">{cheques?.length ?? 0}</p>
-        </div>
-      </div>
-
-      {/* Receive Form */}
-      {showReceiveForm && (
-        <form onSubmit={handleReceive} className="card p-5 space-y-4 border border-blue-200 dark:border-blue-800">
-          <div>
-            <h2 className="font-semibold">Receive New Cheque</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Creates: Dr Cheques Receivable / Cr Customer Receivable</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div><label className="text-xs text-muted-foreground block mb-1">Customer *</label>
-              <select required value={recvForm.customerId} onChange={e => setRecvForm(f => ({ ...f, customerId: e.target.value }))} className="input w-full">
-                <option value="">Select customer...</option>
-                {customers?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Cheque Number *</label>
-              <input required value={recvForm.chequeNumber} onChange={e => setRecvForm(f => ({ ...f, chequeNumber: e.target.value }))} className="input w-full" placeholder="CHQ-001234" /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Bank Name *</label>
-              <input required value={recvForm.bankName} onChange={e => setRecvForm(f => ({ ...f, bankName: e.target.value }))} className="input w-full" placeholder="CIB, NBE, Ahly..." /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Amount *</label>
-              <input type="number" required min="0.01" step="0.01" value={recvForm.amount} onChange={e => setRecvForm(f => ({ ...f, amount: e.target.value }))} className="input w-full" placeholder="0.00" /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Issue Date</label>
-              <input type="date" value={recvForm.issueDate} onChange={e => setRecvForm(f => ({ ...f, issueDate: e.target.value }))} className="input w-full" /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Due Date *</label>
-              <input type="date" required value={recvForm.dueDate} onChange={e => setRecvForm(f => ({ ...f, dueDate: e.target.value }))} className="input w-full" /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Received Date</label>
-              <input type="date" value={recvForm.receivedDate} onChange={e => setRecvForm(f => ({ ...f, receivedDate: e.target.value }))} className="input w-full" /></div>
-            <div className="col-span-2"><label className="text-xs text-muted-foreground block mb-1">Notes</label>
-              <input value={recvForm.notes} onChange={e => setRecvForm(f => ({ ...f, notes: e.target.value }))} className="input w-full" placeholder="Optional..." /></div>
-          </div>
-          <div className="flex gap-2">
-            <button type="submit" disabled={receive.isPending} className="btn-primary px-4 py-2 rounded-lg text-sm">{receive.isPending ? "Recording..." : "Record Cheque Receipt"}</button>
-            <button type="button" onClick={() => setShowReceiveForm(false)} className="btn-ghost px-4 py-2 rounded-lg text-sm">Cancel</button>
-          </div>
-          {receive.isError && <p className="text-sm text-red-600">Error recording cheque. Check all required fields.</p>}
-          {receive.isSuccess && <p className="text-sm text-emerald-600">✓ Cheque recorded. Journal entry created automatically.</p>}
-        </form>
-      )}
-
-      {/* Deposit Modal */}
-      {depositModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-xl p-6 w-full max-w-md shadow-xl border border-border">
-            <h2 className="font-semibold mb-1">Deposit Cheque</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              {depositModal.customer} — {depositModal.amount.toLocaleString("en-EG", { style: "currency", currency: "EGP" })}
-            </p>
-            <p className="text-xs text-muted-foreground mb-4">Creates: Dr Bank / Cr Cheques Receivable</p>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-muted-foreground">Bank Account *</label>
-                <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="input w-full mt-1">
-                  <option value="">Select bank account...</option>
-                  {bankAccounts?.map(b => <option key={b.id} value={b.id}>{b.name} ({b.currencyCode}) — {b.currentBalance.toLocaleString()}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Deposit Date</label>
-                <input type="date" value={depositDate} onChange={e => setDepositDate(e.target.value)} className="input w-full mt-1" />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button onClick={handleDeposit} disabled={!bankAccountId || deposit.isPending} className="btn-primary px-4 py-2 rounded-lg text-sm">
-                {deposit.isPending ? "Processing..." : "Deposit to Bank"}
-              </button>
-              <button onClick={() => { setDepositModal(null); setBankAccountId(""); }} className="btn-ghost px-4 py-2 rounded-lg text-sm">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Status filter */}
-      <div className="flex gap-2 flex-wrap">
-        {[undefined, 1, 2, 3, 4, 5].map(s => (
-          <button key={String(s)} onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-            {s === undefined ? "All" : ChequeStatusLabels[s]}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {([["receivable","Cheques Receivable"],["payable","Cheques Payable"]] as const).map(([k,lbl]) => (
+          <button key={k} onClick={() => { setTab(k); setShowForm(false); }}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === k ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+            {lbl}
           </button>
         ))}
       </div>
 
-      {isLoading ? <div className="text-center py-10 text-muted-foreground">Loading cheques...</div> : (
+      {/* Forms */}
+      {showForm && tab === "receivable" && (
+        <form onSubmit={handleSubmitRec} className="card p-5 space-y-4 border border-primary/20">
+          <h2 className="font-semibold text-sm">Record Cheque Receivable</h2>
+          {formError && <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700"><AlertTriangle className="h-4 w-4 shrink-0" />{formError}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-muted-foreground block mb-1">Customer *</label>
+              <select required value={recForm.customerId} onChange={e => setRecForm(f => ({ ...f, customerId: e.target.value }))} className="input w-full">
+                <option value="">Select…</option>
+                {(customers ?? []).filter((c: any) => c.isActive).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Cheque # *</label>
+              <input required value={recForm.chequeNumber} onChange={e => setRecForm(f => ({ ...f, chequeNumber: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Bank Name *</label>
+              <input required value={recForm.bankName} onChange={e => setRecForm(f => ({ ...f, bankName: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Amount *</label>
+              <input required type="number" min="0.01" step="0.01" value={recForm.amount} onChange={e => setRecForm(f => ({ ...f, amount: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Currency *</label>
+              <select required value={recForm.currencyId} onChange={e => setRecForm(f => ({ ...f, currencyId: e.target.value }))} className="input w-full">
+                <option value="">Select…</option>
+                {currencies?.filter(c => c.isActive).map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+              </select>
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Issue Date</label>
+              <input type="date" value={recForm.issueDate} onChange={e => setRecForm(f => ({ ...f, issueDate: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Due Date *</label>
+              <input required type="date" value={recForm.dueDate} onChange={e => setRecForm(f => ({ ...f, dueDate: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Received Date</label>
+              <input type="date" value={recForm.receivedDate} onChange={e => setRecForm(f => ({ ...f, receivedDate: e.target.value }))} className="input w-full" />
+            </div>
+            <div className="col-span-2"><label className="text-xs text-muted-foreground block mb-1">Notes</label>
+              <input value={recForm.notes} onChange={e => setRecForm(f => ({ ...f, notes: e.target.value }))} className="input w-full" />
+            </div>
+          </div>
+          <button type="submit" disabled={createRec.isPending} className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2">
+            <Check className="h-4 w-4" />{createRec.isPending ? t("saving") : t("save")}
+          </button>
+        </form>
+      )}
+
+      {showForm && tab === "payable" && (
+        <form onSubmit={handleSubmitPay} className="card p-5 space-y-4 border border-primary/20">
+          <h2 className="font-semibold text-sm">Record Cheque Payable</h2>
+          {formError && <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700"><AlertTriangle className="h-4 w-4 shrink-0" />{formError}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-xs text-muted-foreground block mb-1">Supplier *</label>
+              <select required value={payForm.supplierId} onChange={e => setPayForm(f => ({ ...f, supplierId: e.target.value }))} className="input w-full">
+                <option value="">Select…</option>
+                {(suppliers ?? []).filter((s: any) => s.isActive).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Cheque # *</label>
+              <input required value={payForm.chequeNumber} onChange={e => setPayForm(f => ({ ...f, chequeNumber: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Bank Name *</label>
+              <input required value={payForm.bankName} onChange={e => setPayForm(f => ({ ...f, bankName: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Amount *</label>
+              <input required type="number" min="0.01" step="0.01" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Currency *</label>
+              <select required value={payForm.currencyId} onChange={e => setPayForm(f => ({ ...f, currencyId: e.target.value }))} className="input w-full">
+                <option value="">Select…</option>
+                {currencies?.filter(c => c.isActive).map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+              </select>
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Issue Date *</label>
+              <input required type="date" value={payForm.issueDate} onChange={e => setPayForm(f => ({ ...f, issueDate: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Due Date *</label>
+              <input required type="date" value={payForm.dueDate} onChange={e => setPayForm(f => ({ ...f, dueDate: e.target.value }))} className="input w-full" />
+            </div>
+            <div className="col-span-2"><label className="text-xs text-muted-foreground block mb-1">Notes</label>
+              <input value={payForm.notes} onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))} className="input w-full" />
+            </div>
+          </div>
+          <button type="submit" disabled={createPay.isPending} className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2">
+            <Check className="h-4 w-4" />{createPay.isPending ? t("saving") : t("save")}
+          </button>
+        </form>
+      )}
+
+      {/* Table */}
+      {loading ? (
+        <div className="text-center py-10 text-muted-foreground">{t("loading")}</div>
+      ) : (
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/30"><tr>
               <th className="text-left p-3 font-medium text-muted-foreground">Cheque #</th>
-              <th className="text-left p-3 font-medium text-muted-foreground">Customer</th>
+              <th className="text-left p-3 font-medium text-muted-foreground">{tab === "receivable" ? "Customer" : "Supplier"}</th>
               <th className="text-left p-3 font-medium text-muted-foreground">Bank</th>
+              <th className="text-left p-3 font-medium text-muted-foreground">Due Date</th>
               <th className="text-right p-3 font-medium text-muted-foreground">Amount</th>
-              <th className="text-center p-3 font-medium text-muted-foreground">Issue Date</th>
-              <th className="text-center p-3 font-medium text-muted-foreground">Due Date</th>
               <th className="text-center p-3 font-medium text-muted-foreground">Status</th>
-              <th className="p-3 w-24"></th>
+              <th className="p-3"></th>
             </tr></thead>
             <tbody className="divide-y divide-border">
-              {cheques?.map(c => (
-                <tr key={c.id} className="hover:bg-muted/20 transition-colors">
-                  <td className="p-3 font-mono text-xs">{c.chequeNumber}</td>
-                  <td className="p-3 font-medium">{c.customerName}</td>
-                  <td className="p-3 text-muted-foreground">{c.bankName}</td>
-                  <td className="p-3 text-right tabular-nums font-medium">{c.amount.toLocaleString("en-EG", { style: "currency", currency: c.currencyCode || "EGP" })}</td>
-                  <td className="p-3 text-center text-muted-foreground">{c.issueDate}</td>
-                  <td className="p-3 text-center text-muted-foreground">{c.dueDate}</td>
-                  <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status]}`}>{c.statusName}</span></td>
-                  <td className="p-3">
-                    {c.status === 1 && (
-                      <button onClick={() => setDepositModal({ id: c.id, amount: c.amount, customer: c.customerName })}
-                        className="text-amber-600 hover:text-amber-700 flex items-center gap-1 text-xs" title="Deposit to bank">
-                        <ArrowDownToLine className="h-3.5 w-3.5" /> Deposit
-                      </button>
-                    )}
-                    {c.status === 3 && <span className="text-xs text-emerald-600">✓ Cleared</span>}
-                    {c.status === 4 && <span className="text-xs text-red-600">✗ Bounced</span>}
-                  </td>
-                </tr>
-              ))}
-              {!cheques?.length && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No cheques found. Receive a cheque from a customer to get started.</td></tr>}
+              {(data ?? []).map((c: any) => {
+                const st = STATUS[c.status as keyof typeof STATUS] ?? { label: "?", cls: "bg-muted" };
+                return (
+                  <tr key={c.id} className="hover:bg-muted/20">
+                    <td className="p-3 font-mono text-xs">{c.chequeNumber}</td>
+                    <td className="p-3 font-medium">{c.customerName ?? c.supplierName ?? "—"}</td>
+                    <td className="p-3 text-muted-foreground">{c.bankName}</td>
+                    <td className="p-3 text-muted-foreground">{c.dueDate}</td>
+                    <td className="p-3 text-right tabular-nums">{c.amount?.toLocaleString()} {c.currencyCode}</td>
+                    <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span></td>
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {c.status === 1 && tab === "receivable" && (
+                          <button onClick={() => { setDepositingId(c.id); setDepositDate(new Date().toISOString().split("T")[0]); setDepositBankId(""); }}
+                            className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Deposit</button>
+                        )}
+                        {c.status === 1 && (
+                          <button onClick={() => bounceMut.mutate({ id: c.id, date: new Date().toISOString().split("T")[0] })}
+                            className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200">Bounce</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {(data ?? []).length === 0 && (
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No {tab} cheques found.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

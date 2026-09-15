@@ -5,7 +5,9 @@ import { useCustomers } from "@/features/erp/hooks";
 import { useCurrencies } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
-import { ClipboardList, Plus, RefreshCw, X, Search } from "lucide-react";
+import { ClipboardList, Plus, RefreshCw, X, Search, FileText } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 
 const STATUS = { 1:"Draft", 2:"Active", 3:"Suspended", 4:"Completed", 5:"Cancelled" };
 const STATUS_CLS = { 1:"bg-muted text-muted-foreground", 2:"bg-emerald-100 text-emerald-700", 3:"bg-amber-100 text-amber-700", 4:"bg-blue-100 text-blue-700", 5:"bg-red-100 text-red-700" };
@@ -23,6 +25,13 @@ export default function ContractsPage() {
   const { data: currencies } = useCurrencies();
   const create = useCreateMaintenanceContract();
   const changeStatus = useChangeContractStatus();
+  const qc = useQueryClient();
+
+  const generateInvoice = useMutation({
+    mutationFn: (id: string) => apiFetch<{ invoiceId: string; invoiceNumber: string }>(`/maintenance/contracts/${id}/generate-invoice`, { method: "POST" }),
+    onSuccess: (result) => toast(`Invoice ${result.invoiceNumber} created. Go to Customer Invoices to post it.`, "success"),
+    onError: (err: any) => toast(err?.message ?? "Failed to generate invoice.", "error"),
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,11 +115,20 @@ export default function ContractsPage() {
                   </td>
                   <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(STATUS_CLS as any)[c.status]}`}>{(STATUS as any)[c.status]}</span></td>
                   <td className="p-3 text-right">
-                    {c.status < 4 && (
-                      <button onClick={() => handleActivate(c.id, c.status)} className="text-xs px-2 py-1 rounded hover:bg-accent text-muted-foreground">
-                        {c.status === 1 ? "Activate" : c.status === 2 ? "Suspend" : "Activate"}
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {c.status === 2 && (
+                        <button onClick={() => generateInvoice.mutate(c.id)} disabled={generateInvoice.isPending}
+                          title="Generate Customer Invoice"
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                          <FileText className="h-3.5 w-3.5" /> Invoice
+                        </button>
+                      )}
+                      {c.status < 4 && (
+                        <button onClick={() => handleActivate(c.id, c.status)} className="text-xs px-2 py-1 rounded hover:bg-accent text-muted-foreground">
+                          {c.status === 1 ? "Activate" : c.status === 2 ? "Suspend" : "Activate"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

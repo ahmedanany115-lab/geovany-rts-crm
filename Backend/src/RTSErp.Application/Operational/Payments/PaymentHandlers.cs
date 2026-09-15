@@ -139,8 +139,12 @@ public class CreateCustomerPaymentCommandValidator : AbstractValidator<CreateCus
         RuleFor(x => x.Amount).GreaterThan(0);
         RuleFor(x => x.CurrencyId).NotEmpty();
         RuleFor(x => x.ExchangeRate).GreaterThan(0);
-        RuleFor(x => x.BankAccountId).NotEmpty().When(x => x.PaymentMethod == PaymentMethod.Bank);
-        RuleFor(x => x.ChequeId).NotEmpty().When(x => x.PaymentMethod == PaymentMethod.Cheque);
+        RuleFor(x => x.BankAccountId).NotEmpty()
+            .When(x => x.PaymentMethod == PaymentMethod.Bank)
+            .WithMessage("Bank account is required for bank payments.");
+        RuleFor(x => x.ChequeId).NotEmpty()
+            .When(x => x.PaymentMethod == PaymentMethod.Cheque)
+            .WithMessage("Cheque is required for cheque payments.");
     }
 }
 
@@ -171,13 +175,22 @@ public class CreateCustomerPaymentCommandHandler : IRequestHandler<CreateCustome
         }
         else if (req.PaymentMethod == PaymentMethod.Cheque)
         {
-            // Debit: Cheques Receivable (1303), Credit: Customer AR when cheque is received
-            // But here the payment method is cheque-to-invoice — meaning a cheque already received
             var undepositedChequesAcc = await _db.Accounts
                 .FirstOrDefaultAsync(a => a.Code == "1303" || a.Name.Contains("Undeposited"), ct)
                 ?? await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "1301" && !a.IsDeleted, ct)
                 ?? throw new InvalidOperationException("No Cheques Receivable account configured.");
             creditAccountId = undepositedChequesAcc.Id;
+        }
+        else if (req.PaymentMethod == PaymentMethod.Cash || req.PaymentMethod == PaymentMethod.InstaPay)
+        {
+            // Cash and InstaPay → debit the petty cash / cash-on-hand account (1101/1102)
+            // InstaPay treated as cash-equivalent unless a dedicated account exists
+            var cashAcc = await _db.Accounts
+                .FirstOrDefaultAsync(a => a.Code == "1101" && !a.IsDeleted, ct)
+                ?? await _db.Accounts
+                .FirstOrDefaultAsync(a => a.Code == "1102" && !a.IsDeleted, ct)
+                ?? throw new InvalidOperationException("No Cash account (1101/1102) configured.");
+            creditAccountId = cashAcc.Id;
         }
         else
         {
@@ -433,7 +446,10 @@ public class GetChequesQueryHandler : IRequestHandler<GetChequesQuery, List<Cheq
 
 public class ReceiveChequeCommand : IRequest<Guid>
 {
-    public Guid CustomerId { get; set; }
+    // Receivable = 1 (from customer), Payable = 2 (to supplier)
+    public int Direction { get; set; } = 1;
+    public Guid? CustomerId  { get; set; }
+    public Guid? SupplierId  { get; set; }
     public string ChequeNumber { get; set; } = string.Empty;
     public string BankName { get; set; } = string.Empty;
     public Guid CurrencyId { get; set; }
@@ -441,7 +457,7 @@ public class ReceiveChequeCommand : IRequest<Guid>
     public decimal ExchangeRate { get; set; } = 1m;
     public DateOnly IssueDate { get; set; }
     public DateOnly DueDate { get; set; }
-    public DateOnly ReceivedDate { get; set; }
+    public DateOnly? ReceivedDate { get; set; }
     public string? Notes { get; set; }
 }
 
@@ -449,7 +465,8 @@ public class ReceiveChequeCommandValidator : AbstractValidator<ReceiveChequeComm
 {
     public ReceiveChequeCommandValidator()
     {
-        RuleFor(x => x.CustomerId).NotEmpty();
+        RuleFor(x => x.CustomerId).NotEmpty().When(x => x.Direction == 1).WithMessage("Customer is required for receivable cheques.");
+        RuleFor(x => x.SupplierId).NotEmpty().When(x => x.Direction == 2).WithMessage("Supplier is required for payable cheques.");
         RuleFor(x => x.ChequeNumber).NotEmpty().MaximumLength(50);
         RuleFor(x => x.BankName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Amount).GreaterThan(0);
@@ -467,47 +484,53 @@ public class ReceiveChequeCommandHandler : IRequestHandler<ReceiveChequeCommand,
 
     public async Task<Guid> Handle(ReceiveChequeCommand req, CancellationToken ct)
     {
-        var customer = await _db.BusinessPartners.FirstOrDefaultAsync(b => b.Id == req.CustomerId && !b.IsDeleted, ct)
-            ?? throw new NotFoundException("Customer", req.CustomerId);
-        var receivableAccountId = customer.ReceivableAccountId
-            ?? throw new InvalidOperationException("Customer has no Receivable Account.");
-
-        // Cheques Receivable account — use code 1303 or create a lookup
-        var chequesReceivableAcc = await _db.Accounts
-            .FirstOrDefaultAsync(a => a.Code == "1302" && !a.IsDeleted, ct)
-            ?? await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "1301" && !a.IsDeleted, ct)
-            ?? throw new InvalidOperationException("No Cheques Receivable account (1302) found. Check Chart of Accounts.");
-
-        // Dr: Cheques Receivable / Cr: Customer AR
-        var jeResult = await _accounting.CreateJournalEntryAsync(new CreateJournalEntryRequest
-        {
-            EntryDate = req.ReceivedDate,
-            Description = $"Cheque Received #{req.ChequeNumber} from {customer.Name}",
-            ReferenceType = ReferenceType.ChequeReceipt,
-            CurrencyId = req.CurrencyId, ExchangeRate = req.ExchangeRate,
-            PostImmediately = true,
-            Lines = new List<JournalEntryLineRequest>
-            {
-                new() { AccountId = chequesReceivableAcc.Id, Debit = req.Amount, Credit = 0,
-                    Description = $"Cheque #{req.ChequeNumber}", SortOrder = 1 },
-                new() { AccountId = receivableAccountId, Debit = 0, Credit = req.Amount,
-                    Description = $"Customer AR: {customer.Name}", SortOrder = 2 }
-            },
-            CreatedBy = _user.UserId
-        }, ct);
-
-        if (!jeResult.Succeeded)
-            throw new InvalidOperationException($"Cheque accounting failed: {string.Join(", ", jeResult.Errors)}");
-
         var cheque = new Cheque
         {
-            ChequeNumber = req.ChequeNumber, CustomerId = req.CustomerId,
-            BankName = req.BankName, CurrencyId = req.CurrencyId,
-            Amount = req.Amount, AmountBase = req.Amount * req.ExchangeRate,
-            IssueDate = req.IssueDate, DueDate = req.DueDate, ReceivedDate = req.ReceivedDate,
-            Status = ChequeStatus.Received, Notes = req.Notes?.Trim(),
-            ReceiptJournalEntryId = jeResult.EntryId, CreatedBy = _user.UserId
+            Direction     = req.Direction == 2 ? ChequeDirection.Payable : ChequeDirection.Receivable,
+            CustomerId    = req.CustomerId,
+            SupplierId    = req.SupplierId,
+            ChequeNumber  = req.ChequeNumber,
+            BankName      = req.BankName,
+            CurrencyId    = req.CurrencyId,
+            Amount        = req.Amount,
+            AmountBase    = req.Amount * req.ExchangeRate,
+            IssueDate     = req.IssueDate,
+            DueDate       = req.DueDate,
+            ReceivedDate  = req.ReceivedDate,
+            Status        = ChequeStatus.Received,
+            Notes         = req.Notes?.Trim(),
+            CreatedBy     = _user.UserId,
         };
+
+        // Attempt accounting entry for receivable cheques (requires configured accounts)
+        if (req.Direction == 1 && req.CustomerId.HasValue)
+        {
+            var customer = await _db.BusinessPartners.FirstOrDefaultAsync(b => b.Id == req.CustomerId.Value && !b.IsDeleted, ct);
+            var chequesAcc = await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "1302" && !a.IsDeleted, ct)
+                          ?? await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "1301" && !a.IsDeleted, ct);
+
+            if (customer is not null && customer.ReceivableAccountId.HasValue && chequesAcc is not null && req.ReceivedDate.HasValue)
+            {
+                var jeResult = await _accounting.CreateJournalEntryAsync(new CreateJournalEntryRequest
+                {
+                    EntryDate = req.ReceivedDate.Value,
+                    Description = $"Cheque Received #{req.ChequeNumber} from {customer.Name}",
+                    ReferenceType = ReferenceType.ChequeReceipt,
+                    CurrencyId = req.CurrencyId, ExchangeRate = req.ExchangeRate,
+                    PostImmediately = true,
+                    Lines = new List<JournalEntryLineRequest>
+                    {
+                        new() { AccountId = chequesAcc.Id, Debit = req.Amount, Credit = 0, Description = $"Cheque #{req.ChequeNumber}", SortOrder = 1 },
+                        new() { AccountId = customer.ReceivableAccountId.Value, Debit = 0, Credit = req.Amount, Description = $"Customer AR: {customer.Name}", SortOrder = 2 }
+                    },
+                    CreatedBy = _user.UserId
+                }, ct);
+
+                if (jeResult.Succeeded)
+                    cheque.ReceiptJournalEntryId = jeResult.EntryId;
+            }
+        }
+
         _db.Cheques.Add(cheque);
         await _db.SaveChangesAsync(ct);
         return cheque.Id;

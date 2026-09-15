@@ -59,9 +59,10 @@ public enum InvoiceType
 
 public enum PaymentMethod
 {
-    Bank   = 1,
-    Cheque = 2,
-    Cash   = 3,
+    Bank      = 1,
+    Cheque    = 2,
+    Cash      = 3,
+    InstaPay  = 4,
 }
 
 public enum PaymentStatus
@@ -83,6 +84,12 @@ public enum BankTransactionType
 }
 
 // ── Cheques ───────────────────────────────────────────────────────────────────
+
+public enum ChequeDirection
+{
+    Receivable = 1,  // from customer
+    Payable    = 2,  // to supplier
+}
 
 public enum ChequeStatus
 {

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Application.Operational.SalesOrders;
 using RTSErp.Domain.Enums;
@@ -23,6 +24,78 @@ public class SalesOrdersController : BaseApiController
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id)
     { await Mediator.Send(new ApproveSalesOrderCommand { Id = id }); return NoContent(); }
+
+    /// <summary>
+    /// Generate a Customer Invoice from an approved/delivered Sales Order.
+    /// Prevents duplicate invoice creation. The invoice starts as Draft —
+    /// accounting is only affected when the invoice is Posted.
+    /// </summary>
+    [HttpPost("{id:guid}/generate-invoice")]
+    public async Task<IActionResult> GenerateInvoice(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        [FromServices] ICurrentUserService user,
+        CancellationToken ct)
+    {
+        var order = await db.SalesOrders
+            .Include(o => o.Lines).ThenInclude(l => l.Product)
+            .FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted, ct);
+        if (order is null) return NotFound();
+
+        if (order.Status == SalesOrderStatus.Draft || order.Status == SalesOrderStatus.Cancelled)
+            return BadRequest(new { message = "Order must be Approved or Delivered before generating an invoice." });
+
+        // Prevent duplicate invoice
+        var existingInvoice = await db.CustomerInvoices
+            .FirstOrDefaultAsync(i => i.SalesOrderId == id && !i.IsDeleted, ct);
+        if (existingInvoice is not null)
+            return Conflict(new { message = "An invoice already exists for this order.", invoiceId = existingInvoice.Id });
+
+        // Generate invoice number
+        var count = await db.CustomerInvoices.CountAsync(ct);
+        var invoiceNumber = $"INV-{DateTime.UtcNow.Year}-{(count + 1):D5}";
+
+        var invoice = new Domain.Entities.Operational.CustomerInvoice
+        {
+            InvoiceNumber = invoiceNumber,
+            CustomerId    = order.CustomerId,
+            InvoiceDate   = DateOnly.FromDateTime(DateTime.UtcNow),
+            DueDate       = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
+            CurrencyId    = order.CurrencyId,
+            ExchangeRate  = order.ExchangeRate,
+            SalespersonId = order.SalespersonId,
+            SalesOrderId  = order.Id,
+            Status        = Domain.Enums.InvoiceStatus.Draft,
+            SubTotal      = order.SubTotal,
+            TaxAmount     = order.TaxAmount,
+            TotalAmount   = order.TotalAmount,
+            CreatedBy     = user.UserId,
+        };
+
+        foreach (var line in order.Lines.Where(l => !l.IsDeleted))
+        {
+            invoice.Lines.Add(new Domain.Entities.Operational.CustomerInvoiceLine
+            {
+                ProductId       = line.ProductId,
+                Description     = line.Product?.Name ?? string.Empty,
+                Quantity        = line.Quantity,
+                UnitPrice       = line.UnitPrice,
+                DiscountPercent = line.DiscountPercent,
+                DiscountAmount  = line.DiscountAmount,
+                TaxRate         = line.TaxRate,
+                TaxAmount       = line.TaxAmount,
+                LineTotal       = line.LineTotal,
+                NetAmount       = line.NetAmount,
+                SortOrder       = line.SortOrder,
+                CreatedBy       = user.UserId,
+            });
+        }
+
+        db.CustomerInvoices.Add(invoice);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new { invoiceId = invoice.Id, invoiceNumber });
+    }
 
     [HttpPatch("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(
