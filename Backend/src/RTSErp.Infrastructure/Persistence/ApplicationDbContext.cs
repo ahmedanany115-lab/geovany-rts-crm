@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
+using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Entities.Documents;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
@@ -78,6 +79,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // ── Notifications ─────────────────────────────────────────────────────────
     public DbSet<AppNotification> Notifications => Set<AppNotification>();
+
+    // ── Audit / Activity Log ──────────────────────────────────────────────────
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

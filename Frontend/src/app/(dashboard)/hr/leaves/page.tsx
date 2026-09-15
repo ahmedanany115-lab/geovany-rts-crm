@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useT } from "@/hooks/useT";
 import { useRoles } from "@/hooks/useRoles";
+import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 import { HeartHandshake, Plus, X, CheckCircle, XCircle, Trash2, RefreshCw, ChevronDown } from "lucide-react";
 
@@ -41,6 +42,7 @@ const LEAVE_TYPES = [
 
 export default function LeavesPage() {
   const { t, lang } = useT();
+  const { toast } = useToast();
   const { isFinance, isAdmin, hasRole } = useRoles();
   const canSeeAll = isAdmin || hasRole("Accountant", "Marketing");   // Dina sees all
   const canApprove = isAdmin || hasRole("Accountant");               // only Admin + Accountant approve
@@ -66,8 +68,12 @@ export default function LeavesPage() {
       apiFetch("/hr/leaves", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leaves"] });
+      toast(t("leave_submitted") ?? "Leave request submitted.", "success");
       setForm({ type: 1, startDate: "", endDate: "", reason: "" });
       setShowForm(false);
+    },
+    onError: (err: any) => {
+      toast(err?.message ?? "Failed to submit leave request. Please try again.", "error");
     },
   });
 
@@ -184,7 +190,9 @@ export default function LeavesPage() {
             {submit.isPending ? t("saving") : t("submit_request")}
           </button>
           {submit.isError && (
-            <p className="text-sm text-red-600">Failed to submit — please try again.</p>
+            <p className="text-sm text-red-600">
+              {(submit.error as any)?.message ?? "Failed to submit — please try again."}
+            </p>
           )}
         </form>
       )}

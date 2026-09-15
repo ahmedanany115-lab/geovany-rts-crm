@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RTSErp.Application.Common.Interfaces;
+using RTSErp.Infrastructure.Services;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Infrastructure.Identity;
 using RTSErp.Infrastructure.Persistence;
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IAccountingService, AccountingService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IEInvoiceService, MockEInvoiceService>();
+        services.AddScoped<IAuditService, AuditService>();
 
         services.AddHostedService<DatabaseSeedingService>();
 

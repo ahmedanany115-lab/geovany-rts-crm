@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
+using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Entities.Documents;
 
 namespace RTSErp.Api.Controllers.v1;
@@ -68,15 +69,18 @@ public class DocumentsController : BaseApiController
     public async Task<IActionResult> Download(
         Guid id,
         [FromServices] IApplicationDbContext db,
+        [FromServices] IAuditService audit,
         CancellationToken ct)
     {
         var doc = await db.CompanyDocuments
             .Where(d => d.Id == id && !d.IsDeleted)
-            .Select(d => new { d.StoragePath, d.OriginalName, d.ContentType })
+            .Select(d => new { d.StoragePath, d.OriginalName, d.ContentType, d.Name })
             .FirstOrDefaultAsync(ct);
 
         if (doc is null) return NotFound();
 
+        _ = audit.LogAsync(AuditActions.Downloaded, AuditModules.Documents,
+            entityName: doc.Name, entityId: id, entityType: "CompanyDocument", ct: ct);
         // If StoragePath is an absolute URL, return a redirect (still auth-gated here)
         if (doc.StoragePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
          || doc.StoragePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -107,6 +111,7 @@ public class DocumentsController : BaseApiController
         [FromBody] CreateDocumentRequest req,
         [FromServices] IApplicationDbContext db,
         [FromServices] ICurrentUserService user,
+        [FromServices] IAuditService audit,
         CancellationToken ct)
     {
         var doc = new CompanyDocument
@@ -128,6 +133,10 @@ public class DocumentsController : BaseApiController
 
         db.CompanyDocuments.Add(doc);
         await db.SaveChangesAsync(ct);
+
+        await audit.LogAsync(AuditActions.Uploaded, AuditModules.Documents,
+            entityName: req.Name, entityId: doc.Id, entityType: "CompanyDocument", ct: ct);
+
         return Ok(new { doc.Id });
     }
 
@@ -157,12 +166,12 @@ public class DocumentsController : BaseApiController
     }
 
     // ── Delete ────────────────────────────────────────────────────────────────
-    // Delete permission: Admin, Manager only
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Delete(
         Guid id,
         [FromServices] IApplicationDbContext db,
+        [FromServices] IAuditService audit,
         CancellationToken ct)
     {
         var doc = await db.CompanyDocuments.FindAsync([id], ct);
@@ -171,6 +180,9 @@ public class DocumentsController : BaseApiController
         doc.IsDeleted  = true;
         doc.ModifiedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        _ = audit.LogAsync(AuditActions.Deleted, AuditModules.Documents,
+            entityName: doc.Name, entityId: id, entityType: "CompanyDocument", ct: ct);
         return NoContent();
     }
 

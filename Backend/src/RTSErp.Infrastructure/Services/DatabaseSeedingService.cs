@@ -96,22 +96,39 @@ public sealed class DatabaseSeedingService : BackgroundService
         await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync(ct);
 
-        // Separate CREATE TABLE statements from ALTER TABLE / migration statements
-        var allStatements = SchemaStatements().ToList();
-        var createStatements     = allStatements.Where(s => !s.TrimStart().StartsWith("ALTER") && !s.TrimStart().StartsWith("UPDATE")).ToList();
-        var migrationStatements  = allStatements.Where(s => s.TrimStart().StartsWith("ALTER") || s.TrimStart().StartsWith("UPDATE")).ToList();
+        var allStatements    = SchemaStatements().ToList();
 
-        // Always run migrations (ALTER TABLE ADD COLUMN IF NOT EXISTS is idempotent)
-        _logger.LogInformation("[Seed] Running {Count} migration statements (always).", migrationStatements.Count);
+        // Statements that are always safe to re-run (idempotent):
+        //   - ALTER TABLE ... ADD COLUMN IF NOT EXISTS
+        //   - UPDATE  (back-fill)
+        //   - CREATE TABLE IF NOT EXISTS  ← idempotent, safe on every startup
+        //   - CREATE INDEX IF NOT EXISTS  ← idempotent
+        // We run ALL of these on every startup so new tables/columns are always applied.
+        // The only thing we skip on existing deployments is anything that's NOT idempotent —
+        // but since we use IF NOT EXISTS everywhere, everything here is safe.
+        var migrationStatements = allStatements
+            .Where(s => {
+                var t = s.TrimStart();
+                return t.StartsWith("ALTER")
+                    || t.StartsWith("UPDATE")
+                    || t.StartsWith("CREATE TABLE IF NOT EXISTS")
+                    || t.StartsWith("CREATE UNIQUE INDEX IF NOT EXISTS")
+                    || t.StartsWith("CREATE INDEX IF NOT EXISTS");
+            })
+            .ToList();
+
+        var createStatements = allStatements.Except(migrationStatements).ToList();
+
+        _logger.LogInformation("[Seed] Running {Count} idempotent statements (always — CREATE IF NOT EXISTS + ALTER + UPDATE).", migrationStatements.Count);
         await RunStatementsAsync(conn, migrationStatements, ct);
 
         if (tablesExist)
         {
-            _logger.LogInformation("[Seed] Tables already exist — skipping CREATE TABLE block.");
+            _logger.LogInformation("[Seed] Tables already exist — skipping non-idempotent CREATE TABLE block.");
         }
         else
         {
-            _logger.LogInformation("[Seed] Tables not found — running {Count} CREATE TABLE statements.", createStatements.Count);
+            _logger.LogInformation("[Seed] Tables not found — running {Count} additional CREATE TABLE statements.", createStatements.Count);
             await RunStatementsAsync(conn, createStatements, ct);
         }
 
@@ -1391,5 +1408,31 @@ public sealed class DatabaseSeedingService : BackgroundService
 
         yield return """CREATE INDEX IF NOT EXISTS "IX_Notifications_UserId"  ON "Notifications"("UserId")""";
         yield return """CREATE INDEX IF NOT EXISTS "IX_Notifications_IsRead"  ON "Notifications"("UserId", "IsRead")""";
+
+        // ── Audit / Activity Log ──────────────────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "AuditLogs" (
+                "Id"          uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "UserId"      uuid,
+                "UserName"    varchar(300)  NOT NULL DEFAULT '',
+                "UserEmail"   varchar(300)  NOT NULL DEFAULT '',
+                "Action"      varchar(100)  NOT NULL DEFAULT '',
+                "Module"      varchar(100)  NOT NULL DEFAULT '',
+                "EntityType"  varchar(200),
+                "EntityId"    uuid,
+                "EntityName"  varchar(500),
+                "Reference"   varchar(100),
+                "Status"      varchar(20)   NOT NULL DEFAULT 'Success',
+                "Details"     text,
+                "IpAddress"   varchar(100),
+                "OccurredAt"  timestamptz   NOT NULL DEFAULT NOW(),
+                CONSTRAINT "PK_AuditLogs" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_AuditLogs_UserId"     ON "AuditLogs"("UserId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_AuditLogs_OccurredAt" ON "AuditLogs"("OccurredAt" DESC)""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_AuditLogs_Module"     ON "AuditLogs"("Module")""";
     }
 }

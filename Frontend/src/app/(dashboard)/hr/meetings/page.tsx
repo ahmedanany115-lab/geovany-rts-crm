@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useT } from "@/hooks/useT";
 import { useRoles } from "@/hooks/useRoles";
+import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 import { CalendarDays, Plus, X, Trash2, RefreshCw, Clock } from "lucide-react";
 
@@ -48,6 +49,7 @@ function fmt(dateStr: string) {
 
 export default function MeetingsPage() {
   const { t, lang } = useT();
+  const { toast } = useToast();
   const { isFinance, isAdmin, hasRole } = useRoles();
   const canViewAll = isAdmin || hasRole("Accountant", "Marketing");  // Dina sees all
   const qc = useQueryClient();
@@ -70,8 +72,12 @@ export default function MeetingsPage() {
       apiFetch("/hr/meetings", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["meetings"] });
+      toast(t("meeting_submitted") ?? "Meeting logged successfully.", "success");
       setForm({ title: "", description: "", type: 1, startTime: "", endTime: "", location: "", attendees: "", outcome: "" });
       setShowForm(false);
+    },
+    onError: (err: any) => {
+      toast(err?.message ?? "Failed to submit meeting. Please try again.", "error");
     },
   });
 
@@ -202,6 +208,11 @@ export default function MeetingsPage() {
           >
             {submit.isPending ? t("saving") : t("submit_request")}
           </button>
+          {submit.isError && (
+            <p className="text-sm text-red-600">
+              {(submit.error as any)?.message ?? "Failed to submit — please try again."}
+            </p>
+          )}
         </form>
       )}
 

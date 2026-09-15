@@ -119,6 +119,8 @@ export const translations = {
   leaves:             { en: "Leave Requests",     ar: "طلبات الإجازة" },
   new_leave:          { en: "New Leave Request",  ar: "طلب إجازة جديد" },
   leave_type:         { en: "Leave Type",         ar: "نوع الإجازة" },
+  leave_submitted:    { en: "Leave request submitted", ar: "تم إرسال طلب الإجازة" },
+  meeting_submitted:  { en: "Meeting logged",     ar: "تم تسجيل الاجتماع" },
   vacation:           { en: "Vacation",           ar: "إجازة سنوية" },
   sick_leave:         { en: "Sick Leave",         ar: "إجازة مرضية" },
   permission:         { en: "Permission",         ar: "إذن" },

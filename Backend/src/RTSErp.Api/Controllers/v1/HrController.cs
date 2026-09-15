@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RTSErp.Application.Common.Interfaces;
+using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Infrastructure.Persistence;
@@ -19,11 +21,13 @@ public class HrController : BaseApiController
 {
     private readonly ApplicationDbContext         _db;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IAuditService                _audit;
 
-    public HrController(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
+    public HrController(ApplicationDbContext db, UserManager<ApplicationUser> userManager, IAuditService audit)
     {
         _db          = db;
         _userManager = userManager;
+        _audit       = audit;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -132,6 +136,10 @@ public class HrController : BaseApiController
 
         _db.LeaveRequests.Add(leave);
         await _db.SaveChangesAsync();
+
+        _ = _audit.LogAsync(AuditActions.Submitted, AuditModules.HR,
+            entityName: $"Leave {leave.Type} ({leave.StartDate:d}–{leave.EndDate:d})",
+            entityId: leave.Id, entityType: "LeaveRequest");
 
         // Notify all Admin/Manager users that a new leave request is pending
         var managers = await _db.Users
@@ -298,6 +306,10 @@ public class HrController : BaseApiController
 
         _db.MeetingLogs.Add(meeting);
         await _db.SaveChangesAsync();
+
+        _ = _audit.LogAsync(AuditActions.Created, AuditModules.HR,
+            entityName: meeting.Title, entityId: meeting.Id, entityType: "MeetingLog");
+
         return Ok(new { meeting.Id });
     }
 

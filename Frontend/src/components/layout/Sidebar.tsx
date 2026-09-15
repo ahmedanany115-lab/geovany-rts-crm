@@ -238,6 +238,7 @@ export function Sidebar() {
         <Divider />
         <NavLink href="/reports/sales"    label={t("reports")}   icon={BarChart3} />
         <NavLink href="/documents"        label={lang === "ar" ? "وثائق الشركة" : "Documents"} icon={FileText} />
+        {isAdmin && <NavLink href="/admin/user-activity" label={lang === "ar" ? "نشاط المستخدمين" : "User Activity"} icon={BarChart3} />}
         {isAdmin && <NavLink href="/users/employees" label={t("users")} icon={UserCog} />}
         <NavLink href="/settings/company" label={t("settings")} icon={Settings} />
       </nav>

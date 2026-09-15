@@ -28,6 +28,17 @@ public class CurrentUserService : ICurrentUserService
 
     public string? Email => User?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value;
 
+    public string? UserName
+    {
+        get
+        {
+            var name = User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (!string.IsNullOrEmpty(name)) return name;
+            // Fall back to email prefix if no name claim
+            return Email?.Split('@')[0];
+        }
+    }
+
     public IReadOnlyList<string> Permissions =>
         User?.FindAll(AppClaimTypes.Permission).Select(c => c.Value).ToList() ?? [];
 }
