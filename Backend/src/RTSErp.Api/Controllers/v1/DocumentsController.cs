@@ -7,24 +7,38 @@ using RTSErp.Domain.Entities.Documents;
 namespace RTSErp.Api.Controllers.v1;
 
 /// <summary>
-/// Company documents management.
-/// Since we don't have cloud storage wired, documents are stored as
-/// metadata only (the file bytes are NOT persisted server-side in this
-/// version — clients provide a description and the UI stores the file
-/// locally or references an external URL).
+/// Company documents.
+///
+/// Permission model:
+///   GET  /documents              → any authenticated user  ([Authorize])
+///   GET  /documents/{id}/download → any authenticated user ([Authorize])
+///   POST /documents              → Admin, Manager, Accountant, Marketing (can upload)
+///   PUT  /documents/{id}         → Admin, Manager, Accountant, Marketing (can edit metadata)
+///   DELETE /documents/{id}       → Admin, Manager only
 /// </summary>
 [Authorize]
 public class DocumentsController : BaseApiController
 {
+    // ── List ─────────────────────────────────────────────────────────────────
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? category,
+        [FromQuery] string? search,
         [FromServices] IApplicationDbContext db,
         CancellationToken ct)
     {
         var q = db.CompanyDocuments.Where(d => !d.IsDeleted);
+
         if (!string.IsNullOrWhiteSpace(category))
             q = q.Where(d => d.Category == category);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            q = q.Where(d => d.Name.ToLower().Contains(s)
+                           || d.Category.ToLower().Contains(s)
+                           || (d.Description != null && d.Description.ToLower().Contains(s)));
+        }
 
         var docs = await q
             .OrderByDescending(d => d.CreatedAt)
@@ -34,19 +48,61 @@ public class DocumentsController : BaseApiController
                 d.OriginalName, d.ContentType, d.FileSizeBytes,
                 d.StoragePath, d.UploadedByName, d.ExpiryDate, d.IsPublic,
                 d.CreatedAt,
-                isExpired = d.ExpiryDate.HasValue && d.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.UtcNow),
+                isExpired = d.ExpiryDate.HasValue
+                            && d.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.UtcNow),
             })
             .ToListAsync(ct);
 
         return Ok(docs);
     }
 
+    // ── Categories ────────────────────────────────────────────────────────────
     [HttpGet("categories")]
     public IActionResult Categories()
         => Ok(DocumentCategories.All);
 
+    // ── Download / Open ───────────────────────────────────────────────────────
+    // Any authenticated user may download. Authentication is enforced by [Authorize]
+    // on the controller — unauthenticated requests are rejected with 401.
+    [HttpGet("{id:guid}/download")]
+    public async Task<IActionResult> Download(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var doc = await db.CompanyDocuments
+            .Where(d => d.Id == id && !d.IsDeleted)
+            .Select(d => new { d.StoragePath, d.OriginalName, d.ContentType })
+            .FirstOrDefaultAsync(ct);
+
+        if (doc is null) return NotFound();
+
+        // If StoragePath is an absolute URL, return a redirect (still auth-gated here)
+        if (doc.StoragePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+         || doc.StoragePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return Redirect(doc.StoragePath);
+        }
+
+        // Otherwise treat it as a local file path and stream it
+        if (!string.IsNullOrEmpty(doc.StoragePath)
+         && System.IO.File.Exists(doc.StoragePath))
+        {
+            var bytes = await System.IO.File.ReadAllBytesAsync(doc.StoragePath, ct);
+            var ct2   = doc.ContentType.Length > 0
+                          ? doc.ContentType
+                          : "application/octet-stream";
+            return File(bytes, ct2, doc.OriginalName);
+        }
+
+        // No local file — return the path for the client to open
+        return Ok(new { storagePath = doc.StoragePath, originalName = doc.OriginalName });
+    }
+
+    // ── Create / Upload ───────────────────────────────────────────────────────
+    // Upload permission: Admin, Manager, Accountant, Marketing
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager,Accountant")]
+    [Authorize(Roles = "Admin,Manager,Accountant,Marketing")]
     public async Task<IActionResult> Create(
         [FromBody] CreateDocumentRequest req,
         [FromServices] IApplicationDbContext db,
@@ -75,8 +131,10 @@ public class DocumentsController : BaseApiController
         return Ok(new { doc.Id });
     }
 
+    // ── Edit metadata ─────────────────────────────────────────────────────────
+    // Edit permission: Admin, Manager, Accountant, Marketing
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin,Manager,Accountant")]
+    [Authorize(Roles = "Admin,Manager,Accountant,Marketing")]
     public async Task<IActionResult> Update(
         Guid id,
         [FromBody] CreateDocumentRequest req,
@@ -98,6 +156,8 @@ public class DocumentsController : BaseApiController
         return NoContent();
     }
 
+    // ── Delete ────────────────────────────────────────────────────────────────
+    // Delete permission: Admin, Manager only
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Delete(
@@ -114,17 +174,18 @@ public class DocumentsController : BaseApiController
         return NoContent();
     }
 
+    // ── Request DTO ───────────────────────────────────────────────────────────
     public record CreateDocumentRequest(
-        string Name,
-        string Category,
-        string? Description,
-        string? DocumentNumber,
-        string? FileName,
-        string? OriginalName,
-        string? ContentType,
-        long FileSizeBytes,
-        string? StoragePath,
-        string? UploadedByName,
+        string   Name,
+        string   Category,
+        string?  Description,
+        string?  DocumentNumber,
+        string?  FileName,
+        string?  OriginalName,
+        string?  ContentType,
+        long     FileSizeBytes,
+        string?  StoragePath,
+        string?  UploadedByName,
         DateOnly? ExpiryDate,
-        bool IsPublic = true);
+        bool     IsPublic = true);
 }
