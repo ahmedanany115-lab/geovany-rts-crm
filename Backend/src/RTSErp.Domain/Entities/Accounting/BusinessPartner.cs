@@ -42,4 +42,8 @@ public class BusinessPartner : BaseEntity
 
     // Credit limit for customers
     public decimal? CreditLimit { get; set; }
+
+    // Sales assignment — which Sales user manages this customer
+    public Guid?   AssignedSalesRepId   { get; set; }
+    public string? AssignedSalesRepName { get; set; }
 }

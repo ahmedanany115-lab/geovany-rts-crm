@@ -67,4 +67,39 @@ public class JournalEntriesController : BaseApiController
             return BadRequest(new { errors = result.Errors });
         return Ok(result);
     }
+
+    /// <summary>
+    /// Delete a DRAFT journal entry. Posted entries must be reversed, not deleted.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Accountant")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] RTSErp.Application.Common.Interfaces.IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var entry = await db.JournalEntries
+            .Include(e => e.Lines)
+            .FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted, ct);
+
+        if (entry is null) return NotFound();
+
+        if (entry.Status != JournalEntryStatus.Draft)
+            return BadRequest(new
+            {
+                message = "Only Draft entries can be deleted. Use 'Reverse' for posted entries.",
+            });
+
+        // Soft-delete the entry and all its lines
+        entry.IsDeleted  = true;
+        entry.ModifiedAt = DateTime.UtcNow;
+        foreach (var line in entry.Lines)
+        {
+            line.IsDeleted  = true;
+            line.ModifiedAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }

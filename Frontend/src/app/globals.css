@@ -46,3 +46,43 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/* ── Print styles ──────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide everything not needed in print */
+  nav, aside, header, footer,
+  [data-sidebar], [data-topbar],
+  .no-print, button, [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Ensure main content fills page */
+  body { background: white !important; color: black !important; }
+  .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+  .print-content { display: block !important; }
+
+  /* Page breaks */
+  .page-break { page-break-after: always; }
+  .avoid-break { page-break-inside: avoid; }
+
+  /* Print header */
+  .print-header {
+    display: flex !important;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #1e3a8a;
+    margin-bottom: 24px;
+  }
+  .print-header img { width: 60px; height: 60px; object-fit: contain; }
+  .print-header-text h1 { font-size: 18px; font-weight: bold; color: #1e3a8a; }
+  .print-header-text p  { font-size: 11px; color: #666; }
+
+  /* Table adjustments */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 11px; }
+  th { background: #f0f4ff !important; -webkit-print-color-adjust: exact; }
+
+  /* Hide interactive elements */
+  [data-radix-portal], [data-state], .tooltip { display: none !important; }
+}

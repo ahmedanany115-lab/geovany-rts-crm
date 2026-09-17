@@ -16,5 +16,6 @@ public interface IAuditService
         string? reference    = null,
         string  status       = "Success",
         string? details      = null,
+        string? ipAddress    = null,
         CancellationToken ct = default);
 }

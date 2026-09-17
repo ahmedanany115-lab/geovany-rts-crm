@@ -9,6 +9,7 @@ namespace RTSErp.Application.Accounting.Accounts.Commands.UpdateAccount;
 public class UpdateAccountCommand : IRequest
 {
     public Guid Id { get; set; }
+    public string? Code { get; set; }   // Optional: if provided, change the account code
     public string Name { get; set; } = string.Empty;
     public string? NameAr { get; set; }
     public bool IsGroup { get; set; }
@@ -22,6 +23,7 @@ public class UpdateAccountCommandValidator : AbstractValidator<UpdateAccountComm
     {
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Code).MaximumLength(30).When(x => !string.IsNullOrWhiteSpace(x.Code));
     }
 }
 
@@ -42,10 +44,21 @@ public class UpdateAccountCommandHandler : IRequestHandler<UpdateAccountCommand>
             .FirstOrDefaultAsync(a => a.Id == request.Id && !a.IsDeleted, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.Id);
 
-        account.Name = request.Name.Trim();
-        account.NameAr = request.NameAr?.Trim();
-        account.IsGroup = request.IsGroup;
-        account.ParentId = request.ParentId;
+        // If code is being changed, validate no duplicate
+        if (!string.IsNullOrWhiteSpace(request.Code) && request.Code.Trim() != account.Code)
+        {
+            var duplicate = await _db.Accounts
+                .AnyAsync(a => a.Code == request.Code.Trim() && a.Id != request.Id && !a.IsDeleted, cancellationToken);
+            if (duplicate)
+                throw new InvalidOperationException($"Account code '{request.Code}' is already used by another account.");
+
+            account.Code = request.Code.Trim();
+        }
+
+        account.Name       = request.Name.Trim();
+        account.NameAr     = request.NameAr?.Trim();
+        account.IsGroup    = request.IsGroup;
+        account.ParentId   = request.ParentId;
         account.CurrencyId = request.CurrencyId;
         account.ModifiedAt = DateTime.UtcNow;
         account.ModifiedBy = _currentUser.UserId;

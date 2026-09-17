@@ -16,7 +16,16 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorizationPolicies();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o => { /* keep defaults */ });
+
+// Allow up to 50 MB JSON body for base64-encoded PDF uploads
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+{
+    o.ValueLengthLimit    = 50 * 1024 * 1024;
+    o.MultipartBodyLengthLimit = 50 * 1024 * 1024;
+});
+builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = 50 * 1024 * 1024);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwtSupport();
 

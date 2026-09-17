@@ -28,6 +28,8 @@ public class BusinessPartnerDto
     public string? CurrencyCode { get; set; }
     public string? ReceivableAccountCode { get; set; }
     public string? PayableAccountCode { get; set; }
+    public Guid?   AssignedSalesRepId   { get; set; }
+    public string? AssignedSalesRepName { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -38,12 +40,16 @@ public class GetBusinessPartnersQuery : IRequest<List<BusinessPartnerDto>>
     public BusinessPartnerType? PartnerType { get; set; }
     public bool? IsActive { get; set; }
     public string? Search { get; set; }
+    // When set, only return customers assigned to this Sales user (enforced server-side)
+    public Guid?   AssignedSalesRepId { get; set; }
 }
 
 public class GetBusinessPartnersQueryHandler : IRequestHandler<GetBusinessPartnersQuery, List<BusinessPartnerDto>>
 {
     private readonly IApplicationDbContext _db;
-    public GetBusinessPartnersQueryHandler(IApplicationDbContext db) => _db = db;
+    private readonly ICurrentUserService   _user;
+    public GetBusinessPartnersQueryHandler(IApplicationDbContext db, ICurrentUserService user)
+        => (_db, _user) = (db, user);
 
     public async Task<List<BusinessPartnerDto>> Handle(GetBusinessPartnersQuery request, CancellationToken ct)
     {
@@ -68,6 +74,10 @@ public class GetBusinessPartnersQueryHandler : IRequestHandler<GetBusinessPartne
                 || (bp.Email != null && bp.Email.ToLower().Contains(s))
                 || (bp.Phone != null && bp.Phone.Contains(s)));
         }
+
+        // Sales reps only see customers assigned to them
+        if (request.AssignedSalesRepId.HasValue)
+            query = query.Where(bp => bp.AssignedSalesRepId == request.AssignedSalesRepId.Value);
 
         return await query
             .OrderBy(bp => bp.Name)
@@ -147,6 +157,9 @@ public class UpsertBusinessPartnerCommand : IRequest<Guid>
     public Guid? CurrencyId { get; set; }
     public Guid? ReceivableAccountId { get; set; }
     public Guid? PayableAccountId { get; set; }
+    // Sales assignment
+    public Guid?   AssignedSalesRepId   { get; set; }
+    public string? AssignedSalesRepName { get; set; }
 }
 
 public class UpsertBusinessPartnerCommandValidator : AbstractValidator<UpsertBusinessPartnerCommand>
@@ -198,6 +211,8 @@ public class UpsertBusinessPartnerCommandHandler : IRequestHandler<UpsertBusines
         bp.Email = request.Email?.Trim();
         bp.Address = request.Address?.Trim();
         bp.Notes = request.Notes?.Trim();
+        bp.AssignedSalesRepId   = request.AssignedSalesRepId;
+        bp.AssignedSalesRepName = request.AssignedSalesRepName?.Trim();
         bp.CreditLimit = request.CreditLimit;
         bp.CurrencyId = request.CurrencyId;
         bp.ReceivableAccountId = request.ReceivableAccountId;

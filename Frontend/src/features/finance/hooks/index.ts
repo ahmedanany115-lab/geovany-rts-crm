@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
 import {
   accountsApi,
   currenciesApi,
@@ -175,5 +176,13 @@ export function useUpdateCurrency() {
     mutationFn: ({ id, ...data }: { id: string; name: string; symbol: string; exchangeRate: number; isActive: boolean }) =>
       currenciesApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["currencies"] }),
+  });
+}
+
+export function useDeleteJournalEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/journalentries/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["journal-entries"] }),
   });
 }

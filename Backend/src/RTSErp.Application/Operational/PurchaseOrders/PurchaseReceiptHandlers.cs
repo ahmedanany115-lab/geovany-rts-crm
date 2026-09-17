@@ -148,7 +148,7 @@ public class CreatePurchaseReceiptCommandHandler : IRequestHandler<CreatePurchas
 
 public class CreateSupplierInvoiceLineRequest
 {
-    public Guid ProductId { get; set; }
+    public Guid? ProductId { get; set; }    // Optional
     public string Description { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }

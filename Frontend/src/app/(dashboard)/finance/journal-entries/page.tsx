@@ -6,6 +6,7 @@ import {
   useCreateJournalEntry,
   usePostJournalEntry,
   useReverseJournalEntry,
+  useDeleteJournalEntry,
   useAccounts,
 } from "@/features/finance/hooks";
 import { useCurrencies } from "@/features/finance/hooks";
@@ -42,6 +43,7 @@ export default function JournalEntriesPage() {
   const createJE  = useCreateJournalEntry();
   const postJE    = usePostJournalEntry();
   const reverseJE = useReverseJournalEntry();
+  const deleteJE  = useDeleteJournalEntry();
 
   /* ── form state ── */
   const [showForm,  setShowForm]  = useState(false);
@@ -117,7 +119,13 @@ export default function JournalEntriesPage() {
     } catch (err: any) { toast(err?.message ?? "Failed to post.", "error"); }
   };
 
-  /* ── reverse ── */
+  const handleDelete = async (id: string, num: string) => {
+    if (!confirm(`Delete draft journal entry ${num}? This cannot be undone.`)) return;
+    try {
+      await deleteJE.mutateAsync(id);
+      toast(`${num} deleted.`, "info");
+    } catch (err: any) { toast(err?.message ?? "Cannot delete — reverse posted entries instead.", "error"); }
+  };
   const handleReverse = async () => {
     if (!reversingId) return;
     try {
@@ -326,6 +334,13 @@ export default function JournalEntriesPage() {
                       <button onClick={() => handlePost(je.id, je.entryNumber)} disabled={postJE.isPending}
                         className="text-xs px-2.5 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
                         Post
+                      </button>
+                    )}
+                    {je.status === 1 && (
+                      <button onClick={() => handleDelete(je.id, je.entryNumber)} disabled={deleteJE.isPending}
+                        title="Delete draft"
+                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
                     {je.status === 2 && (

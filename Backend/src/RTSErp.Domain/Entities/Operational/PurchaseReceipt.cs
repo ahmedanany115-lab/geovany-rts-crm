@@ -93,8 +93,8 @@ public class SupplierInvoiceLine : BaseEntity
     public Guid SupplierInvoiceId { get; set; }
     public SupplierInvoice SupplierInvoice { get; set; } = null!;
 
-    public Guid ProductId { get; set; }
-    public Product Product { get; set; } = null!;
+    public Guid? ProductId { get; set; }   // Optional — null for free-text description lines
+    public Product? Product { get; set; }
 
     public string Description { get; set; } = string.Empty;
     public decimal Quantity { get; set; }

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Entities.Documents;
+using RTSErp.Domain.Entities.Helpdesk;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
 using RTSErp.Domain.Entities.Notifications;
@@ -66,6 +67,10 @@ public interface IApplicationDbContext
 
     // ── Audit / Activity Log ──────────────────────────────────────────────────
     DbSet<AuditLog> AuditLogs { get; }
+
+    // ── Helpdesk ──────────────────────────────────────────────────────────────
+    DbSet<Ticket>        Tickets        { get; }
+    DbSet<TicketComment> TicketComments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

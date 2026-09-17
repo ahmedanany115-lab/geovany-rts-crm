@@ -4,6 +4,7 @@ using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Entities.Documents;
+using RTSErp.Domain.Entities.Helpdesk;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
@@ -82,6 +83,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // ── Audit / Activity Log ──────────────────────────────────────────────────
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    // ── Helpdesk ──────────────────────────────────────────────────────────────
+    public DbSet<Ticket>        Tickets        => Set<Ticket>();
+    public DbSet<TicketComment> TicketComments => Set<TicketComment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

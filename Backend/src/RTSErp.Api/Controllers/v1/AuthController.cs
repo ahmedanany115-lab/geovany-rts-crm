@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RTSErp.Application.Common.Interfaces;
 using RTSErp.Application.Identity.Commands.Login;
 using RTSErp.Application.Identity.Commands.Logout;
 using RTSErp.Application.Identity.Commands.Refresh;
 using RTSErp.Application.Identity.Queries.GetCurrentUser;
+using RTSErp.Domain.Entities.Audit;
 
 namespace RTSErp.Api.Controllers.v1;
 
@@ -23,12 +25,25 @@ public class AuthController : BaseApiController
             var result = await Mediator.Send(command);
 
             if (!result.Succeeded)
+            {
+                // Fire-and-forget audit: login failed
+                var audit = HttpContext.RequestServices.GetService<IAuditService>();
+                _ = audit?.LogAsync(AuditActions.LoginFailed, AuditModules.Auth,
+                    entityName: command.Email, status: "Failed",
+                    details: result.Error, ipAddress: command.IpAddress);
                 return Unauthorized(new { message = result.Error });
+            }
 
-            // Set cookie (works same-origin / when browser permits cross-origin cookies)
             SetRefreshTokenCookie(result.RefreshToken!);
 
-            // Also return token in body — used by the frontend when cookie is blocked
+            // Fire-and-forget audit: login success
+            {
+                var audit = HttpContext.RequestServices.GetService<IAuditService>();
+                _ = audit?.LogAsync(AuditActions.Login, AuditModules.Auth,
+                    entityName: result.Auth?.Email ?? command.Email,
+                    ipAddress: command.IpAddress);
+            }
+
             return Ok(result.Auth);
         }
         catch (Exception ex)

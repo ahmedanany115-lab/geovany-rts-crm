@@ -53,6 +53,15 @@ export const useDeleteCustomer = () => {
   });
 };
 
+export const useAssignCustomerSalesRep = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, salesRepId, salesRepName }: { id: string; salesRepId: string | null; salesRepName: string | null }) =>
+      customersApi.assignSalesRep(id, salesRepId, salesRepName),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
 // ── Suppliers ─────────────────────────────────────────────────────────────────
 
 export const useSuppliers = (p?: Parameters<typeof suppliersApi.list>[0]) =>

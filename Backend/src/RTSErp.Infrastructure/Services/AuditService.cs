@@ -28,11 +28,12 @@ public class AuditService : IAuditService
         string? reference  = null,
         string  status     = "Success",
         string? details    = null,
+        string? ipAddress  = null,
         CancellationToken ct = default)
     {
         try
         {
-            var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            var ip = ipAddress ?? _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
             var entry = new AuditLog
             {
                 UserId     = _user.UserId,

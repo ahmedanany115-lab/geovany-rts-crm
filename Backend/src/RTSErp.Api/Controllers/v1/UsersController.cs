@@ -20,7 +20,8 @@ public class UsersController : BaseApiController
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
+    [Authorize(Roles = "Admin,Accountant,Manager")]   // extended so Accountant can load sales users for customer assignment
+    public async Task<IActionResult> List([FromQuery] string? role, CancellationToken ct)
     {
         var users = await _userManager.Users
             .Where(u => !u.IsDeleted)
@@ -31,6 +32,12 @@ public class UsersController : BaseApiController
         foreach (var u in users)
         {
             var roles = await _userManager.GetRolesAsync(u);
+
+            // Filter by role if specified
+            if (!string.IsNullOrWhiteSpace(role) &&
+                !roles.Any(r => r.Equals(role, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
             result.Add(new
             {
                 id         = u.Id,

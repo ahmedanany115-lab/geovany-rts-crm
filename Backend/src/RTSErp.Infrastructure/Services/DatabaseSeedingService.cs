@@ -463,6 +463,8 @@ public sealed class DatabaseSeedingService : BackgroundService
                 "PayableAccountId"    uuid,
                 "CurrencyId"          uuid,
                 "CreditLimit"         numeric(18,4),
+                "AssignedSalesRepId"   uuid,
+                "AssignedSalesRepName" varchar(300),
                 "CreatedAt"           timestamptz  NOT NULL DEFAULT NOW(),
                 "CreatedBy"           uuid,
                 "ModifiedAt"          timestamptz,
@@ -471,6 +473,10 @@ public sealed class DatabaseSeedingService : BackgroundService
                 CONSTRAINT "PK_BusinessPartners" PRIMARY KEY ("Id")
             )
             """;
+
+        // Migrations for existing BusinessPartners table (idempotent)
+        yield return """ALTER TABLE IF EXISTS "BusinessPartners" ADD COLUMN IF NOT EXISTS "AssignedSalesRepId" uuid""";
+        yield return """ALTER TABLE IF EXISTS "BusinessPartners" ADD COLUMN IF NOT EXISTS "AssignedSalesRepName" varchar(300)""";
 
         yield return """
             CREATE TABLE IF NOT EXISTS "BankAccounts" (
@@ -1369,7 +1375,7 @@ public sealed class DatabaseSeedingService : BackgroundService
                 "OriginalName"     varchar(300)  NOT NULL DEFAULT '',
                 "ContentType"      varchar(100)  NOT NULL DEFAULT '',
                 "FileSizeBytes"    bigint        NOT NULL DEFAULT 0,
-                "StoragePath"      varchar(500)  NOT NULL DEFAULT '',
+                "StoragePath"      text          NOT NULL DEFAULT '',
                 "UploadedByName"   varchar(200)  NOT NULL DEFAULT '',
                 "ExpiryDate"       date,
                 "IsPublic"         boolean       NOT NULL DEFAULT true,
@@ -1383,6 +1389,12 @@ public sealed class DatabaseSeedingService : BackgroundService
             """;
 
         yield return """CREATE INDEX IF NOT EXISTS "IX_CompanyDocuments_Category" ON "CompanyDocuments"("Category")""";
+
+        // Fix StoragePath to text if it was created as varchar(500) on an older deployment
+        yield return """ALTER TABLE IF EXISTS "CompanyDocuments" ALTER COLUMN "StoragePath" TYPE text""";
+
+        // Make SupplierInvoiceLines.ProductId nullable to allow free-text lines
+        yield return """ALTER TABLE IF EXISTS "SupplierInvoiceLines" ALTER COLUMN "ProductId" DROP NOT NULL""";
 
         // ── Notifications ─────────────────────────────────────────────────────
 
@@ -1434,5 +1446,70 @@ public sealed class DatabaseSeedingService : BackgroundService
         yield return """CREATE INDEX IF NOT EXISTS "IX_AuditLogs_UserId"     ON "AuditLogs"("UserId")""";
         yield return """CREATE INDEX IF NOT EXISTS "IX_AuditLogs_OccurredAt" ON "AuditLogs"("OccurredAt" DESC)""";
         yield return """CREATE INDEX IF NOT EXISTS "IX_AuditLogs_Module"     ON "AuditLogs"("Module")""";
+
+        // ── Helpdesk / Tickets ────────────────────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "Tickets" (
+                "Id"               uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "TicketNumber"     varchar(30)   NOT NULL DEFAULT '',
+                "Title"            varchar(500)  NOT NULL DEFAULT '',
+                "Description"      text,
+                "Priority"         integer       NOT NULL DEFAULT 2,
+                "Status"           integer       NOT NULL DEFAULT 1,
+                "Category"         integer       NOT NULL DEFAULT 1,
+                "ReportedById"     uuid,
+                "ReportedByName"   varchar(300)  NOT NULL DEFAULT '',
+                "ReportedByEmail"  varchar(300)  NOT NULL DEFAULT '',
+                "AssignedToId"     uuid,
+                "AssignedToName"   varchar(300),
+                "RelatedCustomerId" uuid,
+                "RelatedEntityRef" varchar(100),
+                "Resolution"       text,
+                "ResolvedAt"       timestamptz,
+                "ClosedAt"         timestamptz,
+                "CreatedAt"        timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"        uuid,
+                "ModifiedAt"       timestamptz,
+                "ModifiedBy"       uuid,
+                "IsDeleted"        boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_Tickets" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_Tickets_Status"        ON "Tickets"("Status")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_Tickets_ReportedById"  ON "Tickets"("ReportedById")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_Tickets_AssignedToId"  ON "Tickets"("AssignedToId")""";
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "TicketComments" (
+                "Id"         uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "TicketId"   uuid          NOT NULL,
+                "Body"       text          NOT NULL DEFAULT '',
+                "AuthorId"   uuid,
+                "AuthorName" varchar(300)  NOT NULL DEFAULT '',
+                "IsInternal" boolean       NOT NULL DEFAULT false,
+                "CreatedAt"  timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"  uuid,
+                "ModifiedAt" timestamptz,
+                "ModifiedBy" uuid,
+                "IsDeleted"  boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_TicketComments" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_TicketComments_Tickets_TicketId"
+                    FOREIGN KEY ("TicketId") REFERENCES "Tickets"("Id") ON DELETE CASCADE
+            )
+            """;
+
+        yield return """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Warehouses_Code" ON "Warehouses"("Code") WHERE "IsDeleted" = false""";
+
+        // ── Reference data (idempotent INSERT) ───────────────────────────────
+        // Ensures Warehouse 1 and Warehouse 2 always exist.
+        yield return """
+            INSERT INTO "Warehouses" ("Id","Code","Name","Location","IsActive","CreatedAt","IsDeleted")
+            VALUES
+              ('11111111-0000-0000-0000-000000000001','WH-01','Warehouse 1','Main Branch',true,NOW(),false),
+              ('22222222-0000-0000-0000-000000000002','WH-02','Warehouse 2','Secondary Branch',true,NOW(),false)
+            ON CONFLICT ("Id") DO NOTHING
+            """;
     }
 }

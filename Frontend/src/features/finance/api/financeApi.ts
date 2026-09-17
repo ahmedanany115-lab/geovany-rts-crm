@@ -33,7 +33,7 @@ export const accountsApi = {
       body: JSON.stringify(data),
     }),
 
-  update: (id: string, data: Omit<CreateAccountRequest, "code" | "accountType">) =>
+  update: (id: string, data: Partial<Omit<CreateAccountRequest, "accountType">> & { name: string }) =>
     apiFetch<void>(`/accounts/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),

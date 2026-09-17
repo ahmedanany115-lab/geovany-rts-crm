@@ -12,7 +12,7 @@ public class CompanyDocument : BaseEntity
     public string OriginalName { get; set; } = string.Empty;  // original upload name
     public string ContentType { get; set; } = string.Empty;
     public long FileSizeBytes { get; set; }
-    public string StoragePath { get; set; } = string.Empty;   // relative path in uploads folder
+    public string StoragePath { get; set; } = string.Empty;   // URL or base64 data URI
     public string UploadedByName { get; set; } = string.Empty;
     public DateOnly? ExpiryDate { get; set; }
     public bool IsPublic { get; set; } = true;   // visible to all staff

@@ -94,6 +94,7 @@ export default function AccountsPage() {
         await update.mutateAsync({
           id: editing.id,
           data: {
+            ...(form.code.trim() !== editing.code && { code: form.code.trim() }),
             name:     form.name.trim(),
             nameAr:   form.nameAr.trim() || undefined,
             isGroup:  form.isGroup,
@@ -217,19 +218,23 @@ export default function AccountsPage() {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            {/* Code — only editable on create */}
+            {/* Code — editable on both create and edit */}
             <div>
               <label className="text-xs text-muted-foreground block mb-1">
-                {t("code")} {!editing && "*"}
+                {t("code")} *
               </label>
               <input
-                required={!editing}
-                disabled={!!editing}
+                required
                 value={form.code}
                 onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                className="input w-full font-mono disabled:opacity-50"
+                className="input w-full font-mono"
                 placeholder="e.g. 1010"
               />
+              {editing && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Changing the code updates the account number. Duplicate codes are rejected.
+                </p>
+              )}
             </div>
 
             {/* English name */}

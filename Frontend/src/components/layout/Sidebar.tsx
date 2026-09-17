@@ -153,6 +153,7 @@ export function Sidebar() {
                 { href: "/finance/trial-balance",    label: t("trial_balance"),     icon: BarChart3 },
                 { href: "/finance/income-statement", label: lang === "ar" ? "قائمة الدخل" : "Income Statement", icon: TrendingUp },
                 { href: "/finance/profit-loss",      label: lang === "ar" ? "الأرباح والخسائر" : "Profit & Loss",  icon: BarChart3 },
+                { href: "/finance/balance-sheet",    label: lang === "ar" ? "الميزانية العمومية" : "Balance Sheet", icon: BarChart3 },
                 { href: "/finance/fiscal-periods",   label: t("fiscal_periods"),    icon: CalendarDays },
                 { href: "/finance/currencies",       label: t("currencies"),        icon: Coins },
                 { href: "/erp/bank-accounts",        label: t("bank_accounts"),     icon: Landmark },
