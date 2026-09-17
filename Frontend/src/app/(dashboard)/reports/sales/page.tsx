@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useT } from "@/hooks/useT";
 import { usePrint } from "@/hooks/usePrint";
-import { BarChart3, RefreshCw, Printer } from "lucide-react";
+import { exportCsv } from "@/lib/export-csv";
+import { BarChart3, RefreshCw, Printer, Download } from "lucide-react";
 
 type Tab = "summary" | "by-customer" | "by-item" | "by-rep";
 const EGP = (v: number) => v.toLocaleString("en-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 0 });
@@ -26,8 +27,41 @@ export default function SalesReportsPage() {
 
   const loading = sL || cL || iL || rL;
 
+  const handleExport = () => {
+    if (tab === "summary" && summary) {
+      exportCsv([summary], `sales-summary-${from}-to-${to}.csv`);
+    } else if (tab === "by-customer" && byCustomer) {
+      exportCsv(byCustomer, `sales-by-customer-${from}-to-${to}.csv`, [
+        { key: "customerName", header: "Customer" },
+        { key: "orderCount", header: "Orders" },
+        { key: "totalRevenue", header: "Revenue" },
+        { key: "totalVat", header: "VAT" },
+        { key: "totalCollected", header: "Collected" },
+        { key: "totalOutstanding", header: "Outstanding" },
+      ]);
+    } else if (tab === "by-item" && byItem) {
+      exportCsv(byItem, `sales-by-item-${from}-to-${to}.csv`, [
+        { key: "productSku", header: "SKU" },
+        { key: "productName", header: "Product" },
+        { key: "quantitySold", header: "Qty Sold" },
+        { key: "totalRevenue", header: "Revenue" },
+        { key: "totalDiscount", header: "Discount" },
+        { key: "totalVat", header: "VAT" },
+        { key: "netRevenue", header: "Net Revenue" },
+      ]);
+    } else if (tab === "by-rep" && byRep) {
+      exportCsv(byRep, `sales-by-rep-${from}-to-${to}.csv`, [
+        { key: "salesRepName", header: "Sales Rep" },
+        { key: "orderCount", header: "Orders" },
+        { key: "totalRevenue", header: "Revenue" },
+        { key: "totalCollected", header: "Collected" },
+        { key: "totalOutstanding", header: "Outstanding" },
+        { key: "commission", header: "Commission" },
+      ]);
+    }
+  };
+
   const tabs: { key: Tab; label: string }[] = [
-    { key: "summary",     label: "Sales Summary" },
     { key: "by-customer", label: "By Customer" },
     { key: "by-item",     label: "By Product/Item" },
     { key: "by-rep",      label: "By Sales Rep" },
@@ -37,6 +71,9 @@ export default function SalesReportsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary" /><h1 className="text-2xl font-semibold">Sales Reports</h1></div>
+        <button onClick={handleExport} className="btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
+          <Download className="h-4 w-4" /> Export CSV
+        </button>
         <button onClick={handlePrint} className="btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
           <Printer className="h-4 w-4" /> Print
         </button>

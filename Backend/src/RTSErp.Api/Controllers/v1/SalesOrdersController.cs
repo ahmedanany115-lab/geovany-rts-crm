@@ -138,10 +138,61 @@ public class CustomerInvoicesController : BaseApiController
     public async Task<IActionResult> Get(Guid id) => Ok(await Mediator.Send(new GetCustomerInvoiceQuery { Id = id }));
 
     [HttpPost]
+    [Authorize(Roles = "Admin,Manager,Accountant")]
     public async Task<IActionResult> Create(CreateCustomerInvoiceCommand cmd)
     { var id = await Mediator.Send(cmd); return CreatedAtAction(nameof(Get), new { id }, new { id }); }
 
     [HttpPost("{id:guid}/post")]
+    [Authorize(Roles = "Admin,Manager,Accountant")]
     public async Task<IActionResult> Post(Guid id)
     { await Mediator.Send(new PostCustomerInvoiceCommand { Id = id }); return NoContent(); }
+
+    /// <summary>
+    /// Void a Draft invoice (soft-delete via status change).
+    /// Posted invoices cannot be voided — they must be reversed through a Credit Note.
+    /// </summary>
+    [HttpPost("{id:guid}/void")]
+    [Authorize(Roles = "Admin,Manager,Accountant")]
+    public async Task<IActionResult> Void(
+        Guid id,
+        [FromServices] RTSErp.Application.Common.Interfaces.IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var inv = await db.CustomerInvoices.FindAsync([id], ct);
+        if (inv is null || inv.IsDeleted) return NotFound();
+
+        if (inv.Status == RTSErp.Domain.Enums.InvoiceStatus.Posted)
+            return BadRequest(new
+            {
+                message = "Posted invoices cannot be voided. Create a credit note or reverse the associated journal entry."
+            });
+
+        inv.Status     = RTSErp.Domain.Enums.InvoiceStatus.Cancelled;
+        inv.ModifiedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>Hard-delete only Draft invoices with no payments.</summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] RTSErp.Application.Common.Interfaces.IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var inv = await db.CustomerInvoices.FindAsync([id], ct);
+        if (inv is null || inv.IsDeleted) return NotFound();
+
+        if (inv.Status != RTSErp.Domain.Enums.InvoiceStatus.Draft)
+            return BadRequest(new { message = "Only Draft invoices can be deleted. Void or reverse posted invoices instead." });
+
+        if (inv.PaidAmount > 0)
+            return BadRequest(new { message = "Invoice has recorded payments and cannot be deleted." });
+
+        inv.IsDeleted  = true;
+        inv.ModifiedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }

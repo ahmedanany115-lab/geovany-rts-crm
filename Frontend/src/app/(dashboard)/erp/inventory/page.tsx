@@ -6,7 +6,8 @@ import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
 import { useWarehouses } from "@/features/erp/hooks";
 import { useProducts } from "@/features/erp/hooks";
-import { ArrowLeftRight, RefreshCw, Plus, X, Check, AlertTriangle, Warehouse } from "lucide-react";
+import { ArrowLeftRight, RefreshCw, Plus, X, Check, AlertTriangle, Warehouse, Download } from "lucide-react";
+import { exportCsv } from "@/lib/export-csv";
 
 interface InventoryBalance {
   id: string; productId: string; productName: string; productSku: string;
@@ -146,6 +147,12 @@ export default function InventoryPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => refetch()} className="btn-ghost p-2 rounded-lg"><RefreshCw className="h-4 w-4" /></button>
+          <button onClick={() => exportCsv(
+            (balances ?? []).map(b => ({ warehouse: b.warehouseName, sku: b.productSku, product: b.productName, qty: b.quantity, reserved: b.reservedQuantity, available: b.availableQuantity, value: b.totalValue })),
+            `warehouse-stock${warehouseFilter ? "-" + warehouses?.find((w: any) => w.id === warehouseFilter)?.name : ""}.csv`
+          )} className="btn-ghost flex items-center gap-2 px-3 py-2 rounded-lg text-sm">
+            <Download className="h-4 w-4" /> Export CSV
+          </button>
           <button onClick={() => setShowTransfer(true)}
             className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
             <ArrowLeftRight className="h-4 w-4" /> Transfer Stock
