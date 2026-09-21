@@ -23,8 +23,18 @@ public class UsersController : BaseApiController
     [Authorize(Roles = "Admin,Accountant,Manager")]   // extended so Accountant can load sales users for customer assignment
     public async Task<IActionResult> List([FromQuery] string? role, CancellationToken ct)
     {
+        // Pure view-only accounts that are not real staff — hidden from user management.
+        // Randa (randa@rtegy.com) is ReadOnly but is a real staff member, so she IS shown.
+        var hiddenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "mhy@rtegy.com",
+            "kfahim@rtegy.com",
+            "Dgeorge@rtegy.com",
+            "Farah@rtegy.com",
+        };
+
         var users = await _userManager.Users
-            .Where(u => !u.IsDeleted)
+            .Where(u => !u.IsDeleted && !hiddenEmails.Contains(u.Email!))
             .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
             .ToListAsync(ct);
 
