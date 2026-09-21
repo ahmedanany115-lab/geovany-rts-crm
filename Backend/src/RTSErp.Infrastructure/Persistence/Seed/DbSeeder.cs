@@ -65,7 +65,7 @@ public static class DbSeeder
         new("Dgeorge@rtegy.com",               "Daniel@123",   "Daniel",      "George",     "",                        "",            "ReadOnly"),
 
         // ── Office staff ─────────────────────────────────────────────────────
-        new("randa@rtegy.com",                 "Randa@123",    "Randa",       "El Beheiry", "Office Manager",          "Admin",       "ReadOnly"),
+        new("randa@rtegy.com",                 "Randa@123",    "Randa",       "El Beheiry", "Support Staff",           "Support",     "SupportAgent"),
 
         // ── Additional ReadOnly ───────────────────────────────────────────────
         new("Farah@rtegy.com",                 "Farouha@123",  "Farah",       "El Anany",   "",                        "",            "ReadOnly"),
