@@ -63,6 +63,12 @@ public static class DbSeeder
         // ── ReadOnly viewers ─────────────────────────────────────────────────
         new("kfahim@rtegy.com",                "Kfahim@123",   "Kfahim",      "",           "",                        "",            "ReadOnly"),
         new("Dgeorge@rtegy.com",               "Daniel@123",   "Daniel",      "George",     "",                        "",            "ReadOnly"),
+
+        // ── Office staff ─────────────────────────────────────────────────────
+        new("randa@rtegy.com",                 "Randa@123",    "Randa",       "El Beheiry", "Office Manager",          "Admin",       "ReadOnly"),
+
+        // ── Additional ReadOnly ───────────────────────────────────────────────
+        new("Farah@rtegy.com",                 "Farouha@123",  "Farah",       "El Anany",   "",                        "",            "ReadOnly"),
     ];
 
     // ── Role definitions ──────────────────────────────────────────────────────
