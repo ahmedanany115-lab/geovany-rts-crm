@@ -26,22 +26,27 @@ public class AuthController : BaseApiController
 
             if (!result.Succeeded)
             {
-                // Fire-and-forget audit: login failed
+                // Audit: login failed — pass email explicitly since user is not authenticated yet
                 var audit = HttpContext.RequestServices.GetService<IAuditService>();
-                _ = audit?.LogAsync(AuditActions.LoginFailed, AuditModules.Auth,
-                    entityName: command.Email, status: "Failed",
-                    details: result.Error, ipAddress: command.IpAddress);
+                if (audit != null)
+                    _ = Task.Run(() => audit.LogAsync(
+                        AuditActions.LoginFailed, AuditModules.Auth,
+                        entityName: command.Email, status: "Failed",
+                        details: result.Error, ipAddress: command.IpAddress));
                 return Unauthorized(new { message = result.Error });
             }
 
             SetRefreshTokenCookie(result.RefreshToken!);
 
-            // Fire-and-forget audit: login success
+            // Audit: login success — pass email explicitly since user is not yet in HttpContext.User
             {
                 var audit = HttpContext.RequestServices.GetService<IAuditService>();
-                _ = audit?.LogAsync(AuditActions.Login, AuditModules.Auth,
-                    entityName: result.Auth?.Email ?? command.Email,
-                    ipAddress: command.IpAddress);
+                var email = result.Auth?.Email ?? command.Email;
+                if (audit != null)
+                    _ = Task.Run(() => audit.LogAsync(
+                        AuditActions.Login, AuditModules.Auth,
+                        entityName: email, details: $"Login from {command.IpAddress ?? "unknown"}",
+                        ipAddress: command.IpAddress));
             }
 
             return Ok(result.Auth);
@@ -97,6 +102,48 @@ public class AuthController : BaseApiController
         Response.Cookies.Delete(RefreshTokenCookieName);
         return NoContent();
     }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest req,
+        [FromServices] UserManager<RTSErp.Domain.Entities.Identity.ApplicationUser> userManager,
+        CancellationToken ct)
+    {
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                  ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        if (userId is null) return Unauthorized();
+
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return Unauthorized();
+
+        var result = await userManager.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
+        if (!result.Succeeded)
+            return BadRequest(new { message = string.Join(" ", result.Errors.Select(e => e.Description)) });
+
+        return Ok(new { message = "Password changed successfully." });
+    }
+
+    public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+    [HttpPatch("update-profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfile(
+        [FromBody] UpdateProfileRequest req,
+        [FromServices] UserManager<RTSErp.Domain.Entities.Identity.ApplicationUser> userManager)
+    {
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                  ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        if (userId is null) return Unauthorized();
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return Unauthorized();
+        if (!string.IsNullOrWhiteSpace(req.FirstName)) user.FirstName = req.FirstName.Trim();
+        if (!string.IsNullOrWhiteSpace(req.LastName))  user.LastName  = req.LastName.Trim();
+        await userManager.UpdateAsync(user);
+        return Ok(new { user.FirstName, user.LastName });
+    }
+
+    public record UpdateProfileRequest(string? FirstName, string? LastName);
 
     [HttpGet("me")]
     [Authorize]

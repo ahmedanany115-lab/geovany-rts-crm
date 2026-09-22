@@ -65,7 +65,7 @@ public static class DbSeeder
         new("Dgeorge@rtegy.com",               "Daniel@123",   "Daniel",      "George",     "",                        "",            "ReadOnly"),
 
         // ── Office staff ─────────────────────────────────────────────────────
-        new("randa@rtegy.com",                 "Randa@123",    "Randa",       "El Beheiry", "Office Girl",             "Office",      "ReadOnly"),
+        new("randa@rtegy.com",                 "Randa@123",    "Randa",       "El Beheiry", "Office Girl",             "Office",      "Office"),
 
         // ── Additional ReadOnly ───────────────────────────────────────────────
         new("Farah@rtegy.com",                 "Farouha@123",  "Farah",       "El Anany",   "",                        "",            "ReadOnly"),
@@ -107,6 +107,10 @@ public static class DbSeeder
         // Marketing — CRM read, reports, quotations read
         ["Marketing"]    = p => p.Code is "crm.customers.read" or "crm.leads.read" or "crm.contacts.read"
                              || p.Code is "quotations.read" or "reports.view",
+
+        // Office — internal staff (e.g. office assistants): read-only + company documents
+        ["Office"]       = p => p.Code.EndsWith(".read") || p.Code == "reports.view"
+                             || p.Code is "documents.view" or "documents.download",
     };
 
     // ── Entry point ───────────────────────────────────────────────────────────

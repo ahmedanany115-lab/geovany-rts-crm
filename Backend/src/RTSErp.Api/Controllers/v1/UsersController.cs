@@ -7,7 +7,7 @@ using RTSErp.Infrastructure.Persistence;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize(Roles = "Admin")]
+[Authorize]   // authenticated; individual methods specify which roles
 public class UsersController : BaseApiController
 {
     private readonly UserManager<ApplicationUser> _userManager;
@@ -65,6 +65,7 @@ public class UsersController : BaseApiController
     }
 
     [HttpPatch("{id:guid}/toggle-active")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ToggleActive(Guid id)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());

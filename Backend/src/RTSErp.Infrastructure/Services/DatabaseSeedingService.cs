@@ -1502,14 +1502,44 @@ public sealed class DatabaseSeedingService : BackgroundService
 
         yield return """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Warehouses_Code" ON "Warehouses"("Code") WHERE "IsDeleted" = false""";
 
-        // ── Reference data (idempotent INSERT) ───────────────────────────────
-        // Ensures Warehouse 1 and Warehouse 2 always exist.
+        // ── Warehouse seeds ───────────────────────────────────────────────────
         yield return """
             INSERT INTO "Warehouses" ("Id","Code","Name","Location","IsActive","CreatedAt","IsDeleted")
             VALUES
               ('11111111-0000-0000-0000-000000000001','WH-01','Warehouse 1','Main Branch',true,NOW(),false),
               ('22222222-0000-0000-0000-000000000002','WH-02','Warehouse 2','Secondary Branch',true,NOW(),false)
             ON CONFLICT ("Id") DO NOTHING
+            """;
+
+        // ── Chart of Accounts — additional group accounts (idempotent) ─────────
+        // "CURRENT ASSETS" group under ASSETS (code 1000)
+        yield return """
+            INSERT INTO "Accounts"
+              ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
+            SELECT
+              'aaaaaaaa-0001-0000-0000-000000000001',
+              '1050','Current Assets','الأصول المتداولة',
+              1, true, true,
+              (SELECT "Id" FROM "Accounts" WHERE "Code"='1000' AND "IsDeleted"=false LIMIT 1),
+              NOW(), false
+            WHERE NOT EXISTS (
+              SELECT 1 FROM "Accounts" WHERE "Code"='1050' AND "IsDeleted"=false
+            )
+            """;
+
+        // "OTHER LIABILITIES" group under LIABILITIES (code 2000)
+        yield return """
+            INSERT INTO "Accounts"
+              ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
+            SELECT
+              'bbbbbbbb-0002-0000-0000-000000000002',
+              '2700','Other Liabilities','الخصوم الأخرى',
+              2, true, true,
+              (SELECT "Id" FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false LIMIT 1),
+              NOW(), false
+            WHERE NOT EXISTS (
+              SELECT 1 FROM "Accounts" WHERE "Code"='2700' AND "IsDeleted"=false
+            )
             """;
     }
 }

@@ -45,14 +45,17 @@ public class UpdateAccountCommandHandler : IRequestHandler<UpdateAccountCommand>
             ?? throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.Id);
 
         // If code is being changed, validate no duplicate
-        if (!string.IsNullOrWhiteSpace(request.Code) && request.Code.Trim() != account.Code)
+        if (!string.IsNullOrWhiteSpace(request.Code))
         {
-            var duplicate = await _db.Accounts
-                .AnyAsync(a => a.Code == request.Code.Trim() && a.Id != request.Id && !a.IsDeleted, cancellationToken);
-            if (duplicate)
-                throw new InvalidOperationException($"Account code '{request.Code}' is already used by another account.");
-
-            account.Code = request.Code.Trim();
+            var newCode = request.Code.Trim();
+            if (newCode != account.Code)
+            {
+                var duplicate = await _db.Accounts
+                    .AnyAsync(a => a.Code == newCode && a.Id != request.Id && !a.IsDeleted, cancellationToken);
+                if (duplicate)
+                    throw new InvalidOperationException($"Account code '{newCode}' is already used by another account.");
+            }
+            account.Code = newCode;  // persist even if same (idempotent)
         }
 
         account.Name       = request.Name.Trim();

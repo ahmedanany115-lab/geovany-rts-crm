@@ -33,12 +33,21 @@ public class AuditService : IAuditService
     {
         try
         {
-            var ip = ipAddress ?? _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            var ip        = ipAddress ?? _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            var userId    = _user.UserId;
+            var userName  = _user.UserName  ?? string.Empty;
+            var userEmail = _user.UserEmail ?? string.Empty;
+
+            // For Login/LoginFailed events the user is not yet authenticated —
+            // fall back to entityName (which is the email that was submitted)
+            if (string.IsNullOrEmpty(userEmail) && action is AuditActions.Login or AuditActions.LoginFailed)
+                userEmail = entityName ?? string.Empty;
+
             var entry = new AuditLog
             {
-                UserId     = _user.UserId,
-                UserName   = _user.UserName ?? string.Empty,
-                UserEmail  = _user.UserEmail ?? string.Empty,
+                UserId     = userId,
+                UserName   = userName,
+                UserEmail  = userEmail,
                 Action     = action,
                 Module     = module,
                 EntityType = entityType,
@@ -55,7 +64,7 @@ public class AuditService : IAuditService
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "[Audit] Failed to write audit log entry.");
+            _log.LogWarning(ex, "[Audit] Failed to write audit log entry for action={Action} module={Module}.", action, module);
         }
     }
 }

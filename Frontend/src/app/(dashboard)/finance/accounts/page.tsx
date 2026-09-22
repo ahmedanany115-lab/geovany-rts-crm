@@ -94,7 +94,7 @@ export default function AccountsPage() {
         await update.mutateAsync({
           id: editing.id,
           data: {
-            ...(form.code.trim() !== editing.code && { code: form.code.trim() }),
+            code:     form.code.trim(),   // always send — backend validates & deduplicates
             name:     form.name.trim(),
             nameAr:   form.nameAr.trim() || undefined,
             isGroup:  form.isGroup,
