@@ -6,6 +6,7 @@ using RTSErp.Domain.Enums;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Manager,Accountant,Sales")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/purchaseorders")]
 public class PurchaseOrdersController : BaseApiController
 {
     [HttpGet]
@@ -25,6 +26,7 @@ public class PurchaseOrdersController : BaseApiController
 }
 
 [Authorize(Roles = "Admin,Manager,Accountant,Sales")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/purchasereceipts")]
 public class PurchaseReceiptsController : BaseApiController
 {
     [HttpGet]
@@ -37,6 +39,7 @@ public class PurchaseReceiptsController : BaseApiController
 }
 
 [Authorize(Roles = "Admin,Manager,Accountant,Sales")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/supplierinvoices")]
 public class SupplierInvoicesController : BaseApiController
 {
     [HttpGet]

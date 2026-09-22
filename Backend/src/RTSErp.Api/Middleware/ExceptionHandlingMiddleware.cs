@@ -43,6 +43,11 @@ public class ExceptionHandlingMiddleware
         {
             await WriteProblemAsync(context, HttpStatusCode.Unauthorized, "unauthorized", ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            // Business rule violations (e.g. duplicate account code, unsafe delete)
+            await WriteProblemAsync(context, HttpStatusCode.BadRequest, "business-rule", ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception: {Method} {Path} — {Msg}",

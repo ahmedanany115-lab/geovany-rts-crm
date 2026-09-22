@@ -7,6 +7,7 @@ using RTSErp.Application.Accounting.FiscalPeriods.Queries;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/fiscalperiods")]
 public class FiscalPeriodsController : BaseApiController
 {
     [HttpGet]

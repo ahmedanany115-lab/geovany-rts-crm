@@ -8,6 +8,7 @@ using RTSErp.Domain.Entities.Maintenance;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Manager,SalesManager,Sales,Accountant,SupportAgent")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/maintenance")]
 public class MaintenanceController : BaseApiController
 {
     // ── Contracts ─────────────────────────────────────────────────────────────

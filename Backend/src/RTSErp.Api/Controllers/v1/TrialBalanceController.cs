@@ -5,6 +5,7 @@ using RTSErp.Application.Accounting.TrialBalance.Queries;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/trialbalance")]
 public class TrialBalanceController : BaseApiController
 {
     [HttpGet]

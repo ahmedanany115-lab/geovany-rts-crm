@@ -5,6 +5,7 @@ using RTSErp.Application.Operational.Inventory;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/inventory")]
 public class InventoryController : BaseApiController
 {
     [HttpGet("movements")]

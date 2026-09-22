@@ -7,6 +7,7 @@ using RTSErp.Domain.Entities.Helpdesk;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/helpdesk")]
 public class HelpdeskController : BaseApiController
 {
     private readonly IApplicationDbContext _db;

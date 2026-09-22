@@ -8,6 +8,7 @@ using RTSErp.Domain.Enums;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/customerpayments")]
 public class CustomerPaymentsController : BaseApiController
 {
     [HttpGet]
@@ -20,6 +21,7 @@ public class CustomerPaymentsController : BaseApiController
 }
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/supplierpayments")]
 public class SupplierPaymentsController : BaseApiController
 {
     [HttpGet]
@@ -32,6 +34,7 @@ public class SupplierPaymentsController : BaseApiController
 }
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/cheques")]
 public class ChequesController : BaseApiController
 {
     [HttpGet]
@@ -82,6 +85,7 @@ public class ChequesController : BaseApiController
 }
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/banktransactions")]
 public class BankTransactionsController : BaseApiController
 {
     [HttpGet]
@@ -94,6 +98,7 @@ public class BankTransactionsController : BaseApiController
 }
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/bankaccounts")]
 public class BankAccountsController : BaseApiController
 {
     [HttpGet]
@@ -110,6 +115,7 @@ public class BankAccountsController : BaseApiController
 }
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/commissions")]
 public class CommissionsController : BaseApiController
 {
     [HttpGet]

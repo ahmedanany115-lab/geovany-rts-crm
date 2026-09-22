@@ -9,6 +9,7 @@ namespace RTSErp.Api.Controllers.v1;
 /// User activity / audit log — Admin only.
 /// </summary>
 [Authorize(Roles = "Admin")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/audit")]  // explicit lowercase for Linux/Railway
 public class AuditController : BaseApiController
 {
     private readonly IApplicationDbContext _db;

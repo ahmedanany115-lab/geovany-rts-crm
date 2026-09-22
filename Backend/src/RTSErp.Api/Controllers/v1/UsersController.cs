@@ -8,6 +8,7 @@ using RTSErp.Infrastructure.Persistence;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize]   // authenticated; individual methods specify which roles
+[Microsoft.AspNetCore.Mvc.Route("api/v1/users")]
 public class UsersController : BaseApiController
 {
     private readonly UserManager<ApplicationUser> _userManager;
@@ -75,4 +76,53 @@ public class UsersController : BaseApiController
         await _userManager.UpdateAsync(user);
         return Ok(new { user.Id, user.IsActive });
     }
+
+    /// <summary>Create a new ERP user account — Admin only.</summary>
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email))
+            return BadRequest(new { message = "Email is required." });
+        if (string.IsNullOrWhiteSpace(req.Password))
+            return BadRequest(new { message = "Password is required." });
+        if (string.IsNullOrWhiteSpace(req.Role))
+            return BadRequest(new { message = "Role is required." });
+
+        // Verify role exists
+        var roleExists = await _db.Roles.AnyAsync(r => r.Name == req.Role);
+        if (!roleExists)
+            return BadRequest(new { message = $"Role '{req.Role}' does not exist." });
+
+        // Check email uniqueness
+        var existing = await _userManager.FindByEmailAsync(req.Email.Trim());
+        if (existing != null)
+            return Conflict(new { message = $"A user with email '{req.Email}' already exists." });
+
+        var user = new RTSErp.Domain.Entities.Identity.ApplicationUser
+        {
+            UserName      = req.Email.Trim(),
+            Email         = req.Email.Trim(),
+            FirstName     = req.FirstName?.Trim() ?? string.Empty,
+            LastName      = req.LastName?.Trim()  ?? string.Empty,
+            JobTitle      = req.JobTitle?.Trim(),
+            Department    = req.Department?.Trim(),
+            IsActive      = true,
+            CreatedAt     = DateTime.UtcNow,
+            EmailConfirmed = true,
+        };
+
+        var result = await _userManager.CreateAsync(user, req.Password);
+        if (!result.Succeeded)
+            return BadRequest(new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
+
+        await _userManager.AddToRoleAsync(user, req.Role);
+
+        return Ok(new { user.Id, user.Email, user.FirstName, user.LastName, role = req.Role });
+    }
+
+    public record CreateUserRequest(
+        string Email, string Password, string Role,
+        string? FirstName, string? LastName,
+        string? JobTitle, string? Department);
 }

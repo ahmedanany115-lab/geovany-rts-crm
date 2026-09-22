@@ -6,6 +6,7 @@ using RTSErp.Application.Operational.Products;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/products")]
 public class ProductsController : BaseApiController
 {
     [HttpGet]

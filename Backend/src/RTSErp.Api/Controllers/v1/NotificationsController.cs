@@ -7,6 +7,7 @@ using RTSErp.Domain.Entities.Notifications;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/notifications")]
 public class NotificationsController : BaseApiController
 {
     private readonly IApplicationDbContext _db;

@@ -6,6 +6,7 @@ using RTSErp.Application.Common.Interfaces;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/search")]
 public class SearchController : BaseApiController
 {
     private readonly IApplicationDbContext _db;

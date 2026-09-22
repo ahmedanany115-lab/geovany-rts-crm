@@ -17,6 +17,7 @@ namespace RTSErp.Api.Controllers.v1;
 /// Admin / Accountant / SalesManager can see all records and approve/reject.
 /// </summary>
 [Authorize]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/hr")]
 public class HrController : BaseApiController
 {
     private readonly ApplicationDbContext         _db;

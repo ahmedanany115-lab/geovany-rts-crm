@@ -44,18 +44,20 @@ public class UpdateAccountCommandHandler : IRequestHandler<UpdateAccountCommand>
             .FirstOrDefaultAsync(a => a.Id == request.Id && !a.IsDeleted, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.Id);
 
-        // If code is being changed, validate no duplicate
+        // Validate and apply new code
         if (!string.IsNullOrWhiteSpace(request.Code))
         {
             var newCode = request.Code.Trim();
+
             if (newCode != account.Code)
             {
                 var duplicate = await _db.Accounts
                     .AnyAsync(a => a.Code == newCode && a.Id != request.Id && !a.IsDeleted, cancellationToken);
                 if (duplicate)
-                    throw new InvalidOperationException($"Account code '{newCode}' is already used by another account.");
+                    throw new InvalidOperationException($"Account code '{newCode}' is already in use by another account.");
+
+                account.Code = newCode;
             }
-            account.Code = newCode;  // persist even if same (idempotent)
         }
 
         account.Name       = request.Name.Trim();
@@ -66,6 +68,8 @@ public class UpdateAccountCommandHandler : IRequestHandler<UpdateAccountCommand>
         account.ModifiedAt = DateTime.UtcNow;
         account.ModifiedBy = _currentUser.UserId;
 
+        // The entity is already tracked via FirstOrDefaultAsync.
+        // SaveChangesAsync will persist ALL changed properties including Code.
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -5,6 +5,7 @@ using RTSErp.Application.Accounting.Ledger.Queries;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/ledger")]
 public class LedgerController : BaseApiController
 {
     [HttpGet("account/{accountId:guid}")]

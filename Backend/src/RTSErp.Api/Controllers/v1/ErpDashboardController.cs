@@ -5,6 +5,7 @@ using RTSErp.Application.Operational.Dashboard.Queries;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Manager,SalesManager,Sales,Accountant,Purchasing,SupportAgent,Delivery,Marketing,ReadOnly")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/erpdashboard")]
 public class ErpDashboardController : BaseApiController
 {
     [HttpGet("kpis")]

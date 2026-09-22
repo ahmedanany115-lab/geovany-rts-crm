@@ -10,6 +10,7 @@ namespace RTSErp.Api.Controllers.v1;
 
 // ── Customers ─────────────────────────────────────────────────────────────────
 [Authorize(Roles = "Admin,Manager,SalesManager,Sales,Accountant")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/customers")]
 public class CustomersController : BaseApiController
 {
     private readonly ICurrentUserService _user;
@@ -127,6 +128,7 @@ public class CustomersController : BaseApiController
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
 [Authorize(Roles = "Admin,Manager,SalesManager,Sales,Accountant,Purchasing")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/suppliers")]
 public class SuppliersController : BaseApiController
 {
     [HttpGet]

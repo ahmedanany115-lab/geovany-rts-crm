@@ -19,6 +19,12 @@ builder.Services.AddAuthorizationPolicies();
 builder.Services.AddControllers()
     .AddJsonOptions(o => { /* keep defaults */ });
 
+builder.Services.AddRouting(o =>
+{
+    o.LowercaseUrls   = true;   // api/v1/Documents → api/v1/documents (Linux case-sensitive fix)
+    o.LowercaseQueryStrings = false;
+});
+
 // Allow up to 50 MB JSON body for base64-encoded PDF uploads
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
 {

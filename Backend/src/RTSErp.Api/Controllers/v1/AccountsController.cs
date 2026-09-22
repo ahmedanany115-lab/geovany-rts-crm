@@ -12,6 +12,7 @@ using RTSErp.Domain.Enums;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/accounts")]
 public class AccountsController : BaseApiController
 {
     [HttpGet]
@@ -48,10 +49,10 @@ public class AccountsController : BaseApiController
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, UpdateAccountCommand command)
+    public async Task<IActionResult> Update(Guid id, UpdateAccountCommand command, CancellationToken ct)
     {
         command.Id = id;
-        await Mediator.Send(command);
+        await Mediator.Send(command, ct);
         return NoContent();
     }
 

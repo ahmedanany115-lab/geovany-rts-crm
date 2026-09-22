@@ -6,6 +6,7 @@ using RTSErp.Application.Accounting.Currencies.Queries;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/currencies")]
 public class CurrenciesController : BaseApiController
 {
     [HttpGet]

@@ -18,6 +18,7 @@ namespace RTSErp.Api.Controllers.v1;
 ///   DELETE /documents/{id}       → Admin, Manager only
 /// </summary>
 [Authorize]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/documents")]  // explicit lowercase — Railway/Linux is case-sensitive
 public class DocumentsController : BaseApiController
 {
     // ── List ─────────────────────────────────────────────────────────────────
@@ -107,6 +108,7 @@ public class DocumentsController : BaseApiController
     // Upload permission: Admin, Manager, Accountant, Marketing
     [HttpPost]
     [Authorize(Roles = "Admin,Manager,Accountant,Marketing")]
+    [Microsoft.AspNetCore.Mvc.DisableRequestSizeLimit]
     public async Task<IActionResult> Create(
         [FromBody] CreateDocumentRequest req,
         [FromServices] IApplicationDbContext db,

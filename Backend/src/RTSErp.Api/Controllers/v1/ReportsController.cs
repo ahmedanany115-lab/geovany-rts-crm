@@ -7,6 +7,7 @@ using RTSErp.Application.Common.Interfaces;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/reports")]
 public class ReportsController : BaseApiController
 {
     private readonly IApplicationDbContext _db;

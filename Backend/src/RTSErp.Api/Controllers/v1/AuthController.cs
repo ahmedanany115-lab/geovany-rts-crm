@@ -9,6 +9,7 @@ using RTSErp.Domain.Entities.Audit;
 
 namespace RTSErp.Api.Controllers.v1;
 
+[Microsoft.AspNetCore.Mvc.Route("api/v1/auth")]
 public class AuthController : BaseApiController
 {
     private const string RefreshTokenCookieName = "rts_erp_refresh_token";

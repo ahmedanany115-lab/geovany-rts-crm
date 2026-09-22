@@ -10,6 +10,7 @@ using RTSErp.Domain.Enums;
 namespace RTSErp.Api.Controllers.v1;
 
 [Authorize(Roles = "Admin,Accountant,SalesManager")]
+[Microsoft.AspNetCore.Mvc.Route("api/v1/journalentries")]
 public class JournalEntriesController : BaseApiController
 {
     [HttpGet]
