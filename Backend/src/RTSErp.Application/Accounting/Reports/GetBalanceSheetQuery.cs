@@ -68,7 +68,7 @@ public class GetBalanceSheetQueryHandler : IRequestHandler<GetBalanceSheetQuery,
                 g.Key.NameAr,
                 g.Key.AccountType,
                 // Net debits − credits (debit-normal for assets; credit-normal for liabilities/equity)
-                NetDebit = g.Sum(l => (l.DebitBase ?? l.Debit) - (l.CreditBase ?? l.Credit)),
+                NetDebit = g.Sum(l => l.DebitBase - l.CreditBase),
             })
             .ToListAsync(ct);
 
@@ -83,7 +83,7 @@ public class GetBalanceSheetQueryHandler : IRequestHandler<GetBalanceSheetQuery,
                      && (l.Account.AccountType == AccountType.Revenue
                       || l.Account.AccountType == AccountType.CostOfSales
                       || l.Account.AccountType == AccountType.Expense))
-            .SumAsync(l => (l.CreditBase ?? l.Credit) - (l.DebitBase ?? l.Debit), ct);
+            .SumAsync(l => l.CreditBase - l.DebitBase, ct);
 
         var result = new BalanceSheetDto { AsOfDate = request.AsOfDate };
 

@@ -73,7 +73,7 @@ public class GetIncomeStatementQueryHandler
                 g.Key.Name,
                 g.Key.NameAr,
                 g.Key.AccountType,
-                NetCredit = g.Sum(l => (l.CreditBase ?? l.Credit) - (l.DebitBase ?? l.Debit))
+                NetCredit = g.Sum(l => l.CreditBase - l.DebitBase)
             })
             .ToListAsync(cancellationToken);
 
