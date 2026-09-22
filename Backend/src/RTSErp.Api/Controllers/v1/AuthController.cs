@@ -27,28 +27,34 @@ public class AuthController : BaseApiController
 
             if (!result.Succeeded)
             {
-                // Audit: login failed — pass email explicitly since user is not authenticated yet
-                var audit = HttpContext.RequestServices.GetService<IAuditService>();
-                if (audit != null)
-                    _ = Task.Run(() => audit.LogAsync(
-                        AuditActions.LoginFailed, AuditModules.Auth,
-                        entityName: command.Email, status: "Failed",
-                        details: result.Error, ipAddress: command.IpAddress));
+                // Audit: login failed
+                try
+                {
+                    var audit = HttpContext.RequestServices.GetService<IAuditService>();
+                    if (audit != null)
+                        await audit.LogAsync(
+                            AuditActions.LoginFailed, AuditModules.Auth,
+                            entityName: command.Email, status: "Failed",
+                            details: result.Error, ipAddress: command.IpAddress);
+                }
+                catch { /* never let audit failure block auth */ }
                 return Unauthorized(new { message = result.Error });
             }
 
             SetRefreshTokenCookie(result.RefreshToken!);
 
-            // Audit: login success — pass email explicitly since user is not yet in HttpContext.User
+            // Audit: login success
+            try
             {
                 var audit = HttpContext.RequestServices.GetService<IAuditService>();
                 var email = result.Auth?.Email ?? command.Email;
                 if (audit != null)
-                    _ = Task.Run(() => audit.LogAsync(
+                    await audit.LogAsync(
                         AuditActions.Login, AuditModules.Auth,
                         entityName: email, details: $"Login from {command.IpAddress ?? "unknown"}",
-                        ipAddress: command.IpAddress));
+                        ipAddress: command.IpAddress);
             }
+            catch { /* never let audit failure block auth */ }
 
             return Ok(result.Auth);
         }

@@ -30,46 +30,50 @@ public class UpdateAccountCommandValidator : AbstractValidator<UpdateAccountComm
 public class UpdateAccountCommandHandler : IRequestHandler<UpdateAccountCommand>
 {
     private readonly IApplicationDbContext _db;
-    private readonly ICurrentUserService _currentUser;
+    private readonly ICurrentUserService   _currentUser;
 
     public UpdateAccountCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser)
-    {
-        _db = db;
-        _currentUser = currentUser;
-    }
+        => (_db, _currentUser) = (db, currentUser);
 
     public async Task Handle(UpdateAccountCommand request, CancellationToken cancellationToken)
     {
+        // 1. Load with AsNoTracking to avoid snapshot conflicts
         var account = await _db.Accounts
+            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == request.Id && !a.IsDeleted, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.Id);
 
-        // Validate and apply new code
-        if (!string.IsNullOrWhiteSpace(request.Code))
+        // 2. Validate new code if provided
+        var newCode = string.IsNullOrWhiteSpace(request.Code) ? account.Code : request.Code.Trim();
+
+        if (newCode != account.Code)
         {
-            var newCode = request.Code.Trim();
-
-            if (newCode != account.Code)
-            {
-                var duplicate = await _db.Accounts
-                    .AnyAsync(a => a.Code == newCode && a.Id != request.Id && !a.IsDeleted, cancellationToken);
-                if (duplicate)
-                    throw new InvalidOperationException($"Account code '{newCode}' is already in use by another account.");
-
-                account.Code = newCode;
-            }
+            var duplicate = await _db.Accounts
+                .AnyAsync(a => a.Code == newCode && a.Id != request.Id && !a.IsDeleted, cancellationToken);
+            if (duplicate)
+                throw new InvalidOperationException($"Account code '{newCode}' is already in use.");
         }
 
-        account.Name       = request.Name.Trim();
-        account.NameAr     = request.NameAr?.Trim();
-        account.IsGroup    = request.IsGroup;
-        account.ParentId   = request.ParentId;
-        account.CurrencyId = request.CurrencyId;
-        account.ModifiedAt = DateTime.UtcNow;
-        account.ModifiedBy = _currentUser.UserId;
+        var name   = request.Name.Trim();
+        var nameAr = request.NameAr?.Trim();
+        var now    = DateTime.UtcNow;
+        var userId = _currentUser.UserId;
 
-        // The entity is already tracked via FirstOrDefaultAsync.
-        // SaveChangesAsync will persist ALL changed properties including Code.
-        await _db.SaveChangesAsync(cancellationToken);
+        // 3. Use ExecuteUpdateAsync — direct SQL UPDATE, no EF change-tracker involved
+        var rows = await _db.Accounts
+            .Where(a => a.Id == request.Id && !a.IsDeleted)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.Code,       newCode)
+                .SetProperty(a => a.Name,       name)
+                .SetProperty(a => a.NameAr,     nameAr)
+                .SetProperty(a => a.IsGroup,    request.IsGroup)
+                .SetProperty(a => a.ParentId,   request.ParentId)
+                .SetProperty(a => a.CurrencyId, request.CurrencyId)
+                .SetProperty(a => a.ModifiedAt, now)
+                .SetProperty(a => a.ModifiedBy, userId),
+            cancellationToken);
+
+        if (rows == 0)
+            throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.Id);
     }
 }

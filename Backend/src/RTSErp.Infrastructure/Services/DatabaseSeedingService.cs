@@ -113,7 +113,8 @@ public sealed class DatabaseSeedingService : BackgroundService
                     || t.StartsWith("UPDATE")
                     || t.StartsWith("CREATE TABLE IF NOT EXISTS")
                     || t.StartsWith("CREATE UNIQUE INDEX IF NOT EXISTS")
-                    || t.StartsWith("CREATE INDEX IF NOT EXISTS");
+                    || t.StartsWith("CREATE INDEX IF NOT EXISTS")
+                    || t.StartsWith("INSERT");   // idempotent: ON CONFLICT DO NOTHING / WHERE NOT EXISTS
             })
             .ToList();
 
