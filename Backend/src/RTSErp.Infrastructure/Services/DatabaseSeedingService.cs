@@ -153,10 +153,12 @@ public sealed class DatabaseSeedingService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[Schema] FAILED statement {N}/{Total}: {Label}", i + 1, statements.Count, label);
-                // Non-fatal for CREATE INDEX IF NOT EXISTS — keep going
-                if (sql.TrimStart().StartsWith("CREATE INDEX") || sql.TrimStart().StartsWith("CREATE UNIQUE INDEX"))
+                // Non-fatal for idempotent statements — keep going
+                if (sql.TrimStart().StartsWith("CREATE INDEX")
+                    || sql.TrimStart().StartsWith("CREATE UNIQUE INDEX")
+                    || sql.TrimStart().StartsWith("INSERT"))
                 {
-                    _logger.LogWarning("[Schema] Ignoring index error and continuing.");
+                    _logger.LogWarning("[Schema] Ignoring non-fatal error on idempotent statement and continuing.");
                     continue;
                 }
                 // Fatal for everything else
@@ -1503,22 +1505,25 @@ public sealed class DatabaseSeedingService : BackgroundService
 
         yield return """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Warehouses_Code" ON "Warehouses"("Code") WHERE "IsDeleted" = false""";
 
-        // ── Warehouse seeds ───────────────────────────────────────────────────
+        // ── Warehouse seeds (idempotent — skip if code already exists) ─────────
         yield return """
             INSERT INTO "Warehouses" ("Id","Code","Name","Location","IsActive","CreatedAt","IsDeleted")
-            VALUES
-              ('11111111-0000-0000-0000-000000000001','WH-01','Warehouse 1','Main Branch',true,NOW(),false),
-              ('22222222-0000-0000-0000-000000000002','WH-02','Warehouse 2','Secondary Branch',true,NOW(),false)
-            ON CONFLICT ("Id") DO NOTHING
+            SELECT gen_random_uuid(),'WH-01','Warehouse 1','Main Branch',true,NOW(),false
+            WHERE NOT EXISTS (SELECT 1 FROM "Warehouses" WHERE "Code"='WH-01' AND "IsDeleted"=false)
+            """;
+        yield return """
+            INSERT INTO "Warehouses" ("Id","Code","Name","Location","IsActive","CreatedAt","IsDeleted")
+            SELECT gen_random_uuid(),'WH-02','Warehouse 2','Secondary Branch',true,NOW(),false
+            WHERE NOT EXISTS (SELECT 1 FROM "Warehouses" WHERE "Code"='WH-02' AND "IsDeleted"=false)
             """;
 
         // ── Chart of Accounts — additional group accounts (idempotent) ─────────
-        // "CURRENT ASSETS" group under ASSETS (code 1000)
+        // "CURRENT ASSETS" group under ASSETS (code 1000) — idempotent
         yield return """
             INSERT INTO "Accounts"
               ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
             SELECT
-              'aaaaaaaa-0001-0000-0000-000000000001',
+              gen_random_uuid(),
               '1050','Current Assets','الأصول المتداولة',
               1, true, true,
               (SELECT "Id" FROM "Accounts" WHERE "Code"='1000' AND "IsDeleted"=false LIMIT 1),
@@ -1528,12 +1533,12 @@ public sealed class DatabaseSeedingService : BackgroundService
             )
             """;
 
-        // "OTHER LIABILITIES" group under LIABILITIES (code 2000)
+        // "OTHER LIABILITIES" group under LIABILITIES (code 2000) — idempotent
         yield return """
             INSERT INTO "Accounts"
               ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
             SELECT
-              'bbbbbbbb-0002-0000-0000-000000000002',
+              gen_random_uuid(),
               '2700','Other Liabilities','الخصوم الأخرى',
               2, true, true,
               (SELECT "Id" FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false LIMIT 1),
