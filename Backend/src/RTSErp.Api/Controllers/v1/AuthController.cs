@@ -48,7 +48,7 @@ public class AuthController : BaseApiController
             try
             {
                 var audit = HttpContext.RequestServices.GetService<IAuditService>();
-                var email = result.Auth?.Email ?? command.Email;
+                var email = result.Auth?.User?.Email ?? command.Email;
                 if (audit != null)
                     await audit.LogAsync(
                         AuditActions.Login, AuditModules.Auth,

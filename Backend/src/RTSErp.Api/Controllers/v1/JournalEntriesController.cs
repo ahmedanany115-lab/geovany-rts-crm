@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Accounting.JournalEntries.Commands.CreateJournalEntry;
 using RTSErp.Application.Accounting.JournalEntries.Commands.PostJournalEntry;
 using RTSErp.Application.Accounting.JournalEntries.Commands.ReverseJournalEntry;
