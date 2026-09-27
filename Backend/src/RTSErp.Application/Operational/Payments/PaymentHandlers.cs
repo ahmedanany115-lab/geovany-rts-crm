@@ -58,7 +58,7 @@ public class ChequeDto
     public decimal Amount { get; set; }
     public DateOnly IssueDate { get; set; }
     public DateOnly DueDate { get; set; }
-    public DateOnly ReceivedDate { get; set; }
+    public DateOnly? ReceivedDate { get; set; }
     public ChequeStatus Status { get; set; }
     public string StatusName => Status.ToString();
     public string? Notes { get; set; }
