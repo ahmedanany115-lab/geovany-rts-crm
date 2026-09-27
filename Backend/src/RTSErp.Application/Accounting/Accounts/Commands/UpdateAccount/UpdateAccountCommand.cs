@@ -37,9 +37,8 @@ public class UpdateAccountCommandHandler : IRequestHandler<UpdateAccountCommand>
 
     public async Task Handle(UpdateAccountCommand request, CancellationToken cancellationToken)
     {
-        // 1. Load with AsNoTracking to avoid snapshot conflicts
+        // 1. Load tracked entity
         var account = await _db.Accounts
-            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == request.Id && !a.IsDeleted, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.Id);
 
@@ -54,26 +53,16 @@ public class UpdateAccountCommandHandler : IRequestHandler<UpdateAccountCommand>
                 throw new InvalidOperationException($"Account code '{newCode}' is already in use.");
         }
 
-        var name   = request.Name.Trim();
-        var nameAr = request.NameAr?.Trim();
-        var now    = DateTime.UtcNow;
-        var userId = _currentUser.UserId;
+        // 3. Update properties on the tracked entity
+        account.Code       = newCode;
+        account.Name       = request.Name.Trim();
+        account.NameAr     = request.NameAr?.Trim();
+        account.IsGroup    = request.IsGroup;
+        account.ParentId   = request.ParentId;
+        account.CurrencyId = request.CurrencyId;
+        account.ModifiedAt = DateTime.UtcNow;
+        account.ModifiedBy = _currentUser.UserId;
 
-        // 3. Use ExecuteUpdateAsync — direct SQL UPDATE, no EF change-tracker involved
-        var rows = await _db.Accounts
-            .Where(a => a.Id == request.Id && !a.IsDeleted)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(a => a.Code,       newCode)
-                .SetProperty(a => a.Name,       name)
-                .SetProperty(a => a.NameAr,     nameAr)
-                .SetProperty(a => a.IsGroup,    request.IsGroup)
-                .SetProperty(a => a.ParentId,   request.ParentId)
-                .SetProperty(a => a.CurrencyId, request.CurrencyId)
-                .SetProperty(a => a.ModifiedAt, now)
-                .SetProperty(a => a.ModifiedBy, userId),
-            cancellationToken);
-
-        if (rows == 0)
-            throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.Id);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }
