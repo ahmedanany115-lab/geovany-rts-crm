@@ -7,6 +7,8 @@ public class ApplicationUser : IdentityUser<Guid>
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
+    public string? JobTitle { get; set; }
+    public string? Department { get; set; }
     public bool IsActive { get; set; } = true;
     public Guid? EmployeeId { get; set; }
     public Employee? Employee { get; set; }
