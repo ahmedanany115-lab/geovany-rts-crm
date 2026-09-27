@@ -6,12 +6,13 @@ import {
   useCustomers, useCreateCustomer, useUpdateCustomer,
   useToggleCustomerStatus, useDeleteCustomer, useAssignCustomerSalesRep,
 } from "@/features/erp/hooks";
+import { accountsApi } from "@/features/finance/api/financeApi";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
 import { useRoles } from "@/hooks/useRoles";
 import { Users, Plus, RefreshCw, PowerOff, Search, Pencil, Trash2, X, Check, AlertTriangle, UserCheck } from "lucide-react";
 
-const INIT = { code: "", name: "", phone: "", email: "", address: "", notes: "" };
+const INIT = { code: "", name: "", phone: "", email: "", address: "", notes: "", receivableAccountId: "" };
 
 interface SalesUser { id: string; firstName: string; lastName: string; email: string; }
 
@@ -45,9 +46,16 @@ export default function ErpCustomersPage() {
     enabled: canCreate,
   });
 
+  // Fetch all accounts for receivable account selection (Finance/Admin only)
+  const { data: allAccounts } = useQuery({
+    queryKey: ["accounts-all"],
+    queryFn: () => accountsApi.list({ isActive: true }),
+    enabled: canCreate,
+  });
+
   const openEdit = (c: any) => {
     setEditing(c); setSalesRep(c.assignedSalesRepId ? { id: c.assignedSalesRepId, name: c.assignedSalesRepName ?? "" } : null);
-    setForm({ code: c.code, name: c.name, phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", notes: c.notes ?? "" });
+    setForm({ code: c.code, name: c.name, phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", notes: c.notes ?? "", receivableAccountId: c.receivableAccountId ?? "" });
     setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(INIT); setSalesRep(null); };
@@ -59,6 +67,7 @@ export default function ErpCustomersPage() {
         ...form, partnerType: 1,
         assignedSalesRepId: salesRep?.id || null,
         assignedSalesRepName: salesRep?.name || null,
+        receivableAccountId: form.receivableAccountId || undefined,
       };
       if (editing) {
         await update.mutateAsync({ id: editing.id, data: payload });
@@ -165,6 +174,17 @@ export default function ErpCustomersPage() {
                 {salesUsers?.map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</option>)}
               </select>
             </div>
+            {(isAdmin || hasRole("Accountant")) && (
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground block mb-1">Receivable Account (AR Ledger)</label>
+                <select value={form.receivableAccountId} onChange={e => setForm(f => ({ ...f, receivableAccountId: e.target.value }))} className="input w-full">
+                  <option value="">— Default AR Account —</option>
+                  {allAccounts?.filter(a => !a.isGroup).map(a => (
+                    <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={create.isPending || update.isPending}

@@ -1533,6 +1533,36 @@ public sealed class DatabaseSeedingService : BackgroundService
             )
             """;
 
+        // "OTHER ASSETS" group under ASSETS (code 1000) — idempotent
+        yield return """
+            INSERT INTO "Accounts"
+              ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
+            SELECT
+              gen_random_uuid(),
+              '1800','Other Assets','أصول أخرى',
+              1, true, true,
+              (SELECT "Id" FROM "Accounts" WHERE "Code"='1000' AND "IsDeleted"=false LIMIT 1),
+              NOW(), false
+            WHERE NOT EXISTS (
+              SELECT 1 FROM "Accounts" WHERE "Code"='1800' AND "IsDeleted"=false
+            )
+            """;
+
+        // "CURRENT LIABILITIES" group under LIABILITIES (code 2000) — idempotent
+        yield return """
+            INSERT INTO "Accounts"
+              ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
+            SELECT
+              gen_random_uuid(),
+              '2050','Current Liabilities','الالتزامات المتداولة',
+              2, true, true,
+              (SELECT "Id" FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false LIMIT 1),
+              NOW(), false
+            WHERE NOT EXISTS (
+              SELECT 1 FROM "Accounts" WHERE "Code"='2050' AND "IsDeleted"=false
+            )
+            """;
+
         // "OTHER LIABILITIES" group under LIABILITIES (code 2000) — idempotent
         yield return """
             INSERT INTO "Accounts"
