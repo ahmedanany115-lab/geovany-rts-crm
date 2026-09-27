@@ -102,9 +102,9 @@ public class ReportsController : BaseApiController
         var to    = toDate   ?? today;
 
         var rows = await _db.CustomerInvoiceLines
-            .Include(l => l.Invoice).Include(l => l.Product)
-            .Where(l => !l.IsDeleted && !l.Invoice.IsDeleted
-                     && l.Invoice.InvoiceDate >= from && l.Invoice.InvoiceDate <= to
+            .Include(l => l.CustomerInvoice).Include(l => l.Product)
+            .Where(l => !l.IsDeleted && !l.CustomerInvoice.IsDeleted
+                     && l.CustomerInvoice.InvoiceDate >= from && l.CustomerInvoice.InvoiceDate <= to
                      && l.ProductId != null)
             .GroupBy(l => new { l.ProductId, l.Product!.Name, l.Product.SKU })
             .Select(g => new

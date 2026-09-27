@@ -146,6 +146,7 @@ public class CustomerInvoice : BaseEntity
     public string? ExternalStatus { get; set; }
     public string? QRCode { get; set; }
     public string? CancellationStatus { get; set; }
+    public string? Notes { get; set; }
 
     public ICollection<CustomerInvoiceLine> Lines { get; set; } = [];
     public ICollection<CustomerPayment> Payments { get; set; } = [];
