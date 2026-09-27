@@ -98,6 +98,8 @@ public class GetBusinessPartnersQueryHandler : IRequestHandler<GetBusinessPartne
                 CurrencyCode = bp.Currency != null ? bp.Currency.Code : null,
                 ReceivableAccountCode = bp.ReceivableAccount != null ? bp.ReceivableAccount.Code : null,
                 PayableAccountCode = bp.PayableAccount != null ? bp.PayableAccount.Code : null,
+                AssignedSalesRepId   = bp.AssignedSalesRepId,
+                AssignedSalesRepName = bp.AssignedSalesRepName,
                 CreatedAt = bp.CreatedAt
             })
             .ToListAsync(ct);
@@ -130,6 +132,8 @@ public class GetBusinessPartnerQueryHandler : IRequestHandler<GetBusinessPartner
                 CurrencyCode = b.Currency != null ? b.Currency.Code : null,
                 ReceivableAccountCode = b.ReceivableAccount != null ? b.ReceivableAccount.Code : null,
                 PayableAccountCode = b.PayableAccount != null ? b.PayableAccount.Code : null,
+                AssignedSalesRepId   = b.AssignedSalesRepId,
+                AssignedSalesRepName = b.AssignedSalesRepName,
                 CreatedAt = b.CreatedAt
             })
             .FirstOrDefaultAsync(ct)
@@ -199,6 +203,14 @@ public class UpsertBusinessPartnerCommandHandler : IRequestHandler<UpsertBusines
         }
         else
         {
+            // Allow code updates — check uniqueness only if code changed
+            if (!string.IsNullOrWhiteSpace(request.Code) && bp.Code != request.Code)
+            {
+                var codeExists = await _db.BusinessPartners
+                    .AnyAsync(b => b.Code == request.Code && b.Id != bp.Id && !b.IsDeleted, ct);
+                if (codeExists) throw new InvalidOperationException($"Business partner with code '{request.Code}' already exists.");
+                bp.Code = request.Code.Trim();
+            }
             bp.ModifiedAt = DateTime.UtcNow;
             bp.ModifiedBy = _user.UserId;
         }

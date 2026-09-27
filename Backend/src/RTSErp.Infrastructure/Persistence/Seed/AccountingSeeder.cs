@@ -72,6 +72,9 @@ public static class AccountingSeeder
         await Add("1501", "Raw Materials",      "المواد الخام",       AccountType.Asset, false, inventory.Id);
         await Add("1502", "Finished Goods",     "بضاعة تامة الصنع",   AccountType.Asset, false, inventory.Id);
 
+        await Add("1050", "Current Assets", "الأصول المتداولة", AccountType.Asset, true, assets.Id);
+        await Add("1800", "Other Assets",   "أصول أخرى",         AccountType.Asset, true, assets.Id);
+
         var prepaid = await Add("1600", "Prepaid Expenses", "مصروفات مدفوعة مقدماً", AccountType.Asset, false, assets.Id);
         var fixedAssets = await Add("1700", "Fixed Assets", "الأصول الثابتة", AccountType.Asset, true, assets.Id);
         await Add("1701", "Equipment",       "معدات",    AccountType.Asset, false, fixedAssets.Id);
@@ -86,6 +89,9 @@ public static class AccountingSeeder
         await Add("2101", "Trade Payables", "مستحقات موردين", AccountType.Liability, false, ap.Id);
 
         var vatOutput = await Add("2200", "VAT Payable (Output)", "ضريبة القيمة المضافة المخرجات", AccountType.Liability, false, liabilities.Id);
+
+        await Add("2050", "Current Liabilities", "الالتزامات المتداولة", AccountType.Liability, true, liabilities.Id);
+        await Add("2700", "Other Liabilities",   "الخصوم الأخرى",         AccountType.Liability, true, liabilities.Id);
 
         var commPayable = await Add("2300", "Commission Payable", "عمولات مستحقة الدفع", AccountType.Liability, false, liabilities.Id);
 

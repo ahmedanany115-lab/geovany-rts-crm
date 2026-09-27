@@ -157,7 +157,7 @@ export default function ErpCustomersPage() {
           <h2 className="font-semibold text-sm">{editing ? `Edit: ${editing.name}` : "New Customer"}</h2>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs text-muted-foreground block mb-1">{t("code")} *</label>
-              <input required disabled={!!editing} value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="input w-full disabled:opacity-50" /></div>
+              <input required value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="input w-full" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("name")} *</label>
               <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input w-full" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("phone")} *</label>

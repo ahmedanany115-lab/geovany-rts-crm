@@ -1517,8 +1517,10 @@ public sealed class DatabaseSeedingService : BackgroundService
             WHERE NOT EXISTS (SELECT 1 FROM "Warehouses" WHERE "Code"='WH-02' AND "IsDeleted"=false)
             """;
 
-        // ── Chart of Accounts — additional group accounts (idempotent) ─────────
-        // "CURRENT ASSETS" group under ASSETS (code 1000) — idempotent
+        // ── Chart of Accounts — additional group accounts (idempotent migration for existing deployments)
+        // These INSERTs only fire when the parent account (1000/2000) already exists AND the child
+        // does not yet exist — i.e., they safely backfill existing databases.
+        // Fresh databases get these accounts via AccountingSeeder which runs after this schema phase.
         yield return """
             INSERT INTO "Accounts"
               ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
@@ -1528,12 +1530,10 @@ public sealed class DatabaseSeedingService : BackgroundService
               1, true, true,
               (SELECT "Id" FROM "Accounts" WHERE "Code"='1000' AND "IsDeleted"=false LIMIT 1),
               NOW(), false
-            WHERE NOT EXISTS (
-              SELECT 1 FROM "Accounts" WHERE "Code"='1050' AND "IsDeleted"=false
-            )
+            WHERE EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='1000' AND "IsDeleted"=false)
+              AND NOT EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='1050' AND "IsDeleted"=false)
             """;
 
-        // "OTHER ASSETS" group under ASSETS (code 1000) — idempotent
         yield return """
             INSERT INTO "Accounts"
               ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
@@ -1543,12 +1543,10 @@ public sealed class DatabaseSeedingService : BackgroundService
               1, true, true,
               (SELECT "Id" FROM "Accounts" WHERE "Code"='1000' AND "IsDeleted"=false LIMIT 1),
               NOW(), false
-            WHERE NOT EXISTS (
-              SELECT 1 FROM "Accounts" WHERE "Code"='1800' AND "IsDeleted"=false
-            )
+            WHERE EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='1000' AND "IsDeleted"=false)
+              AND NOT EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='1800' AND "IsDeleted"=false)
             """;
 
-        // "CURRENT LIABILITIES" group under LIABILITIES (code 2000) — idempotent
         yield return """
             INSERT INTO "Accounts"
               ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
@@ -1558,12 +1556,10 @@ public sealed class DatabaseSeedingService : BackgroundService
               2, true, true,
               (SELECT "Id" FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false LIMIT 1),
               NOW(), false
-            WHERE NOT EXISTS (
-              SELECT 1 FROM "Accounts" WHERE "Code"='2050' AND "IsDeleted"=false
-            )
+            WHERE EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false)
+              AND NOT EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='2050' AND "IsDeleted"=false)
             """;
 
-        // "OTHER LIABILITIES" group under LIABILITIES (code 2000) — idempotent
         yield return """
             INSERT INTO "Accounts"
               ("Id","Code","Name","NameAr","AccountType","IsGroup","IsActive","ParentId","CreatedAt","IsDeleted")
@@ -1573,9 +1569,8 @@ public sealed class DatabaseSeedingService : BackgroundService
               2, true, true,
               (SELECT "Id" FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false LIMIT 1),
               NOW(), false
-            WHERE NOT EXISTS (
-              SELECT 1 FROM "Accounts" WHERE "Code"='2700' AND "IsDeleted"=false
-            )
+            WHERE EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false)
+              AND NOT EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='2700' AND "IsDeleted"=false)
             """;
     }
 }
