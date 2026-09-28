@@ -7,6 +7,8 @@ using RTSErp.Application.Accounting.JournalEntries.Commands.ReverseJournalEntry;
 using RTSErp.Application.Accounting.JournalEntries.Commands.UpdateJournalEntry;
 using RTSErp.Application.Accounting.JournalEntries.Queries.GetJournalEntries;
 using RTSErp.Application.Accounting.JournalEntries.Queries.GetJournalEntry;
+using RTSErp.Application.Common.Interfaces;
+using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Enums;
 
 namespace RTSErp.Api.Controllers.v1;
@@ -15,6 +17,10 @@ namespace RTSErp.Api.Controllers.v1;
 [Microsoft.AspNetCore.Mvc.Route("api/v1/journalentries")]
 public class JournalEntriesController : BaseApiController
 {
+    // Moataz's exact seeded email — identified from DbSeeder.cs.
+    // Admin role OR this email may edit/delete Posted entries.
+    private const string MoatazEmail = "Moataz@rtegy.com";
+
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] JournalEntryStatus? status,
@@ -62,7 +68,10 @@ public class JournalEntriesController : BaseApiController
     }
 
     /// <summary>
-    /// Update a DRAFT journal entry (header + lines). Posted entries cannot be updated.
+    /// Update a journal entry.
+    /// Draft: any authorized user (Admin, Accountant) may edit.
+    /// Posted: only Admin role or Moataz@rtegy.com may edit (enforced in handler).
+    /// Reversed: not allowed.
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Admin,Accountant")]
@@ -86,13 +95,18 @@ public class JournalEntriesController : BaseApiController
     }
 
     /// <summary>
-    /// Delete a DRAFT journal entry. Posted entries must be reversed, not deleted.
+    /// Delete a journal entry.
+    /// Draft: any Admin or Accountant may delete.
+    /// Posted: only Admin role or Moataz@rtegy.com may delete (enforced here + audit logged).
+    /// Reversed: not allowed.
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Admin,Accountant")]
     public async Task<IActionResult> Delete(
         Guid id,
-        [FromServices] RTSErp.Application.Common.Interfaces.IApplicationDbContext db,
+        [FromServices] IApplicationDbContext db,
+        [FromServices] ICurrentUserService currentUser,
+        [FromServices] IAuditService audit,
         CancellationToken ct)
     {
         var entry = await db.JournalEntries
@@ -101,11 +115,25 @@ public class JournalEntriesController : BaseApiController
 
         if (entry is null) return NotFound();
 
-        if (entry.Status != JournalEntryStatus.Draft)
+        // Reversed entries are never deletable
+        if (entry.Status == JournalEntryStatus.Reversed)
             return BadRequest(new
             {
-                message = "Only Draft entries can be deleted. Use 'Reverse' for posted entries.",
+                message = "Reversed journal entries cannot be deleted.",
             });
+
+        // Posted entries: only Admin or Moataz
+        if (entry.Status == JournalEntryStatus.Posted)
+        {
+            var isAdmin = currentUser.IsInRole("Admin");
+            var isMoataz = string.Equals(currentUser.Email, MoatazEmail, StringComparison.OrdinalIgnoreCase);
+
+            if (!isAdmin && !isMoataz)
+                return BadRequest(new
+                {
+                    message = "Only administrators or privileged users can delete Posted journal entries.",
+                });
+        }
 
         // Soft-delete the entry and all its lines
         entry.IsDeleted  = true;
@@ -117,6 +145,20 @@ public class JournalEntriesController : BaseApiController
         }
 
         await db.SaveChangesAsync(ct);
+
+        // Audit — fire-and-forget
+        await audit.LogAsync(
+            action:     AuditActions.Deleted,
+            module:     AuditModules.Finance,
+            entityName: "JournalEntry",
+            entityId:   entry.Id,
+            entityType: "JournalEntry",
+            reference:  entry.EntryNumber,
+            details:    entry.Status == JournalEntryStatus.Posted
+                            ? $"Posted entry deleted by privileged user ({currentUser.Email})"
+                            : "Draft entry deleted",
+            ct: ct);
+
         return NoContent();
     }
 }

@@ -14,11 +14,15 @@ import {
 import { useCurrencies } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   FileText, RefreshCw, Plus, X, Check, Trash2,
   AlertTriangle, ChevronDown, ChevronUp, RotateCcw, Pencil,
 } from "lucide-react";
 import type { AccountDto, JournalEntryDetailDto } from "@/features/finance/types";
+
+/** Moataz's stable seeded email — mirrors the backend constant in JournalEntriesController.cs */
+const MOATAZ_EMAIL = "Moataz@rtegy.com";
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 const STATUS = {
@@ -34,10 +38,12 @@ const EMPTY_LINE: JeLine = { accountId: "", debit: 0, credit: 0, description: ""
 /* ── Edit modal inner component (loads entry detail) ──────────────────────── */
 function EditModal({
   entryId,
+  isPosted,
   onClose,
   onSaved,
 }: {
   entryId: string;
+  isPosted?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -128,7 +134,9 @@ function EditModal({
         <div className="flex items-center justify-between p-5 border-b">
           <div className="flex items-center gap-3 text-primary">
             <Pencil className="h-5 w-5" />
-            <h2 className="font-semibold">Edit Draft Journal Entry</h2>
+            <h2 className="font-semibold">
+            {isPosted ? "Edit Posted Journal Entry" : "Edit Draft Journal Entry"}
+          </h2>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
             <X className="h-5 w-5" />
@@ -256,6 +264,13 @@ export default function JournalEntriesPage() {
   const { t } = useT();
   const { toast } = useToast();
 
+  /* ── Privilege check: can this user edit/delete Posted entries?
+        Admin role OR Moataz@rtegy.com. Mirrors backend business rule. ── */
+  const currentUser = useAuthStore(s => s.user);
+  const canModifyPosted =
+    (currentUser?.roles ?? []).includes("Admin") ||
+    currentUser?.email?.toLowerCase() === MOATAZ_EMAIL.toLowerCase();
+
   /* ── filters ── */
   const [params, setParams] = useState<{ status?: number; fromDate?: string; toDate?: string }>({});
   const { data, isLoading, refetch } = useJournalEntries(params);
@@ -278,7 +293,8 @@ export default function JournalEntriesPage() {
   const [lines, setLines]             = useState<JeLine[]>([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
 
   /* ── edit modal ── */
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId]         = useState<string | null>(null);
+  const [editingIsPosted, setEditingIsPosted] = useState(false);
 
   /* ── reverse modal ── */
   const [reversingId, setReversingId]       = useState<string | null>(null);
@@ -346,12 +362,15 @@ export default function JournalEntriesPage() {
   };
 
   /* ── delete ── */
-  const handleDelete = async (id: string, num: string) => {
-    if (!confirm(`Delete draft journal entry ${num}? This cannot be undone.`)) return;
+  const handleDelete = async (id: string, num: string, isPosted?: boolean) => {
+    const msg = isPosted
+      ? `⚠️ DELETE POSTED ENTRY ${num}?\n\nThis permanently removes a posted journal entry from the ledger. This action cannot be undone.\n\nType OK to confirm.`
+      : `Delete draft journal entry ${num}? This cannot be undone.`;
+    if (!confirm(msg)) return;
     try {
       await deleteJE.mutateAsync(id);
       toast(`${num} deleted.`, "info");
-    } catch (err: any) { toast(err?.message ?? "Cannot delete — reverse posted entries instead.", "error"); }
+    } catch (err: any) { toast(err?.message ?? "Failed to delete entry.", "error"); }
   };
 
   /* ── reverse ── */
@@ -374,8 +393,9 @@ export default function JournalEntriesPage() {
       {editingId && (
         <EditModal
           entryId={editingId}
-          onClose={() => setEditingId(null)}
-          onSaved={() => { setEditingId(null); refetch(); }}
+          isPosted={editingIsPosted}
+          onClose={() => { setEditingId(null); setEditingIsPosted(false); }}
+          onSaved={() => { setEditingId(null); setEditingIsPosted(false); refetch(); }}
         />
       )}
 
@@ -570,36 +590,53 @@ export default function JournalEntriesPage() {
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${st.cls}`}>{st.label}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    {/* Draft-only: Edit */}
+                    {/* Draft: Edit (any authorized user) */}
                     {isDraft && (
                       <button
-                        onClick={() => setEditingId(je.id)}
+                        onClick={() => { setEditingIsPosted(false); setEditingId(je.id); }}
                         title="Edit draft"
                         className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600">
                         <Pencil className="h-4 w-4" />
                       </button>
                     )}
-                    {/* Draft-only: Post */}
+                    {/* Draft: Post (any authorized user) */}
                     {isDraft && (
                       <button onClick={() => handlePost(je.id, je.entryNumber)} disabled={postJE.isPending}
                         className="text-xs px-2.5 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
                         Post
                       </button>
                     )}
-                    {/* Draft-only: Delete */}
+                    {/* Draft: Delete (any authorized user) */}
                     {isDraft && (
-                      <button onClick={() => handleDelete(je.id, je.entryNumber)} disabled={deleteJE.isPending}
+                      <button onClick={() => handleDelete(je.id, je.entryNumber, false)} disabled={deleteJE.isPending}
                         title="Delete draft"
                         className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
-                    {/* Posted-only: Reverse */}
+                    {/* Posted: Edit (Admin or Moataz only) */}
+                    {isPosted && canModifyPosted && (
+                      <button
+                        onClick={() => { setEditingIsPosted(true); setEditingId(je.id); }}
+                        title="Edit posted entry"
+                        className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
+                    {/* Posted: Reverse (any authorized user) */}
                     {isPosted && (
                       <button onClick={() => { setReversingId(je.id); }}
                         title="Reverse"
                         className="p-1.5 rounded hover:bg-amber-50 text-muted-foreground hover:text-amber-600">
                         <RotateCcw className="h-4 w-4" />
+                      </button>
+                    )}
+                    {/* Posted: Delete (Admin or Moataz only) */}
+                    {isPosted && canModifyPosted && (
+                      <button onClick={() => handleDelete(je.id, je.entryNumber, true)} disabled={deleteJE.isPending}
+                        title="Delete posted entry"
+                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
                   </div>

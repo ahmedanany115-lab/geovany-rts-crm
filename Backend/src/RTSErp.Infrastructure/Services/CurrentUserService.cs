@@ -41,4 +41,7 @@ public class CurrentUserService : ICurrentUserService
 
     public IReadOnlyList<string> Permissions =>
         User?.FindAll(AppClaimTypes.Permission).Select(c => c.Value).ToList() ?? [];
+
+    public bool IsInRole(string role) =>
+        User?.IsInRole(role) ?? false;
 }

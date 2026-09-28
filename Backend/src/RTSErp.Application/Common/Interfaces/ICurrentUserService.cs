@@ -8,4 +8,7 @@ public interface ICurrentUserService
     string? UserEmail => Email;  // Alias
     IReadOnlyList<string> Permissions { get; }
     bool IsAuthenticated { get; }
+
+    /// <summary>Returns true when the current user holds the given ASP.NET Identity role.</summary>
+    bool IsInRole(string role);
 }

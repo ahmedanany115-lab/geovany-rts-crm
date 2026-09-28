@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
+using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Enums;
 
 namespace RTSErp.Application.Accounting.JournalEntries.Commands.UpdateJournalEntry;
@@ -74,16 +75,39 @@ public class UpdateJournalEntryCommandValidator : AbstractValidator<UpdateJourna
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
+/// <summary>
+/// Moataz's exact email in the seeded database.
+/// If this user is ever recreated with a different email, update this constant.
+/// Identified from DbSeeder.cs — stable email: Moataz@rtegy.com
+/// </summary>
+file static class PrivilegedUsers
+{
+    public const string MoatazEmail = "Moataz@rtegy.com";
+}
+
 public class UpdateJournalEntryCommandHandler : IRequestHandler<UpdateJournalEntryCommand, UpdateJournalEntryResult>
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAuditService _audit;
 
-    public UpdateJournalEntryCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser)
+    public UpdateJournalEntryCommandHandler(
+        IApplicationDbContext db,
+        ICurrentUserService currentUser,
+        IAuditService audit)
     {
         _db = db;
         _currentUser = currentUser;
+        _audit = audit;
     }
+
+    /// <summary>
+    /// Returns true when the current user is allowed to edit/delete Posted entries.
+    /// Allowed: Admin role OR Moataz@rtegy.com (identified by seeded email).
+    /// </summary>
+    private bool CanModifyPostedEntry() =>
+        _currentUser.IsInRole("Admin") ||
+        string.Equals(_currentUser.Email, PrivilegedUsers.MoatazEmail, StringComparison.OrdinalIgnoreCase);
 
     public async Task<UpdateJournalEntryResult> Handle(UpdateJournalEntryCommand request, CancellationToken cancellationToken)
     {
@@ -95,10 +119,16 @@ public class UpdateJournalEntryCommandHandler : IRequestHandler<UpdateJournalEnt
         if (entry is null)
             return UpdateJournalEntryResult.Failure("Journal entry not found.");
 
-        // Business rule: only Draft entries may be edited
-        if (entry.Status != JournalEntryStatus.Draft)
+        // Business rule: Draft → anyone authorized may edit.
+        //                Posted → only Admin or Moataz may edit.
+        //                Reversed → nobody may edit.
+        if (entry.Status == JournalEntryStatus.Reversed)
             return UpdateJournalEntryResult.Failure(
-                "Only Draft journal entries can be edited. Posted entries must be reversed.");
+                "Reversed journal entries cannot be edited.");
+
+        if (entry.Status == JournalEntryStatus.Posted && !CanModifyPostedEntry())
+            return UpdateJournalEntryResult.Failure(
+                "Only administrators or privileged users can edit Posted journal entries.");
 
         // Validate balance
         var totalDebit  = request.Lines.Sum(l => l.Debit);
@@ -167,6 +197,20 @@ public class UpdateJournalEntryCommandHandler : IRequestHandler<UpdateJournalEnt
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Audit — fire-and-forget; never throws to caller
+        await _audit.LogAsync(
+            action:     AuditActions.Updated,
+            module:     AuditModules.Finance,
+            entityName: "JournalEntry",
+            entityId:   entry.Id,
+            entityType: "JournalEntry",
+            reference:  entry.EntryNumber,
+            details:    entry.Status == JournalEntryStatus.Posted
+                            ? $"Posted entry edited by privileged user ({_currentUser.Email})"
+                            : "Draft entry edited",
+            ct: cancellationToken);
+
         return UpdateJournalEntryResult.Success();
     }
 }
