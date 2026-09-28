@@ -154,9 +154,11 @@ public sealed class DatabaseSeedingService : BackgroundService
             {
                 _logger.LogError(ex, "[Schema] FAILED statement {N}/{Total}: {Label}", i + 1, statements.Count, label);
                 // Non-fatal for idempotent statements — keep going
-                if (sql.TrimStart().StartsWith("CREATE INDEX")
-                    || sql.TrimStart().StartsWith("CREATE UNIQUE INDEX")
-                    || sql.TrimStart().StartsWith("INSERT"))
+                var trimmed = sql.TrimStart();
+                if (trimmed.StartsWith("CREATE INDEX")
+                    || trimmed.StartsWith("CREATE UNIQUE INDEX")
+                    || trimmed.StartsWith("INSERT")
+                    || trimmed.StartsWith("ALTER"))
                 {
                     _logger.LogWarning("[Schema] Ignoring non-fatal error on idempotent statement and continuing.");
                     continue;
@@ -1265,6 +1267,10 @@ public sealed class DatabaseSeedingService : BackgroundService
             """;
 
         yield return """CREATE INDEX IF NOT EXISTS "IX_MeetingLogs_EmployeeId" ON "MeetingLogs"("EmployeeId")""";
+
+        // ── HR FK constraints (non-fatal — safe to skip if Employees table not yet populated)
+        yield return """ALTER TABLE "LeaveRequests" ADD CONSTRAINT IF NOT EXISTS "FK_LeaveRequests_Employees_EmployeeId" FOREIGN KEY ("EmployeeId") REFERENCES "Employees"("Id") ON DELETE RESTRICT""";
+        yield return """ALTER TABLE "MeetingLogs"   ADD CONSTRAINT IF NOT EXISTS "FK_MeetingLogs_Employees_EmployeeId"   FOREIGN KEY ("EmployeeId") REFERENCES "Employees"("Id") ON DELETE RESTRICT""";
 
         // ── Maintenance & Service Contracts ───────────────────────────────────
 

@@ -180,8 +180,6 @@ public static class DbSeeder
 
     private static async Task SeedPermissionsAsync(ApplicationDbContext db, ILogger logger)
     {
-        if (await db.Permissions.AnyAsync()) return;
-
         string[] codes =
         [
             "crm.customers.read",  "crm.customers.write",  "crm.customers.delete",
@@ -199,9 +197,24 @@ public static class DbSeeder
             "reports.view",
             "users.read",  "users.write",  "users.manage-roles",
             "settings.read", "settings.write",
+            "documents.view", "documents.download",
         ];
 
-        db.Permissions.AddRange(codes.Select(code => new Permission
+        // Additive: only insert codes that don't already exist in the database.
+        // This ensures new permission codes are picked up on existing deployments
+        // rather than being skipped by an early-exit guard.
+        var existingCodes = await db.Permissions
+            .Select(p => p.Code)
+            .ToHashSetAsync();
+
+        var newCodes = codes.Where(c => !existingCodes.Contains(c)).ToList();
+        if (!newCodes.Any())
+        {
+            logger.LogInformation("[Seed] All {Count} permissions already seeded.", codes.Length);
+            return;
+        }
+
+        db.Permissions.AddRange(newCodes.Select(code => new Permission
         {
             Code        = code,
             Module      = code.Split('.')[0],
@@ -209,7 +222,7 @@ public static class DbSeeder
         }));
 
         await db.SaveChangesAsync();
-        logger.LogInformation("[Seed] Seeded {Count} permissions.", codes.Length);
+        logger.LogInformation("[Seed] Seeded {NewCount} new permission(s) (total defined: {Total}).", newCodes.Count, codes.Length);
     }
 
     // ── Roles ─────────────────────────────────────────────────────────────────
