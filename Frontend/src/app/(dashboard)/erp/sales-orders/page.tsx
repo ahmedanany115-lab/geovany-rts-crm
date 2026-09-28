@@ -4,7 +4,8 @@ import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
-import { ShoppingCart, RefreshCw, CheckCircle, FileText } from "lucide-react";
+import { usePrint } from "@/hooks/usePrint";
+import { ShoppingCart, RefreshCw, CheckCircle, FileText, Printer } from "lucide-react";
 
 const STATUS: Record<number, { label: string; cls: string }> = {
   1: { label: "Draft",     cls: "bg-muted text-muted-foreground" },
@@ -20,6 +21,7 @@ export default function SalesOrdersPage() {
   const qc = useQueryClient();
   const { data, isLoading, refetch } = useSalesOrders({});
   const approve = useApproveSalesOrder();
+  const { printRef, handlePrint } = usePrint("RTS ERP — Sales Orders");
 
   const generateInvoice = useMutation({
     mutationFn: (id: string) => apiFetch<{ invoiceId: string; invoiceNumber: string }>(`/salesorders/${id}/generate-invoice`, { method: "POST" }),
@@ -36,10 +38,13 @@ export default function SalesOrdersPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3"><ShoppingCart className="h-6 w-6 text-primary" /><h1 className="text-2xl font-semibold">{t("sales_orders")}</h1></div>
-        <button onClick={() => refetch()} className="btn-ghost p-2 rounded-lg"><RefreshCw className="h-4 w-4" /></button>
+        <div className="flex gap-2">
+          <button onClick={handlePrint} className="btn-ghost flex items-center gap-2 px-3 py-2 rounded-lg text-sm"><Printer className="h-4 w-4" /></button>
+          <button onClick={() => refetch()} className="btn-ghost p-2 rounded-lg"><RefreshCw className="h-4 w-4" /></button>
+        </div>
       </div>
       {isLoading ? <div className="text-center py-10 text-muted-foreground">{t("loading")}</div> : (
-        <div className="card overflow-hidden">
+        <div ref={printRef} className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/30"><tr>
               <th className="text-left p-3 font-medium text-muted-foreground">SO#</th>

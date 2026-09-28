@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useT } from "@/hooks/useT";
-import { BarChart3, RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
+import { usePrint } from "@/hooks/usePrint";
+import { BarChart3, RefreshCw, AlertTriangle, CheckCircle, Printer } from "lucide-react";
 
 interface BSLine  { accountId?: string; accountCode: string; accountName: string; accountNameAr?: string; balance: number; }
 interface BSData  {
@@ -20,6 +21,7 @@ const EGP = (v: number) =>
 export default function BalanceSheetPage() {
   const { t, lang } = useT();
   const [asOf, setAsOf] = useState(new Date().toISOString().split("T")[0]);
+  const { printRef, handlePrint } = usePrint("RTS ERP — Balance Sheet");
 
   const { data, isLoading, refetch, isFetching } = useQuery<BSData>({
     queryKey: ["balance-sheet", asOf],
@@ -45,7 +47,7 @@ export default function BalanceSheetPage() {
   );
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
+    <div ref={printRef} className="p-6 space-y-6 max-w-2xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <BarChart3 className="h-6 w-6 text-primary" />
@@ -54,9 +56,12 @@ export default function BalanceSheetPage() {
             <p className="text-sm text-muted-foreground">Assets = Liabilities + Equity</p>
           </div>
         </div>
-        <button onClick={() => refetch()} disabled={isFetching} className="btn-ghost p-2 rounded-lg disabled:opacity-50">
-          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handlePrint} className="btn-ghost flex items-center gap-2 px-3 py-2 rounded-lg text-sm"><Printer className="h-4 w-4" /></button>
+          <button onClick={() => refetch()} disabled={isFetching} className="btn-ghost p-2 rounded-lg disabled:opacity-50">
+            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-3 items-end">
