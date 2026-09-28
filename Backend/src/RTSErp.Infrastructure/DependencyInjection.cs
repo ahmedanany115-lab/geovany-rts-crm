@@ -8,7 +8,6 @@ using RTSErp.Infrastructure.Services;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Infrastructure.Identity;
 using RTSErp.Infrastructure.Persistence;
-using RTSErp.Infrastructure.Services;
 
 namespace RTSErp.Infrastructure;
 
@@ -66,7 +65,17 @@ public static class DependencyInjection
 
         if (!raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
             !raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            // Key=value format — ensure SSL is present for Supabase / cloud Postgres.
+            // If the caller already specified SSL Mode or Ssl Mode, leave it alone.
+            if (!raw.Contains("SSL Mode=", StringComparison.OrdinalIgnoreCase) &&
+                !raw.Contains("Ssl Mode=", StringComparison.OrdinalIgnoreCase) &&
+                !raw.Contains("SslMode=", StringComparison.OrdinalIgnoreCase))
+            {
+                raw = raw.TrimEnd(';') + ";SSL Mode=Require;Trust Server Certificate=true;";
+            }
             return raw;
+        }
 
         try
         {
