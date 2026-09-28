@@ -67,150 +67,163 @@ const EMPTY_FORM = () => ({
   notes: "",
 });
 
-// ── Print view (A4 Warranty Certificate with company branding) ────────────────
+// ── Print view — matches HR_Letter.docx template frame ───────────────────────
+// Structure (from docx):
+//  1. Company letterhead (name, logo area, cert number, date)
+//  2. Centered title: شهادة ضمان
+//  3. "السادة / [customer]"
+//  4. Body paragraph mentioning invoice ref and warranty duration
+//  5. Table: QTY | SN | Description
+//  6. Warranty start/end dates on same line
+//  7. "وهذه شهادة منا بذلك"
+//  8. "وتفضلوا بقبول فائق الاحترام…"
+//  9. Signature block: المدير العام
 
 function PrintView({ cert }: { cert: WarrantyCertificate }) {
   const co = useCompanySettings();
 
-  const fmtDate = (d: string) => {
-    try { return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }); }
-    catch { return d; }
+  const fmtDateAr = (d: string) => {
+    try {
+      const dt = new Date(d + "T00:00:00");
+      return `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`;
+    } catch { return d; }
+  };
+
+  const fmtDateLong = (d: string) => {
+    try {
+      return new Date(d + "T00:00:00").toLocaleDateString("en-GB", {
+        day: "2-digit", month: "long", year: "numeric",
+      });
+    } catch { return d; }
+  };
+
+  // Determine warranty duration label from start/end
+  const warrantyDuration = (() => {
+    if (!cert.warrantyStartDate || !cert.warrantyEndDate) return "سنة";
+    const s = new Date(cert.warrantyStartDate);
+    const e = new Date(cert.warrantyEndDate);
+    const months = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24 * 30.5));
+    if (months <= 1)  return "شهر";
+    if (months <= 3)  return "ثلاثة أشهر";
+    if (months <= 6)  return "ستة أشهر";
+    if (months <= 12) return "سنة";
+    if (months <= 24) return "سنتين";
+    return `${Math.round(months / 12)} سنوات`;
+  })();
+
+  const invoiceRef = cert.invoiceReference || cert.salesOrderReference || cert.certificateNumber;
+
+  const tdStyle: React.CSSProperties = {
+    border: "1px solid #aaa",
+    padding: "7px 12px",
+    textAlign: "right",
+    verticalAlign: "top",
+  };
+  const thStyle: React.CSSProperties = {
+    border: "1px solid #aaa",
+    padding: "7px 12px",
+    background: "#f0f0f0",
+    fontWeight: "bold",
+    textAlign: "center",
   };
 
   return (
     <div style={{
-      fontFamily: "Arial, sans-serif",
-      fontSize: 13,
+      fontFamily: "'Traditional Arabic', 'Arial', sans-serif",
+      fontSize: 14,
       color: "#111",
       background: "#fff",
-      padding: "36px 48px",
+      padding: "32px 48px",
       minHeight: "297mm",
       width: "210mm",
       margin: "0 auto",
       boxSizing: "border-box",
+      direction: "rtl",
     }}>
 
-      {/* ── Company header ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e3a8a" }}>{co.name}</div>
-          <div style={{ fontSize: 14, color: "#1e3a8a" }}>{co.nameAr}</div>
-          {co.address && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>{co.address}</div>}
-          {co.phone && <div style={{ fontSize: 11, color: "#555" }}>Tel: {co.phone}</div>}
-          {co.email && <div style={{ fontSize: 11, color: "#555" }}>Email: {co.email}</div>}
-        </div>
+      {/* ── Letterhead ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 11, color: "#888" }}>No. / الرقم: <strong>{cert.certificateNumber}</strong></div>
-          <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Date / التاريخ: <strong>{fmtDate(cert.certificateDate)}</strong></div>
+          <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e3a8a" }}>{co.nameAr || "شركة رويال لنظم التكنولوجيا"}</div>
+          <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>{co.name}</div>
+          {co.phone && <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>تليفون: {co.phone}</div>}
+          {co.email && <div style={{ fontSize: 12, color: "#555" }}>البريد: {co.email}</div>}
+        </div>
+        <div style={{ textAlign: "left", fontSize: 12, color: "#555", minWidth: 140 }}>
+          <div>رقم الشهادة: <strong>{cert.certificateNumber}</strong></div>
+          <div style={{ marginTop: 4 }}>التاريخ: <strong>{fmtDateAr(cert.certificateDate)}</strong></div>
         </div>
       </div>
 
-      {/* ── Decorative divider ── */}
-      <div style={{ height: 4, background: "linear-gradient(to right, #1e3a8a, #3b82f6, #1e3a8a)", marginBottom: 20, borderRadius: 2 }} />
+      {/* ── Divider ── */}
+      <div style={{ borderBottom: "2px solid #1e3a8a", marginBottom: 24 }} />
 
-      {/* ── Certificate title ── */}
-      <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 24, fontWeight: "bold", color: "#1e3a8a", letterSpacing: 2, textTransform: "uppercase" }}>
-          Warranty Certificate
-        </div>
-        <div style={{ fontSize: 18, color: "#1e3a8a", marginTop: 4 }}>شهادة ضمان</div>
+      {/* ── Title ── */}
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <span style={{ fontSize: 22, fontWeight: "bold", color: "#111" }}>شهادة ضمان</span>
       </div>
 
-      {/* ── Customer info ── */}
-      <div style={{ border: "1px solid #bbb", borderRadius: 6, padding: "12px 16px", marginBottom: 16, background: "#f8faff" }}>
-        <div style={{ fontWeight: "bold", color: "#1e3a8a", marginBottom: 8, fontSize: 13, borderBottom: "1px solid #dde", paddingBottom: 4 }}>
-          Customer Information / بيانات العميل
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 32px" }}>
-          <div><span style={{ fontWeight: "bold" }}>Customer Name:</span> {cert.customer ?? "—"}</div>
-          <div><span style={{ fontWeight: "bold" }}>Contact:</span> {cert.customerContact ?? "—"}</div>
-          {cert.invoiceReference && (
-            <div><span style={{ fontWeight: "bold" }}>Invoice Ref:</span> {cert.invoiceReference}</div>
-          )}
-          {cert.salesOrderReference && (
-            <div><span style={{ fontWeight: "bold" }}>Sales Order:</span> {cert.salesOrderReference}</div>
-          )}
-        </div>
-      </div>
+      {/* ── Salutation ── */}
+      <p style={{ marginBottom: 16, fontWeight: "bold", fontSize: 15 }}>
+        السادة / {cert.customer || "___________________"}
+      </p>
 
-      {/* ── Product / Item details ── */}
-      <div style={{ border: "1px solid #bbb", borderRadius: 6, padding: "12px 16px", marginBottom: 16, background: "#f8faff" }}>
-        <div style={{ fontWeight: "bold", color: "#1e3a8a", marginBottom: 8, fontSize: 13, borderBottom: "1px solid #dde", paddingBottom: 4 }}>
-          Product Details / بيانات المنتج
-        </div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#1e3a8a", color: "#fff" }}>
-              <th style={{ padding: "6px 10px", textAlign: "left", border: "1px solid #1e3a8a" }}>Product / المنتج</th>
-              <th style={{ padding: "6px 10px", textAlign: "center", border: "1px solid #1e3a8a", width: "12%" }}>Qty</th>
-              <th style={{ padding: "6px 10px", textAlign: "left", border: "1px solid #1e3a8a" }}>Serial Number / الرقم التسلسلي</th>
+      {/* ── Body paragraph ── */}
+      <p style={{ marginBottom: 20, lineHeight: 2, textAlign: "justify" }}>
+        تضمن {co.nameAr || "شركة رويال لنظم التكنولوجيا"}، رقم فاتورة ({invoiceRef}) ضمان لمدة{" "}
+        <strong>{warrantyDuration}</strong>، وذلك ضد عيوب الصناعة وليس سوء الاستخدام او التخزين.
+      </p>
+
+      {/* ── Items table ── */}
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20, direction: "rtl" }}>
+        <thead>
+          <tr>
+            <th style={{ ...thStyle, width: "15%" }}>الكمية<br /><span style={{ fontWeight: "normal", fontSize: 12 }}>QTY</span></th>
+            <th style={{ ...thStyle, width: "30%" }}>الرقم التسلسلي<br /><span style={{ fontWeight: "normal", fontSize: 12 }}>SN</span></th>
+            <th style={{ ...thStyle }}>الوصف<br /><span style={{ fontWeight: "normal", fontSize: 12 }}>Description</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ ...tdStyle, textAlign: "center" }}>{cert.quantity ?? 1}</td>
+            <td style={{ ...tdStyle, textAlign: "center", fontFamily: "monospace" }}>{cert.serialNumber || "—"}</td>
+            <td style={{ ...tdStyle }}>{cert.productName || cert.product || "—"}</td>
+          </tr>
+          {/* Extra blank rows for manual additions */}
+          {[1, 2].map(i => (
+            <tr key={i}>
+              <td style={{ ...tdStyle, height: 28 }}>&nbsp;</td>
+              <td style={{ ...tdStyle }}>&nbsp;</td>
+              <td style={{ ...tdStyle }}>&nbsp;</td>
             </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={{ padding: "8px 10px", border: "1px solid #ddd" }}>{cert.productName ?? cert.product ?? "—"}</td>
-              <td style={{ padding: "8px 10px", border: "1px solid #ddd", textAlign: "center" }}>{cert.quantity}</td>
-              <td style={{ padding: "8px 10px", border: "1px solid #ddd" }}>{cert.serialNumber ?? "—"}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
 
-      {/* ── Warranty period ── */}
-      <div style={{ border: "2px solid #1e3a8a", borderRadius: 6, padding: "14px 20px", marginBottom: 16, background: "#eff6ff" }}>
-        <div style={{ fontWeight: "bold", color: "#1e3a8a", marginBottom: 10, fontSize: 14, textAlign: "center" }}>
-          Warranty Period / فترة الضمان
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
-          <div>
-            <div style={{ fontSize: 11, color: "#555", marginBottom: 4 }}>Start Date / تاريخ البداية</div>
-            <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e3a8a" }}>{fmtDate(cert.warrantyStartDate)}</div>
-          </div>
-          <div style={{ fontSize: 28, color: "#1e3a8a", alignSelf: "center" }}>→</div>
-          <div>
-            <div style={{ fontSize: 11, color: "#555", marginBottom: 4 }}>End Date / تاريخ الانتهاء</div>
-            <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e3a8a" }}>{fmtDate(cert.warrantyEndDate)}</div>
-          </div>
-        </div>
-      </div>
+      {/* ── Warranty dates ── */}
+      <p style={{ marginBottom: 20, lineHeight: 2 }}>
+        <strong>تاريخ بداية الضمان:</strong> {fmtDateAr(cert.warrantyStartDate)}
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <strong>تاريخ نهاية الضمان:</strong> {fmtDateAr(cert.warrantyEndDate)}
+      </p>
 
-      {/* ── Warranty terms ── */}
-      {cert.warrantyTerms && (
-        <div style={{ border: "1px solid #bbb", borderRadius: 6, padding: "12px 16px", marginBottom: 16 }}>
-          <div style={{ fontWeight: "bold", color: "#1e3a8a", marginBottom: 8, fontSize: 13, borderBottom: "1px solid #dde", paddingBottom: 4 }}>
-            Terms &amp; Conditions / الشروط والأحكام
-          </div>
-          <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: 12 }}>{cert.warrantyTerms}</p>
-        </div>
-      )}
+      {/* ── Closing statements ── */}
+      <p style={{ textAlign: "center", marginBottom: 16, fontWeight: "bold" }}>وهذه شهادة منا بذلك</p>
+      <p style={{ marginBottom: 32, lineHeight: 2 }}>وتفضلوا بقبول فائق الاحترام…</p>
 
-      {/* ── Notes ── */}
+      {/* ── Notes (if any) ── */}
       {cert.notes && (
-        <div style={{ border: "1px solid #bbb", borderRadius: 6, padding: "12px 16px", marginBottom: 16 }}>
-          <div style={{ fontWeight: "bold", color: "#1e3a8a", marginBottom: 6, fontSize: 13 }}>Notes / ملاحظات</div>
-          <p style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>{cert.notes}</p>
-        </div>
+        <p style={{ marginBottom: 24, lineHeight: 1.8, fontSize: 13, color: "#444", borderRight: "3px solid #1e3a8a", paddingRight: 10 }}>
+          {cert.notes}
+        </p>
       )}
 
-      {/* ── Signatures ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 48, gap: 24 }}>
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Authorized Signature<br /><span style={{ fontSize: 11, color: "#888" }}>التوقيع المعتمد</span></div>
-          <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>{co.name}</div>
+      {/* ── Signature ── */}
+      <div style={{ textAlign: "right", marginTop: 16 }}>
+        <div style={{ fontWeight: "bold", marginBottom: 48 }}>المدير العام</div>
+        <div style={{ borderTop: "1px solid #555", paddingTop: 8, display: "inline-block", minWidth: 180 }}>
+          <div style={{ fontWeight: "bold" }}>{co.nameAr || "شركة رويال لنظم التكنولوجيا"}</div>
         </div>
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Customer Signature<br /><span style={{ fontSize: 11, color: "#888" }}>توقيع العميل</span></div>
-          <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>___________________</div>
-        </div>
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Date / التاريخ<br /><span style={{ fontSize: 11, color: "#888" }}>&nbsp;</span></div>
-          <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>___________________</div>
-        </div>
-      </div>
-
-      {/* ── Footer ── */}
-      <div style={{ marginTop: 32, borderTop: "1px solid #ddd", paddingTop: 12, textAlign: "center", fontSize: 11, color: "#999" }}>
-        {co.name} &bull; {co.email ?? co.website ?? ""} &bull; {co.phone ?? ""}
       </div>
     </div>
   );
