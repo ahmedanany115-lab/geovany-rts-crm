@@ -65,7 +65,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit, isRetry = fa
 
   if (!response.ok) {
     const problem = await response.json().catch(() => null);
-    const err = new Error(problem?.title ?? `API error ${response.status}: ${response.statusText}`) as any;
+    // Prefer the most specific message: top-level `message`, then `title`, then generic fallback.
+    // The backend returns `{ message: "..." }` for business-rule 400s (e.g. delete restrictions).
+    const baseMessage =
+      problem?.message ??
+      problem?.title ??
+      `API error ${response.status}: ${response.statusText}`;
+    const err = new Error(baseMessage) as any;
     err.status = response.status;
     err.errors = problem?.errors ?? {};
     // Walk all inner exception levels to get the real Postgres error

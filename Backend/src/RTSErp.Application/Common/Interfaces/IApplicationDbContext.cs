@@ -2,11 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Entities.Documents;
+using RTSErp.Domain.Entities.Finance;
 using RTSErp.Domain.Entities.Helpdesk;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
 using RTSErp.Domain.Entities.Notifications;
 using RTSErp.Domain.Entities.Operational;
+using RTSErp.Domain.Entities.Sales;
+using RTSErp.Domain.Entities.Warehouse;
 
 namespace RTSErp.Application.Common.Interfaces;
 
@@ -68,9 +71,20 @@ public interface IApplicationDbContext
     // ── Audit / Activity Log ──────────────────────────────────────────────────
     DbSet<AuditLog> AuditLogs { get; }
 
+    // ── Cash Management ───────────────────────────────────────────────────────
+    DbSet<CashReceipt>  CashReceipts  { get; }
+    DbSet<CashPayment>  CashPayments  { get; }
+
     // ── Helpdesk ──────────────────────────────────────────────────────────────
     DbSet<Ticket>        Tickets        { get; }
     DbSet<TicketComment> TicketComments { get; }
+
+    // ── Warehouse / Goods Receipts ────────────────────────────────────────────
+    DbSet<GoodsReceipt>     GoodsReceipts     { get; }
+    DbSet<GoodsReceiptLine> GoodsReceiptLines { get; }
+
+    // ── Sales / Warranty Certificates ─────────────────────────────────────────
+    DbSet<WarrantyCertificate> WarrantyCertificates { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

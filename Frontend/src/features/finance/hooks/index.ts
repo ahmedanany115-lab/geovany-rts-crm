@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import {
   accountsApi,
+  cashJournalApi,
+  cashPaymentsApi,
+  cashReceiptsApi,
   currenciesApi,
   fiscalPeriodsApi,
   journalEntriesApi,
@@ -196,5 +199,137 @@ export function useDeleteJournalEntry() {
   return useMutation({
     mutationFn: (id: string) => apiFetch<void>(`/journalentries/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["journal-entries"] }),
+  });
+}
+
+// ── Cash Receipts ─────────────────────────────────────────────────────────────
+
+export function useCashReceipts(params?: Parameters<typeof cashReceiptsApi.list>[0]) {
+  return useQuery({
+    queryKey: ["cash-receipts", params],
+    queryFn: () => cashReceiptsApi.list(params),
+  });
+}
+
+export function useCashReceipt(id: string) {
+  return useQuery({
+    queryKey: ["cash-receipt", id],
+    queryFn: () => cashReceiptsApi.get(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateCashReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashReceiptsApi.create,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-receipts"] }),
+  });
+}
+
+export function useUpdateCashReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Parameters<typeof cashReceiptsApi.update>[1]) =>
+      cashReceiptsApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cash-receipts"] });
+      qc.invalidateQueries({ queryKey: ["cash-receipt"] });
+    },
+  });
+}
+
+export function usePostCashReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashReceiptsApi.post,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-receipts"] }),
+  });
+}
+
+export function useVoidCashReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashReceiptsApi.void,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-receipts"] }),
+  });
+}
+
+export function useDeleteCashReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashReceiptsApi.delete,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-receipts"] }),
+  });
+}
+
+// ── Cash Payments ─────────────────────────────────────────────────────────────
+
+export function useCashPayments(params?: Parameters<typeof cashPaymentsApi.list>[0]) {
+  return useQuery({
+    queryKey: ["cash-payments", params],
+    queryFn: () => cashPaymentsApi.list(params),
+  });
+}
+
+export function useCashPayment(id: string) {
+  return useQuery({
+    queryKey: ["cash-payment", id],
+    queryFn: () => cashPaymentsApi.get(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateCashPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashPaymentsApi.create,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-payments"] }),
+  });
+}
+
+export function useUpdateCashPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Parameters<typeof cashPaymentsApi.update>[1]) =>
+      cashPaymentsApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cash-payments"] });
+      qc.invalidateQueries({ queryKey: ["cash-payment"] });
+    },
+  });
+}
+
+export function usePostCashPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashPaymentsApi.post,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-payments"] }),
+  });
+}
+
+export function useVoidCashPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashPaymentsApi.void,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-payments"] }),
+  });
+}
+
+export function useDeleteCashPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cashPaymentsApi.delete,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cash-payments"] }),
+  });
+}
+
+// ── Cash Journal ──────────────────────────────────────────────────────────────
+
+export function useCashJournal(params?: Parameters<typeof cashJournalApi.get>[0]) {
+  return useQuery({
+    queryKey: ["cash-journal", params],
+    queryFn: () => cashJournalApi.get(params!),
+    enabled: !!params?.cashAccountId && !!params?.fromDate && !!params?.toDate,
   });
 }

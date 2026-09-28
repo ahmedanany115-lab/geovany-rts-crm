@@ -110,6 +110,24 @@ public enum CommissionStatus
     Cancelled = 4,
 }
 
+// ── Goods Receipt ─────────────────────────────────────────────────────────────
+
+public enum GoodsReceiptStatus
+{
+    Draft     = 1,
+    Confirmed = 2,
+    Cancelled = 3,
+}
+
+// ── Warranty Certificate ──────────────────────────────────────────────────────
+
+public enum WarrantyCertificateStatus
+{
+    Active  = 1,
+    Expired = 2,
+    Voided  = 3,
+}
+
 // ── E-Invoice ─────────────────────────────────────────────────────────────────
 
 public enum EInvoiceSubmissionStatus

@@ -9,6 +9,7 @@ import {
   Landmark, ShoppingCart, ShoppingBag, Truck, CreditCard, DollarSign,
   Warehouse, TrendingUp, BookOpen, ArrowLeftRight, CalendarDays, Coins,
   HeartHandshake, Wrench, ClipboardList, HardDrive, Calculator, FileCheck2,
+  PackageCheck, ShieldCheck, ArrowDownCircle, ArrowUpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-state";
@@ -159,6 +160,9 @@ export function Sidebar() {
                 { href: "/erp/bank-accounts",        label: t("bank_accounts"),     icon: Landmark },
                 { href: "/erp/customer-invoices",    label: t("customer_invoices"), icon: Receipt },
                 { href: "/erp/supplier-invoices",    label: lang === "ar" ? "فواتير الموردين" : "Supplier Invoices", icon: FileText },
+                { href: "/finance/cash-receipts",    label: lang === "ar" ? "المقبوضات النقدية" : "Cash Receipts",  icon: ArrowDownCircle },
+                { href: "/finance/cash-payments",    label: lang === "ar" ? "المدفوعات النقدية" : "Cash Payments",  icon: ArrowUpCircle },
+                { href: "/finance/cash-journal",     label: lang === "ar" ? "يومية النقدية" : "Cash Journal",       icon: BookOpen },
               ].map(i => <NavLink key={i.href} {...i} indent />)}
             </Collapsible>
           </>
@@ -179,10 +183,11 @@ export function Sidebar() {
                 icon={ShoppingCart}
               >
                 {[
-                  { href: "/erp/customers",         label: t("customers"),         icon: Users },
-                  { href: "/erp/sales-orders",      label: t("sales_orders"),      icon: ShoppingCart },
-                  { href: "/erp/deliveries",         label: t("deliveries"),        icon: Truck },
-                  { href: "/erp/customer-invoices", label: t("customer_invoices"), icon: Receipt },
+                  { href: "/erp/customers",                label: t("customers"),          icon: Users },
+                  { href: "/erp/sales-orders",             label: t("sales_orders"),       icon: ShoppingCart },
+                  { href: "/erp/deliveries",               label: t("deliveries"),         icon: Truck },
+                  { href: "/erp/customer-invoices",        label: t("customer_invoices"),  icon: Receipt },
+                  { href: "/erp/warranty-certificates",    label: "Warranty Certificates", icon: ShieldCheck },
                   ...(isFinance ? [
                     { href: "/erp/payments", label: t("payments"), icon: DollarSign },
                     { href: "/erp/cheques",  label: t("cheques"),  icon: CreditCard },
@@ -206,9 +211,10 @@ export function Sidebar() {
             {showInventory && (
               <>
                 {[
-                  { href: "/erp/products",   label: t("products"),        icon: Package },
-                  { href: "/erp/warehouses", label: t("warehouses"),      icon: Warehouse },
-                  { href: "/erp/inventory",  label: t("stock_movements"), icon: ArrowLeftRight },
+                  { href: "/erp/products",        label: t("products"),        icon: Package },
+                  { href: "/erp/warehouses",      label: t("warehouses"),      icon: Warehouse },
+                  { href: "/erp/inventory",       label: t("stock_movements"), icon: ArrowLeftRight },
+                  { href: "/erp/goods-receipts",  label: "Goods Receipts",     icon: PackageCheck },
                 ].map(i => <NavLink key={i.href} {...i} />)}
               </>
             )}

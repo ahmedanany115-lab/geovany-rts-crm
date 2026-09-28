@@ -1582,5 +1582,151 @@ public sealed class DatabaseSeedingService : BackgroundService
             WHERE EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='2000' AND "IsDeleted"=false)
               AND NOT EXISTS (SELECT 1 FROM "Accounts" WHERE "Code"='2700' AND "IsDeleted"=false)
             """;
+
+        // ── Goods Receipts ────────────────────────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "GoodsReceipts" (
+                "Id"              uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "ReceiptNumber"   varchar(50)   NOT NULL DEFAULT '',
+                "ReceiptDate"     date          NOT NULL,
+                "SupplierId"      uuid,
+                "PurchaseOrderId" uuid,
+                "WarehouseId"     uuid          NOT NULL,
+                "PreparedBy"      varchar(200),
+                "ReceivedBy"      varchar(200),
+                "Notes"           text,
+                "Status"          integer       NOT NULL DEFAULT 1,
+                "CreatedAt"       timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"       uuid,
+                "ModifiedAt"      timestamptz,
+                "ModifiedBy"      uuid,
+                "IsDeleted"       boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_GoodsReceipts" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "GoodsReceiptLines" (
+                "Id"               uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "GoodsReceiptId"   uuid          NOT NULL,
+                "ProductId"        uuid,
+                "ItemDescription"  varchar(500)  NOT NULL DEFAULT '',
+                "Quantity"         numeric(18,4) NOT NULL DEFAULT 0,
+                "SerialNumber"     varchar(200),
+                "Unit"             varchar(50),
+                "Notes"            text,
+                "SortOrder"        integer       NOT NULL DEFAULT 0,
+                "CreatedAt"        timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"        uuid,
+                "ModifiedAt"       timestamptz,
+                "ModifiedBy"       uuid,
+                "IsDeleted"        boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_GoodsReceiptLines" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_GoodsReceiptLines_GoodsReceipts"
+                    FOREIGN KEY ("GoodsReceiptId") REFERENCES "GoodsReceipts"("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_GoodsReceipts_WarehouseId"      ON "GoodsReceipts"("WarehouseId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_GoodsReceipts_SupplierId"       ON "GoodsReceipts"("SupplierId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_GoodsReceiptLines_GoodsReceiptId" ON "GoodsReceiptLines"("GoodsReceiptId")""";
+
+        // ── Warranty Certificates ─────────────────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "WarrantyCertificates" (
+                "Id"                 uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "CertificateNumber"  varchar(50)   NOT NULL DEFAULT '',
+                "CertificateDate"    date          NOT NULL,
+                "CustomerId"         uuid,
+                "CustomerName"       varchar(300),
+                "CustomerContact"    varchar(200),
+                "ProductId"          uuid,
+                "ProductName"        varchar(300),
+                "SerialNumber"       varchar(200),
+                "Quantity"           numeric(18,4) NOT NULL DEFAULT 1,
+                "InvoiceId"          uuid,
+                "SalesOrderId"       uuid,
+                "WarrantyStartDate"  date          NOT NULL,
+                "WarrantyEndDate"    date          NOT NULL,
+                "WarrantyTerms"      text,
+                "Notes"              text,
+                "Status"             integer       NOT NULL DEFAULT 1,
+                "CreatedAt"          timestamptz   NOT NULL DEFAULT NOW(),
+                "CreatedBy"          uuid,
+                "ModifiedAt"         timestamptz,
+                "ModifiedBy"         uuid,
+                "IsDeleted"          boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_WarrantyCertificates" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_WarrantyCertificates_CustomerId"   ON "WarrantyCertificates"("CustomerId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_WarrantyCertificates_SerialNumber" ON "WarrantyCertificates"("SerialNumber")""";
+
+        // ── Cash Management ───────────────────────────────────────────────────
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "CashReceipts" (
+                "Id"              uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "ReceiptNumber"   varchar(50)   NOT NULL,
+                "ReceiptDate"     date          NOT NULL,
+                "ReceivedFrom"    varchar(300),
+                "Amount"          numeric(18,4) NOT NULL DEFAULT 0,
+                "CurrencyId"      uuid          NOT NULL,
+                "ExchangeRate"    numeric(18,6) NOT NULL DEFAULT 1,
+                "CashAccountId"   uuid          NOT NULL,
+                "ContraAccountId" uuid          NOT NULL,
+                "Description"     varchar(500),
+                "ReferenceNumber" varchar(100),
+                "Notes"           text,
+                "PreparedBy"      varchar(200),
+                "ApprovedBy"      varchar(200),
+                "JournalEntryId"  uuid,
+                "Status"          integer       NOT NULL DEFAULT 1,
+                "CreatedAt"       timestamptz   NOT NULL DEFAULT now(),
+                "CreatedBy"       uuid,
+                "ModifiedAt"      timestamptz,
+                "ModifiedBy"      uuid,
+                "IsDeleted"       boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_CashReceipts" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_CashReceipts_CashAccountId" ON "CashReceipts"("CashAccountId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_CashReceipts_ReceiptDate"   ON "CashReceipts"("ReceiptDate")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_CashReceipts_Status"        ON "CashReceipts"("Status")""";
+
+        yield return """
+            CREATE TABLE IF NOT EXISTS "CashPayments" (
+                "Id"               uuid          NOT NULL DEFAULT gen_random_uuid(),
+                "PaymentNumber"    varchar(50)   NOT NULL,
+                "PaymentDate"      date          NOT NULL,
+                "PaidTo"           varchar(300),
+                "Amount"           numeric(18,4) NOT NULL DEFAULT 0,
+                "CurrencyId"       uuid          NOT NULL,
+                "ExchangeRate"     numeric(18,6) NOT NULL DEFAULT 1,
+                "CashAccountId"    uuid          NOT NULL,
+                "ExpenseAccountId" uuid          NOT NULL,
+                "Description"      varchar(500),
+                "ReferenceNumber"  varchar(100),
+                "Notes"            text,
+                "PreparedBy"       varchar(200),
+                "ApprovedBy"       varchar(200),
+                "JournalEntryId"   uuid,
+                "Status"           integer       NOT NULL DEFAULT 1,
+                "CreatedAt"        timestamptz   NOT NULL DEFAULT now(),
+                "CreatedBy"        uuid,
+                "ModifiedAt"       timestamptz,
+                "ModifiedBy"       uuid,
+                "IsDeleted"        boolean       NOT NULL DEFAULT false,
+                CONSTRAINT "PK_CashPayments" PRIMARY KEY ("Id")
+            )
+            """;
+
+        yield return """CREATE INDEX IF NOT EXISTS "IX_CashPayments_CashAccountId" ON "CashPayments"("CashAccountId")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_CashPayments_PaymentDate"   ON "CashPayments"("PaymentDate")""";
+        yield return """CREATE INDEX IF NOT EXISTS "IX_CashPayments_Status"        ON "CashPayments"("Status")""";
     }
 }

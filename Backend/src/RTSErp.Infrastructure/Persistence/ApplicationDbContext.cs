@@ -4,13 +4,17 @@ using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Accounting;
 using RTSErp.Domain.Entities.Audit;
 using RTSErp.Domain.Entities.Documents;
+using RTSErp.Domain.Entities.Finance;
 using RTSErp.Domain.Entities.Helpdesk;
 using RTSErp.Domain.Entities.HR;
 using RTSErp.Domain.Entities.Identity;
 using RTSErp.Domain.Entities.Maintenance;
 using RTSErp.Domain.Entities.Notifications;
 using RTSErp.Domain.Entities.Operational;
+using RTSErp.Domain.Entities.Sales;
+using RTSErp.Domain.Entities.Warehouse;
 using RTSErp.Infrastructure.Persistence.Configurations.Accounting;
+using RTSErp.Infrastructure.Persistence.Configurations.Finance;
 using RTSErp.Infrastructure.Persistence.Configurations.Operational;
 
 namespace RTSErp.Infrastructure.Persistence;
@@ -88,6 +92,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Ticket>        Tickets        => Set<Ticket>();
     public DbSet<TicketComment> TicketComments => Set<TicketComment>();
 
+    // ── Warehouse / Goods Receipts ────────────────────────────────────────────
+    public DbSet<GoodsReceipt>     GoodsReceipts     => Set<GoodsReceipt>();
+    public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+
+    // ── Sales / Warranty Certificates ─────────────────────────────────────────
+    public DbSet<WarrantyCertificate> WarrantyCertificates => Set<WarrantyCertificate>();
+
+    // ── Cash Management ───────────────────────────────────────────────────────
+    public DbSet<CashReceipt> CashReceipts => Set<CashReceipt>();
+    public DbSet<CashPayment> CashPayments => Set<CashPayment>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -125,6 +140,50 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         builder.ApplyConfiguration(new BankTransactionConfiguration());
         builder.ApplyConfiguration(new ChequeConfiguration());
         builder.ApplyConfiguration(new SalesCommissionConfiguration());
+
+        // ── Cash Management ──────────────────────────────────────────────────
+        builder.ApplyConfiguration(new CashReceiptConfiguration());
+        builder.ApplyConfiguration(new CashPaymentConfiguration());
+
+        // ── Goods Receipts ────────────────────────────────────────────────────
+        builder.Entity<GoodsReceipt>(entity =>
+        {
+            entity.ToTable("GoodsReceipts");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ReceiptNumber).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.PreparedBy).HasMaxLength(200);
+            entity.Property(e => e.ReceivedBy).HasMaxLength(200);
+            entity.HasMany(e => e.Lines)
+                .WithOne(l => l.GoodsReceipt)
+                .HasForeignKey(l => l.GoodsReceiptId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        builder.Entity<GoodsReceiptLine>(entity =>
+        {
+            entity.ToTable("GoodsReceiptLines");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ItemDescription).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.Quantity).HasPrecision(18, 4);
+            entity.Property(e => e.SerialNumber).HasMaxLength(200);
+            entity.Property(e => e.Unit).HasMaxLength(50);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ── Warranty Certificates ─────────────────────────────────────────────
+        builder.Entity<WarrantyCertificate>(entity =>
+        {
+            entity.ToTable("WarrantyCertificates");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CertificateNumber).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.CustomerName).HasMaxLength(300);
+            entity.Property(e => e.CustomerContact).HasMaxLength(200);
+            entity.Property(e => e.ProductName).HasMaxLength(300);
+            entity.Property(e => e.SerialNumber).HasMaxLength(200);
+            entity.Property(e => e.Quantity).HasPrecision(18, 4);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
 
         builder.Entity<RolePermission>(entity =>
         {
