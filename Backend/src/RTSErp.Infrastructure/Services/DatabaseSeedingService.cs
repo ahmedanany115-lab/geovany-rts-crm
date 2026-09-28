@@ -195,6 +195,8 @@ public sealed class DatabaseSeedingService : BackgroundService
                 "FirstName"            varchar(100) NOT NULL DEFAULT '',
                 "LastName"             varchar(100) NOT NULL DEFAULT '',
                 "AvatarUrl"            text,
+                "JobTitle"             varchar(200),
+                "Department"           varchar(200),
                 "IsActive"             boolean      NOT NULL DEFAULT true,
                 "EmployeeId"           uuid,
                 "CreatedAt"            timestamptz  NOT NULL DEFAULT NOW(),
@@ -219,6 +221,10 @@ public sealed class DatabaseSeedingService : BackgroundService
 
         yield return """CREATE UNIQUE INDEX IF NOT EXISTS "IX_AspNetUsers_NormalizedUserName" ON "AspNetUsers" ("NormalizedUserName") WHERE "NormalizedUserName" IS NOT NULL""";
         yield return """CREATE INDEX IF NOT EXISTS "IX_AspNetUsers_NormalizedEmail" ON "AspNetUsers" ("NormalizedEmail")""";
+
+        // ── AspNetUsers column backfill (existing deployments created before JobTitle/Department were added)
+        yield return """ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "JobTitle"    varchar(200)""";
+        yield return """ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "Department"  varchar(200)""";
 
         yield return """
             CREATE TABLE IF NOT EXISTS "AspNetRoleClaims" (
@@ -988,6 +994,7 @@ public sealed class DatabaseSeedingService : BackgroundService
                 "ExternalStatus"         varchar(50),
                 "QRCode"                 text,
                 "CancellationStatus"     varchar(50),
+                "Notes"                  text,
                 "CreatedAt"              timestamptz   NOT NULL DEFAULT NOW(),
                 "CreatedBy"              uuid,
                 "ModifiedAt"             timestamptz,
@@ -1000,6 +1007,9 @@ public sealed class DatabaseSeedingService : BackgroundService
                     FOREIGN KEY ("CurrencyId") REFERENCES "Currencies"("Id") ON DELETE RESTRICT
             )
             """;
+
+        // ── CustomerInvoices column backfill (existing deployments created before Notes was added)
+        yield return """ALTER TABLE "CustomerInvoices" ADD COLUMN IF NOT EXISTS "Notes" text""";
 
         yield return """
             CREATE TABLE IF NOT EXISTS "CustomerInvoiceLines" (
