@@ -78,6 +78,18 @@ export function useCreateJournalEntry() {
   });
 }
 
+export function useUpdateJournalEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Parameters<typeof journalEntriesApi.update>[1]) =>
+      journalEntriesApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["journal-entries"] });
+      qc.invalidateQueries({ queryKey: ["journal-entry"] });
+    },
+  });
+}
+
 export function usePostJournalEntry() {
   const qc = useQueryClient();
   return useMutation({

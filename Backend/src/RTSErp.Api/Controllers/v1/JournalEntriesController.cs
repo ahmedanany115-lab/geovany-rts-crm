@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Accounting.JournalEntries.Commands.CreateJournalEntry;
 using RTSErp.Application.Accounting.JournalEntries.Commands.PostJournalEntry;
 using RTSErp.Application.Accounting.JournalEntries.Commands.ReverseJournalEntry;
+using RTSErp.Application.Accounting.JournalEntries.Commands.UpdateJournalEntry;
 using RTSErp.Application.Accounting.JournalEntries.Queries.GetJournalEntries;
 using RTSErp.Application.Accounting.JournalEntries.Queries.GetJournalEntry;
 using RTSErp.Domain.Enums;
@@ -58,6 +59,20 @@ public class JournalEntriesController : BaseApiController
         if (!result.Succeeded)
             return BadRequest(new { errors = result.Errors });
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Update a DRAFT journal entry (header + lines). Posted entries cannot be updated.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,Accountant")]
+    public async Task<IActionResult> Update(Guid id, UpdateJournalEntryCommand command)
+    {
+        command.Id = id;
+        var result = await Mediator.Send(command);
+        if (!result.Succeeded)
+            return BadRequest(new { errors = result.Errors });
+        return NoContent();
     }
 
     [HttpPost("{id:guid}/reverse")]

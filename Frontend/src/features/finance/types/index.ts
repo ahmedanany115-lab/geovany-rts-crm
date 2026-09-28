@@ -123,6 +123,15 @@ export interface CreateJournalEntryRequest {
   lines: CreateJournalEntryLineDto[];
 }
 
+export interface UpdateJournalEntryRequest {
+  entryDate: string;
+  description: string;
+  currencyId: string;
+  exchangeRate: number;
+  referenceNumber?: string;
+  lines: CreateJournalEntryLineDto[];
+}
+
 // ── Ledger ────────────────────────────────────────────────────────────────────
 
 export interface LedgerLineDto {

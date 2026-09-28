@@ -4,9 +4,11 @@ import { useState } from "react";
 import {
   useJournalEntries,
   useCreateJournalEntry,
+  useUpdateJournalEntry,
   usePostJournalEntry,
   useReverseJournalEntry,
   useDeleteJournalEntry,
+  useJournalEntry,
   useAccounts,
 } from "@/features/finance/hooks";
 import { useCurrencies } from "@/features/finance/hooks";
@@ -14,9 +16,9 @@ import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
 import {
   FileText, RefreshCw, Plus, X, Check, Trash2,
-  AlertTriangle, ChevronDown, ChevronUp, RotateCcw,
+  AlertTriangle, ChevronDown, ChevronUp, RotateCcw, Pencil,
 } from "lucide-react";
-import type { AccountDto } from "@/features/finance/types";
+import type { AccountDto, JournalEntryDetailDto } from "@/features/finance/types";
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 const STATUS = {
@@ -29,6 +31,227 @@ const STATUS = {
 interface JeLine { accountId: string; debit: number; credit: number; description: string; }
 const EMPTY_LINE: JeLine = { accountId: "", debit: 0, credit: 0, description: "" };
 
+/* ── Edit modal inner component (loads entry detail) ──────────────────────── */
+function EditModal({
+  entryId,
+  onClose,
+  onSaved,
+}: {
+  entryId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const { data: accounts } = useAccounts();
+  const { data: currencies } = useCurrencies();
+  const { data: entry, isLoading } = useJournalEntry(entryId);
+  const updateJE = useUpdateJournalEntry();
+
+  const postingAccounts = (accounts ?? []).filter((a: AccountDto) => !a.isGroup && a.isActive);
+
+  /* ── Local form state, initialised from entry once loaded ── */
+  const [initialised, setInitialised] = useState(false);
+  const [entryDate, setEntryDate]     = useState("");
+  const [description, setDescription] = useState("");
+  const [currencyId, setCurrencyId]   = useState("");
+  const [lines, setLines]             = useState<JeLine[]>([]);
+  const [formError, setFormError]     = useState<string | null>(null);
+
+  /* Populate once the entry is fetched */
+  if (entry && !initialised) {
+    setEntryDate(entry.entryDate as unknown as string);
+    setDescription(entry.description);
+    // We stored currencyCode in the list DTO; we need the id from the detail.
+    // The detail doesn't return currencyId directly, but we can match by code.
+    const matchedCurrency = (currencies ?? []).find(c => c.code === entry.currencyCode);
+    setCurrencyId(matchedCurrency?.id ?? "");
+    setLines(
+      (entry.lines ?? []).map(l => ({
+        accountId:   l.accountId,
+        debit:       l.debit,
+        credit:      l.credit,
+        description: l.description ?? "",
+      }))
+    );
+    setInitialised(true);
+  }
+
+  const totalDebit  = lines.reduce((s, l) => s + (Number(l.debit)  || 0), 0);
+  const totalCredit = lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
+  const diff        = Math.abs(totalDebit - totalCredit);
+  const balanced    = diff < 0.001;
+
+  const setLine = (i: number, field: keyof JeLine, val: string | number) =>
+    setLines(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: val } : l));
+
+  const removeLine = (i: number) =>
+    setLines(prev => prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!description.trim()) { setFormError("Description is required."); return; }
+    if (!currencyId)          { setFormError("Select a currency."); return; }
+    if (!balanced)            { setFormError(`Entry is not balanced. Difference: ${diff.toFixed(2)}`); return; }
+    if (lines.some(l => !l.accountId)) { setFormError("All lines need an account."); return; }
+    if (lines.some(l => l.debit === 0 && l.credit === 0)) {
+      setFormError("Each line must have a debit or credit amount."); return;
+    }
+
+    try {
+      await updateJE.mutateAsync({
+        id: entryId,
+        entryDate,
+        description: description.trim(),
+        currencyId,
+        exchangeRate: 1,
+        lines: lines.map((l, i) => ({
+          accountId:   l.accountId,
+          debit:       Number(l.debit)  || 0,
+          credit:      Number(l.credit) || 0,
+          description: l.description || undefined,
+          sortOrder:   i + 1,
+        })),
+      });
+      toast("Journal entry updated.", "success");
+      onSaved();
+    } catch (err: any) {
+      const msg = err?.message ?? "Failed to update entry.";
+      setFormError(msg);
+      toast(msg, "error");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-background rounded-xl border shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b">
+          <div className="flex items-center gap-3 text-primary">
+            <Pencil className="h-5 w-5" />
+            <h2 className="font-semibold">Edit Draft Journal Entry</h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {isLoading || !initialised ? (
+          <div className="p-10 text-center text-muted-foreground">Loading entry…</div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            {formError && (
+              <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+                <AlertTriangle className="h-4 w-4 shrink-0" />{formError}
+              </div>
+            )}
+
+            {/* Header row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Date *</label>
+                <input type="date" required value={entryDate}
+                  onChange={e => setEntryDate(e.target.value)} className="input w-full" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground block mb-1">Description *</label>
+                <input required value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  className="input w-full" placeholder="Description…" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Currency *</label>
+                <select required value={currencyId}
+                  onChange={e => setCurrencyId(e.target.value)} className="input w-full">
+                  <option value="">Select…</option>
+                  {(currencies ?? []).filter(c => c.isActive).map(c => (
+                    <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Line items */}
+            <div>
+              <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground pb-1 border-b">
+                <span className="col-span-5">Account</span>
+                <span className="col-span-3">Description</span>
+                <span className="col-span-1 text-right">Debit</span>
+                <span className="col-span-1 text-right">Credit</span>
+                <span className="col-span-2"></span>
+              </div>
+              <div className="space-y-1.5 mt-2">
+                {lines.map((line, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-5">
+                      <select value={line.accountId}
+                        onChange={e => setLine(i, "accountId", e.target.value)}
+                        className="input w-full text-sm py-1.5">
+                        <option value="">Select account…</option>
+                        {postingAccounts.map((a: AccountDto) => (
+                          <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-3">
+                      <input value={line.description}
+                        onChange={e => setLine(i, "description", e.target.value)}
+                        className="input w-full text-sm py-1.5" placeholder="Note…" />
+                    </div>
+                    <div className="col-span-1">
+                      <input type="number" min="0" step="0.01" value={line.debit || ""}
+                        onChange={e => setLine(i, "debit", e.target.value)}
+                        className="input w-full text-sm py-1.5 text-right" placeholder="0.00" />
+                    </div>
+                    <div className="col-span-1">
+                      <input type="number" min="0" step="0.01" value={line.credit || ""}
+                        onChange={e => setLine(i, "credit", e.target.value)}
+                        className="input w-full text-sm py-1.5 text-right" placeholder="0.00" />
+                    </div>
+                    <div className="col-span-2 flex items-center justify-end gap-1">
+                      <button type="button" onClick={() => removeLine(i)} disabled={lines.length <= 2}
+                        className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-20">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button type="button" onClick={() => setLines(l => [...l, { ...EMPTY_LINE }])}
+                className="mt-2 text-xs flex items-center gap-1 text-primary hover:underline">
+                <Plus className="h-3.5 w-3.5" /> Add Line
+              </button>
+
+              {/* Totals */}
+              <div className="mt-3 grid grid-cols-12 gap-2 text-sm font-semibold border-t pt-2">
+                <span className="col-span-8 text-right text-muted-foreground">Totals</span>
+                <span className="col-span-1 text-right tabular-nums">{totalDebit.toLocaleString()}</span>
+                <span className="col-span-1 text-right tabular-nums">{totalCredit.toLocaleString()}</span>
+                <span className="col-span-2 text-right text-xs">
+                  {balanced
+                    ? <span className="text-emerald-600">✓ Balanced</span>
+                    : <span className="text-red-600">Diff: {diff.toLocaleString()}</span>}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button type="submit" disabled={!balanced || updateJE.isPending}
+                className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2">
+                <Check className="h-4 w-4" />
+                {updateJE.isPending ? "Saving…" : "Save Changes"}
+              </button>
+              <button type="button" onClick={onClose}
+                className="btn-ghost px-4 py-2 rounded-lg text-sm">Cancel</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main page ─────────────────────────────────────────────────────────────── */
 export default function JournalEntriesPage() {
   const { t } = useT();
   const { toast } = useToast();
@@ -45,7 +268,7 @@ export default function JournalEntriesPage() {
   const reverseJE = useReverseJournalEntry();
   const deleteJE  = useDeleteJournalEntry();
 
-  /* ── form state ── */
+  /* ── create form state ── */
   const [showForm,  setShowForm]  = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
@@ -54,10 +277,13 @@ export default function JournalEntriesPage() {
   const [postNow, setPostNow]         = useState(false);
   const [lines, setLines]             = useState<JeLine[]>([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
 
+  /* ── edit modal ── */
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   /* ── reverse modal ── */
-  const [reversingId, setReversingId]     = useState<string | null>(null);
+  const [reversingId, setReversingId]       = useState<string | null>(null);
   const [reversalReason, setReversalReason] = useState("");
-  const [reversalDate, setReversalDate]   = useState(new Date().toISOString().split("T")[0]);
+  const [reversalDate, setReversalDate]     = useState(new Date().toISOString().split("T")[0]);
 
   /* ── expanded row ── */
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -119,6 +345,7 @@ export default function JournalEntriesPage() {
     } catch (err: any) { toast(err?.message ?? "Failed to post.", "error"); }
   };
 
+  /* ── delete ── */
   const handleDelete = async (id: string, num: string) => {
     if (!confirm(`Delete draft journal entry ${num}? This cannot be undone.`)) return;
     try {
@@ -126,6 +353,8 @@ export default function JournalEntriesPage() {
       toast(`${num} deleted.`, "info");
     } catch (err: any) { toast(err?.message ?? "Cannot delete — reverse posted entries instead.", "error"); }
   };
+
+  /* ── reverse ── */
   const handleReverse = async () => {
     if (!reversingId) return;
     try {
@@ -140,6 +369,15 @@ export default function JournalEntriesPage() {
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* Edit modal */}
+      {editingId && (
+        <EditModal
+          entryId={editingId}
+          onClose={() => setEditingId(null)}
+          onSaved={() => { setEditingId(null); refetch(); }}
+        />
+      )}
 
       {/* Reverse modal */}
       {reversingId && (
@@ -313,8 +551,10 @@ export default function JournalEntriesPage() {
       ) : (
         <div className="space-y-2">
           {(data ?? []).map((je: any) => {
-            const st = STATUS[je.status as keyof typeof STATUS] ?? { label: "?", cls: "bg-muted" };
+            const st       = STATUS[je.status as keyof typeof STATUS] ?? { label: "?", cls: "bg-muted" };
             const expanded = expandedId === je.id;
+            const isDraft  = je.status === 1;
+            const isPosted = je.status === 2;
             return (
               <div key={je.id} className="card overflow-hidden">
                 <div className="flex items-center gap-3 p-3">
@@ -330,20 +570,32 @@ export default function JournalEntriesPage() {
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${st.cls}`}>{st.label}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    {je.status === 1 && (
+                    {/* Draft-only: Edit */}
+                    {isDraft && (
+                      <button
+                        onClick={() => setEditingId(je.id)}
+                        title="Edit draft"
+                        className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
+                    {/* Draft-only: Post */}
+                    {isDraft && (
                       <button onClick={() => handlePost(je.id, je.entryNumber)} disabled={postJE.isPending}
                         className="text-xs px-2.5 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
                         Post
                       </button>
                     )}
-                    {je.status === 1 && (
+                    {/* Draft-only: Delete */}
+                    {isDraft && (
                       <button onClick={() => handleDelete(je.id, je.entryNumber)} disabled={deleteJE.isPending}
                         title="Delete draft"
                         className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
-                    {je.status === 2 && (
+                    {/* Posted-only: Reverse */}
+                    {isPosted && (
                       <button onClick={() => { setReversingId(je.id); }}
                         title="Reverse"
                         className="p-1.5 rounded hover:bg-amber-50 text-muted-foreground hover:text-amber-600">

@@ -69,6 +69,19 @@ export const journalEntriesApi = {
       body: JSON.stringify(data),
     }),
 
+  update: (id: string, data: {
+    entryDate: string;
+    description: string;
+    currencyId: string;
+    exchangeRate: number;
+    referenceNumber?: string;
+    lines: { accountId: string; debit: number; credit: number; description?: string; sortOrder: number }[];
+  }) =>
+    apiFetch<void>(`/journalentries/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   post: (id: string) =>
     apiFetch<{ entryId: string; entryNumber: string }>(`/journalentries/${id}/post`, {
       method: "POST",
