@@ -10,8 +10,9 @@ import { Users, Plus, Search, RefreshCw, PowerOff, Pencil, Trash2, X, Check, Ale
 type FormState = {
   code: string; name: string; taxNumber: string;
   phone: string; email: string; address: string; notes: string;
+  assignedSalesRepName: string;
 };
-const EMPTY: FormState = { code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "" };
+const EMPTY: FormState = { code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "", assignedSalesRepName: "" };
 
 export default function CrmCustomersPage() {
   const { t } = useT();
@@ -34,7 +35,7 @@ export default function CrmCustomersPage() {
   };
   const openEdit = (c: BusinessPartnerDto) => {
     setEditing(c);
-    setForm({ code: c.code, name: c.name, taxNumber: c.taxNumber ?? "", phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", notes: c.notes ?? "" });
+    setForm({ code: c.code, name: c.name, taxNumber: c.taxNumber ?? "", phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", notes: c.notes ?? "", assignedSalesRepName: c.assignedSalesRepName ?? "" });
     setFormError(null); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY); setFormError(null); };
@@ -47,7 +48,7 @@ export default function CrmCustomersPage() {
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       setFormError("Enter a valid email."); return;
     }
-    const payload = { ...form, code: form.code.trim(), name: form.name.trim(), partnerType: 1 };
+    const payload = { ...form, code: form.code.trim(), name: form.name.trim(), partnerType: 1, assignedSalesRepName: form.assignedSalesRepName.trim() || undefined };
     try {
       if (editing) {
         await update.mutateAsync({ id: editing.id, data: payload });
@@ -144,6 +145,9 @@ export default function CrmCustomersPage() {
             </div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("address")}</label>
               <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="input w-full" />
+            </div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Sales Rep</label>
+              <input value={form.assignedSalesRepName} onChange={e => setForm(f => ({ ...f, assignedSalesRepName: e.target.value }))} className="input w-full" placeholder="e.g. John Smith" />
             </div>
             <div className="col-span-2"><label className="text-xs text-muted-foreground block mb-1">{t("notes")}</label>
               <textarea rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="input w-full resize-none" />

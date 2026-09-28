@@ -65,8 +65,8 @@ export default function ErpCustomersPage() {
     try {
       const payload = {
         ...form, partnerType: 1,
-        assignedSalesRepId: salesRep?.id || null,
-        assignedSalesRepName: salesRep?.name || null,
+        assignedSalesRepId: salesRep?.id || undefined,
+        assignedSalesRepName: salesRep?.name || undefined,
         receivableAccountId: form.receivableAccountId || undefined,
       };
       if (editing) {

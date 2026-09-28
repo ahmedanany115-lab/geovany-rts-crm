@@ -235,6 +235,32 @@ public class UpsertBusinessPartnerCommandHandler : IRequestHandler<UpsertBusines
     }
 }
 
+public class DeleteBusinessPartnerCommand : IRequest
+{
+    public Guid Id { get; set; }
+}
+
+public class DeleteBusinessPartnerCommandHandler : IRequestHandler<DeleteBusinessPartnerCommand>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentUserService   _user;
+    public DeleteBusinessPartnerCommandHandler(IApplicationDbContext db, ICurrentUserService user)
+        => (_db, _user) = (db, user);
+
+    public async Task Handle(DeleteBusinessPartnerCommand request, CancellationToken ct)
+    {
+        var bp = await _db.BusinessPartners
+            .FirstOrDefaultAsync(b => b.Id == request.Id && !b.IsDeleted, ct)
+            ?? throw new NotFoundException(nameof(BusinessPartner), request.Id);
+
+        bp.IsDeleted  = true;
+        bp.ModifiedAt = DateTime.UtcNow;
+        bp.ModifiedBy = _user.UserId;
+
+        await _db.SaveChangesAsync(ct);
+    }
+}
+
 public class ToggleBusinessPartnerStatusCommand : IRequest
 {
     public Guid Id { get; set; }

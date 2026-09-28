@@ -367,3 +367,78 @@ public class DeleteCashReceiptCommandHandler : IRequestHandler<DeleteCashReceipt
         await _db.SaveChangesAsync(ct);
     }
 }
+
+// ── Update (Draft only) ───────────────────────────────────────────────────────
+
+public class UpdateCashReceiptCommand : IRequest
+{
+    public Guid     Id              { get; set; }
+    public DateOnly ReceiptDate     { get; set; }
+    public string?  ReceivedFrom    { get; set; }
+    public decimal  Amount          { get; set; }
+    public Guid     CurrencyId      { get; set; }
+    public decimal  ExchangeRate    { get; set; } = 1m;
+    public Guid     CashAccountId   { get; set; }
+    public Guid     ContraAccountId { get; set; }
+    public string?  Description     { get; set; }
+    public string?  ReferenceNumber { get; set; }
+    public string?  Notes           { get; set; }
+    public string?  PreparedBy      { get; set; }
+    public string?  ApprovedBy      { get; set; }
+}
+
+public class UpdateCashReceiptCommandValidator : AbstractValidator<UpdateCashReceiptCommand>
+{
+    public UpdateCashReceiptCommandValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Amount).GreaterThan(0).WithMessage("Amount must be greater than zero.");
+        RuleFor(x => x.CurrencyId).NotEmpty();
+        RuleFor(x => x.ExchangeRate).GreaterThan(0);
+        RuleFor(x => x.CashAccountId).NotEmpty();
+        RuleFor(x => x.ContraAccountId).NotEmpty()
+            .NotEqual(x => x.CashAccountId).WithMessage("Contra account must differ from cash account.");
+        RuleFor(x => x.ReceivedFrom).MaximumLength(300);
+        RuleFor(x => x.Description).MaximumLength(500);
+        RuleFor(x => x.ReferenceNumber).MaximumLength(100);
+        RuleFor(x => x.PreparedBy).MaximumLength(200);
+        RuleFor(x => x.ApprovedBy).MaximumLength(200);
+    }
+}
+
+public class UpdateCashReceiptCommandHandler : IRequestHandler<UpdateCashReceiptCommand>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentUserService   _user;
+
+    public UpdateCashReceiptCommandHandler(IApplicationDbContext db, ICurrentUserService user)
+        => (_db, _user) = (db, user);
+
+    public async Task Handle(UpdateCashReceiptCommand req, CancellationToken ct)
+    {
+        var receipt = await _db.CashReceipts
+            .FirstOrDefaultAsync(r => r.Id == req.Id, ct)
+            ?? throw new NotFoundException(nameof(CashReceipt), req.Id);
+
+        if (receipt.Status != CashTransactionStatus.Draft)
+            throw new InvalidOperationException(
+                "Only Draft receipts can be edited.");
+
+        receipt.ReceiptDate     = req.ReceiptDate;
+        receipt.ReceivedFrom    = req.ReceivedFrom?.Trim();
+        receipt.Amount          = req.Amount;
+        receipt.CurrencyId      = req.CurrencyId;
+        receipt.ExchangeRate    = req.ExchangeRate;
+        receipt.CashAccountId   = req.CashAccountId;
+        receipt.ContraAccountId = req.ContraAccountId;
+        receipt.Description     = req.Description?.Trim();
+        receipt.ReferenceNumber = req.ReferenceNumber?.Trim();
+        receipt.Notes           = req.Notes?.Trim();
+        receipt.PreparedBy      = req.PreparedBy?.Trim();
+        receipt.ApprovedBy      = req.ApprovedBy?.Trim();
+        receipt.ModifiedAt      = DateTime.UtcNow;
+        receipt.ModifiedBy      = _user.UserId;
+
+        await _db.SaveChangesAsync(ct);
+    }
+}

@@ -122,3 +122,27 @@ public class ToggleWarehouseStatusCommandHandler : IRequestHandler<ToggleWarehou
         await _db.SaveChangesAsync(ct);
     }
 }
+
+public class DeleteWarehouseCommand : IRequest
+{
+    public Guid Id { get; set; }
+}
+
+public class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWarehouseCommand>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentUserService _user;
+    public DeleteWarehouseCommandHandler(IApplicationDbContext db, ICurrentUserService user)
+        => (_db, _user) = (db, user);
+
+    public async Task Handle(DeleteWarehouseCommand request, CancellationToken ct)
+    {
+        var wh = await _db.Warehouses.FirstOrDefaultAsync(w => w.Id == request.Id && !w.IsDeleted, ct)
+            ?? throw new NotFoundException(nameof(Warehouse), request.Id);
+
+        wh.IsDeleted  = true;
+        wh.ModifiedAt = DateTime.UtcNow;
+        wh.ModifiedBy = _user.UserId;
+        await _db.SaveChangesAsync(ct);
+    }
+}

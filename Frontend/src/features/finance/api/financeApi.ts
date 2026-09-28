@@ -234,7 +234,11 @@ export const cashReceiptsApi = {
     }),
 
   void: (id: string) =>
-    apiFetch<void>(`/cashreceipts/${id}/void`, { method: "POST" }),
+    apiFetch<void>(`/cashreceipts/${id}/void`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }),
 
   delete: (id: string) =>
     apiFetch<void>(`/cashreceipts/${id}`, { method: "DELETE" }),
@@ -313,7 +317,11 @@ export const cashPaymentsApi = {
     }),
 
   void: (id: string) =>
-    apiFetch<void>(`/cashpayments/${id}/void`, { method: "POST" }),
+    apiFetch<void>(`/cashpayments/${id}/void`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }),
 
   delete: (id: string) =>
     apiFetch<void>(`/cashpayments/${id}`, { method: "DELETE" }),

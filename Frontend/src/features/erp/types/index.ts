@@ -17,6 +17,8 @@ export interface BusinessPartnerDto {
   currencyCode?: string;
   receivableAccountCode?: string;
   payableAccountCode?: string;
+  assignedSalesRepId?: string;
+  assignedSalesRepName?: string;
   createdAt: string;
 }
 
@@ -34,6 +36,8 @@ export interface UpsertBusinessPartnerRequest {
   currencyId?: string;
   receivableAccountId?: string;
   payableAccountId?: string;
+  assignedSalesRepId?: string;
+  assignedSalesRepName?: string;
 }
 
 // ── Products ──────────────────────────────────────────────────────────────────

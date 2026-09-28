@@ -13,6 +13,7 @@ import {
   useCurrencies,
 } from "@/features/finance/hooks";
 import { usePrint } from "@/hooks/usePrint";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useToast } from "@/components/ui/toast";
 import type { AccountDto } from "@/features/finance/types";
 import type { CashReceiptDetailDto, CreateCashReceiptRequest } from "@/features/finance/api/financeApi";
@@ -278,44 +279,111 @@ function ReceiptFormModal({
   );
 }
 
-/* ── Print view ────────────────────────────────────────────────────────────── */
+/* ── Print view (Cash Receipt Voucher / إذن استلام نقدية) ─────────────────── */
 function PrintView({ receipt }: { receipt: CashReceiptDetailDto }) {
+  const co = useCompanySettings();
+
+  // Convert number to words (simple EGP format)
+  function toWords(n: number): string {
+    if (n === 0) return "Zero";
+    const ones = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine",
+      "Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen",
+      "Eighteen","Nineteen"];
+    const tens = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+    function below1000(x: number): string {
+      if (x < 20) return ones[x];
+      if (x < 100) return tens[Math.floor(x/10)] + (x%10 ? " " + ones[x%10] : "");
+      return ones[Math.floor(x/100)] + " Hundred" + (x%100 ? " " + below1000(x%100) : "");
+    }
+    const intPart = Math.floor(n);
+    const decPart = Math.round((n - intPart) * 100);
+    let result = "";
+    if (intPart >= 1000) result += below1000(Math.floor(intPart/1000)) + " Thousand ";
+    result += below1000(intPart % 1000);
+    result += ` ${receipt.currencyCode ?? "EGP"}`;
+    if (decPart > 0) result += ` and ${decPart}/100 Piasters`;
+    return result.trim() + " Only";
+  }
+
   return (
-    <div className="p-8 font-mono text-sm space-y-4 text-black">
-      <div className="text-center text-xl font-bold tracking-widest border-b-2 border-black pb-2">
-        CASH RECEIPT
-      </div>
-      <div className="flex justify-between text-xs">
-        <span>Receipt #: <strong>{receipt.receiptNumber}</strong></span>
-        <span>Date: <strong>{new Date(receipt.receiptDate).toLocaleDateString("en-GB")}</strong></span>
-      </div>
-      {receipt.receivedFrom && (
-        <div><span className="font-semibold">Received From:</span> {receipt.receivedFrom}</div>
-      )}
-      <div>
-        <span className="font-semibold">Amount:</span>{" "}
-        {fmt(receipt.amount)} {receipt.currencyCode}
-      </div>
-      {receipt.description && (
-        <div><span className="font-semibold">Description:</span> {receipt.description}</div>
-      )}
-      {receipt.referenceNumber && (
-        <div><span className="font-semibold">Reference:</span> {receipt.referenceNumber}</div>
-      )}
-      <div className="border-t border-black pt-2 mt-2">
-        <div className="font-semibold mb-1">Accounting:</div>
-        <div className="ml-4 space-y-0.5">
-          <div>Cash Account: {receipt.cashAccountName}</div>
-          <div>Contra Account: {receipt.contraAccountName}</div>
+    <div className="bg-white text-black text-sm" style={{ fontFamily: "Arial, sans-serif", padding: "32px 40px", minHeight: "297mm", width: "210mm", margin: "0 auto" }}>
+      {/* Header */}
+      <div className="print-header" style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 16, borderBottom: "2px solid #1e3a8a", marginBottom: 24 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e3a8a" }}>{co.name}</div>
+          <div style={{ fontSize: 12, color: "#555" }}>{co.nameAr}</div>
+          {co.phone && <div style={{ fontSize: 11, color: "#555" }}>Tel: {co.phone}</div>}
+          {co.email && <div style={{ fontSize: 11, color: "#555" }}>Email: {co.email}</div>}
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 22, fontWeight: "bold", color: "#1e3a8a" }}>Cash Receipt Voucher</div>
+          <div style={{ fontSize: 16, color: "#1e3a8a", marginTop: 4 }}>إذن استلام نقدية</div>
         </div>
       </div>
-      <div className="flex justify-between border-t border-black pt-2 mt-4">
-        <span>Prepared By: {receipt.preparedBy ?? "—"}</span>
-        <span>Approved By: {receipt.approvedBy ?? "—"}</span>
+
+      {/* Voucher meta */}
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
+        <tbody>
+          <tr>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff", width: "20%" }}>Voucher No.</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", width: "30%" }}><strong>{receipt.receiptNumber}</strong></td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff", width: "20%" }}>Date</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb" }}>
+              {new Date(receipt.receiptDate + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Received From</td>
+            <td colSpan={3} style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.receivedFrom ?? "—"}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Amount</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontSize: 16, fontWeight: "bold" }}>
+              {receipt.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })} {receipt.currencyCode}
+            </td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Cash Account</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.cashAccountName}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Amount in Words</td>
+            <td colSpan={3} style={{ padding: "6px 12px", border: "1px solid #bbb", fontStyle: "italic" }}>{toWords(receipt.amount)}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Description</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.description ?? "—"}</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Contra Account</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.contraAccountName}</td>
+          </tr>
+          {receipt.referenceNumber && (
+            <tr>
+              <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Reference</td>
+              <td colSpan={3} style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.referenceNumber}</td>
+            </tr>
+          )}
+          {receipt.notes && (
+            <tr>
+              <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Notes</td>
+              <td colSpan={3} style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.notes}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Signatures */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 60, gap: 24 }}>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Prepared By</div>
+          <div style={{ marginTop: 4, color: "#555", fontSize: 12 }}>{receipt.preparedBy ?? "___________________"}</div>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Received By</div>
+          <div style={{ marginTop: 4, color: "#555", fontSize: 12 }}>___________________</div>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Approved By</div>
+          <div style={{ marginTop: 4, color: "#555", fontSize: 12 }}>{receipt.approvedBy ?? "___________________"}</div>
+        </div>
       </div>
-      {receipt.notes && (
-        <div><span className="font-semibold">Notes:</span> {receipt.notes}</div>
-      )}
     </div>
   );
 }

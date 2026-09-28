@@ -8,7 +8,7 @@ import { useRoles } from "@/hooks/useRoles";
 import {
   FileText, Plus, X, Trash2, RefreshCw,
   Search, AlertTriangle, Download, ExternalLink,
-  Upload, File,
+  Upload, File, Pencil,
 } from "lucide-react";
 
 /* ── Permission flags ─────────────────────────────────────────────────────── */
@@ -28,6 +28,13 @@ export default function DocumentsPage() {
   const [catFilter,   setCat]        = useState("");
   const [showModal,   setShowModal]  = useState(false);
   const [delTarget,   setDelTarget]  = useState<any>(null);
+
+  // Edit modal state
+  const [editingDoc,  setEditingDoc] = useState<any | null>(null);
+  const [editName,    setEditName]   = useState("");
+  const [editCat,     setEditCat]    = useState("");
+  const [editExpiry,  setEditExpiry] = useState("");
+  const [editDesc,    setEditDesc]   = useState("");
 
   // Upload form state (minimal: name + PDF)
   const [docName,  setDocName]  = useState("");
@@ -53,6 +60,43 @@ export default function DocumentsPage() {
     },
     onError: (e: any) => toast(e?.message ?? "Failed to delete.", "error"),
   });
+
+  /* ── Edit (metadata) ── */
+  const editMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name: string; category: string; expiryDate: string | null; description: string | null } }) =>
+      apiFetch<void>(`/documents/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["documents"] });
+      toast("Document updated.", "success");
+      setEditingDoc(null);
+    },
+    onError: (e: any) => toast(e?.message ?? "Failed to update.", "error"),
+  });
+
+  const openEdit = (doc: any) => {
+    setEditingDoc(doc);
+    setEditName(doc.name ?? "");
+    setEditCat(doc.category ?? "");
+    setEditExpiry(doc.expiryDate ? doc.expiryDate.slice(0, 10) : "");
+    setEditDesc(doc.description ?? "");
+  };
+
+  const handleEditSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDoc) return;
+    editMut.mutate({
+      id: editingDoc.id,
+      data: {
+        name:        editName.trim(),
+        category:    editCat.trim(),
+        expiryDate:  editExpiry || null,
+        description: editDesc.trim() || null,
+      },
+    });
+  };
 
   /* ── Upload ─────────────────────────────────────────────────────────────── */
   // We store the PDF as a base64 data URL in storagePath (no cloud yet).
@@ -156,6 +200,90 @@ export default function DocumentsPage() {
                 {delMut.isPending ? "Deleting…" : "Delete"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit modal ── */}
+      {editingDoc && canUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl border shadow-xl p-6 w-full max-w-md space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-lg">Edit Document</h2>
+              <button onClick={() => setEditingDoc(null)}
+                className="p-1.5 rounded hover:bg-accent text-muted-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSave} className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="text-sm font-medium block mb-1.5">Document Name <span className="text-red-500">*</span></label>
+                <input
+                  required
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="input w-full"
+                  autoFocus
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="text-sm font-medium block mb-1.5">Category</label>
+                <select
+                  value={editCat}
+                  onChange={e => setEditCat(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="">— Select category —</option>
+                  <option value="Company Registration">Company Registration</option>
+                  <option value="Tax &amp; Finance">Tax &amp; Finance</option>
+                  <option value="Legal">Legal</option>
+                  <option value="HR">HR</option>
+                  <option value="Contracts">Contracts</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Expiry Date */}
+              <div>
+                <label className="text-sm font-medium block mb-1.5">Expiry Date</label>
+                <input
+                  type="date"
+                  value={editExpiry}
+                  onChange={e => setEditExpiry(e.target.value)}
+                  className="input w-full"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-sm font-medium block mb-1.5">Description</label>
+                <textarea
+                  rows={3}
+                  value={editDesc}
+                  onChange={e => setEditDesc(e.target.value)}
+                  placeholder="Optional notes about this document…"
+                  className="input w-full resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button type="button"
+                  onClick={() => setEditingDoc(null)}
+                  className="btn-ghost flex-1 py-2 rounded-lg text-sm">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editMut.isPending || !editName.trim()}
+                  className="btn-primary flex-1 py-2 rounded-lg text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                  {editMut.isPending
+                    ? <><span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</>
+                    : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -333,6 +461,15 @@ export default function DocumentsPage() {
                         </button>
                       ) : (
                         <span className="text-xs text-muted-foreground italic">No file</span>
+                      )}
+
+                      {/* Edit metadata — Upload-permitted roles */}
+                      {canUpload && (
+                        <button onClick={() => openEdit(doc)}
+                          className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+                          title="Edit metadata">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                       )}
 
                       {/* Delete — Admin/Manager only */}

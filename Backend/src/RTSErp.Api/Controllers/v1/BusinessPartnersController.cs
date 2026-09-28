@@ -170,4 +170,13 @@ public class SuppliersController : BaseApiController
         await Mediator.Send(new ToggleBusinessPartnerStatusCommand { Id = id });
         return NoContent();
     }
+
+    /// <summary>Soft-delete a supplier.</summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        await Mediator.Send(new DeleteBusinessPartnerCommand { Id = id });
+        return NoContent();
+    }
 }

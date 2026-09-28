@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api-client";
 import { useWarehouses, useProducts } from "@/features/erp/hooks";
 import { useToast } from "@/components/ui/toast";
 import { usePrint } from "@/hooks/usePrint";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import {
   Package, RefreshCw, Plus, X, Trash2, Edit2, Printer, Eye,
   Check, AlertTriangle,
@@ -71,50 +72,107 @@ const EMPTY_FORM = () => ({
   notes: "",
 });
 
-// ── Print view component ──────────────────────────────────────────────────────
+// ── Print view component (Goods Receiving Voucher / إذن استلام بضاعة) ─────────
 
 function PrintView({ receipt }: { receipt: GoodsReceipt }) {
+  const co = useCompanySettings();
   return (
-    <div className="p-8 font-mono text-sm print:block">
-      <h1 className="text-2xl font-bold mb-4">GOODS RECEIPT</h1>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-4">
-        <div><span className="font-semibold">Document:</span> {receipt.receiptNumber}</div>
-        <div><span className="font-semibold">Date:</span> {new Date(receipt.receiptDate).toLocaleDateString("en-GB")}</div>
-        <div><span className="font-semibold">Supplier:</span> {receipt.supplier ?? "—"}</div>
-        <div><span className="font-semibold">Warehouse:</span> {receipt.warehouseName}</div>
-        <div><span className="font-semibold">Prepared By:</span> {receipt.preparedBy ?? "—"}</div>
-        <div><span className="font-semibold">Received By:</span> {receipt.receivedBy ?? "—"}</div>
-        {receipt.purchaseOrderReference && (
-          <div className="col-span-2"><span className="font-semibold">Reference:</span> {receipt.purchaseOrderReference}</div>
-        )}
+    <div className="bg-white text-black text-sm" style={{ fontFamily: "Arial, sans-serif", padding: "32px 40px", minHeight: "297mm", width: "210mm", margin: "0 auto" }}>
+      {/* Header */}
+      <div className="print-header" style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 16, borderBottom: "2px solid #1e3a8a", marginBottom: 24 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e3a8a" }}>{co.name}</div>
+          <div style={{ fontSize: 12, color: "#555" }}>{co.nameAr}</div>
+          {co.phone && <div style={{ fontSize: 11, color: "#555" }}>Tel: {co.phone}</div>}
+          {co.email && <div style={{ fontSize: 11, color: "#555" }}>Email: {co.email}</div>}
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 22, fontWeight: "bold", color: "#1e3a8a" }}>Goods Receiving Voucher</div>
+          <div style={{ fontSize: 16, color: "#1e3a8a", marginTop: 4 }}>إذن استلام بضاعة</div>
+        </div>
       </div>
-      <table className="w-full border-collapse text-xs mb-4">
+
+      {/* Document meta */}
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
+        <tbody>
+          <tr>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff", width: "20%" }}>GRV No.</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", width: "30%" }}><strong>{receipt.receiptNumber}</strong></td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff", width: "20%" }}>Date</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb" }}>
+              {new Date(receipt.receiptDate + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Supplier</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.supplier ?? "—"}</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Warehouse</td>
+            <td style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.warehouseName}</td>
+          </tr>
+          {receipt.purchaseOrderReference && (
+            <tr>
+              <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>PO Reference</td>
+              <td colSpan={3} style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.purchaseOrderReference}</td>
+            </tr>
+          )}
+          {receipt.notes && (
+            <tr>
+              <td style={{ padding: "6px 12px", border: "1px solid #bbb", fontWeight: "bold", background: "#f0f4ff" }}>Notes</td>
+              <td colSpan={3} style={{ padding: "6px 12px", border: "1px solid #bbb" }}>{receipt.notes}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Line items */}
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 32 }}>
         <thead>
-          <tr className="border-b-2 border-black">
-            <th className="text-left py-1 pr-2 w-8">No.</th>
-            <th className="text-left py-1 pr-2">Item Description</th>
-            <th className="text-right py-1 pr-2 w-16">Qty</th>
-            <th className="text-left py-1 pr-2 w-28">Serial No.</th>
-            <th className="text-left py-1 pr-2 w-16">Unit</th>
-            <th className="text-left py-1">Notes</th>
+          <tr style={{ background: "#1e3a8a", color: "white" }}>
+            <th style={{ padding: "8px 12px", border: "1px solid #1e3a8a", textAlign: "center", width: "5%" }}>No.</th>
+            <th style={{ padding: "8px 12px", border: "1px solid #1e3a8a", textAlign: "left" }}>Item Description</th>
+            <th style={{ padding: "8px 12px", border: "1px solid #1e3a8a", textAlign: "center", width: "10%" }}>Qty</th>
+            <th style={{ padding: "8px 12px", border: "1px solid #1e3a8a", textAlign: "center", width: "8%" }}>Unit</th>
+            <th style={{ padding: "8px 12px", border: "1px solid #1e3a8a", textAlign: "left", width: "25%" }}>Serial No.</th>
           </tr>
         </thead>
         <tbody>
-          {receipt.items.map((item, idx) => (
-            <tr key={idx} className="border-b border-gray-300">
-              <td className="py-1 pr-2">{idx + 1}</td>
-              <td className="py-1 pr-2">{item.itemDescription}</td>
-              <td className="py-1 pr-2 text-right">{item.quantity}</td>
-              <td className="py-1 pr-2">{item.serialNumber ?? "—"}</td>
-              <td className="py-1 pr-2">{item.unit ?? "—"}</td>
-              <td className="py-1">{item.notes ?? "—"}</td>
+          {(receipt.items ?? []).map((item, i) => (
+            <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd", textAlign: "center" }}>{i + 1}</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd" }}>{item.itemDescription}</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd", textAlign: "center" }}>{item.quantity}</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd", textAlign: "center" }}>{item.unit ?? "—"}</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd", fontSize: 11 }}>{item.serialNumber ?? "—"}</td>
+            </tr>
+          ))}
+          {/* Empty rows for handwriting if few items */}
+          {[...Array(Math.max(0, 5 - (receipt.items ?? []).length))].map((_, i) => (
+            <tr key={`empty-${i}`}>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd", textAlign: "center" }}>{(receipt.items ?? []).length + i + 1}</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd" }}>&nbsp;</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd" }}>&nbsp;</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd" }}>&nbsp;</td>
+              <td style={{ padding: "6px 12px", border: "1px solid #ddd" }}>&nbsp;</td>
             </tr>
           ))}
         </tbody>
       </table>
-      {receipt.notes && (
-        <div><span className="font-semibold">Notes:</span> {receipt.notes}</div>
-      )}
+
+      {/* Signatures */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 60, gap: 24 }}>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Prepared By</div>
+          <div style={{ marginTop: 4, color: "#555", fontSize: 12 }}>{receipt.preparedBy ?? "___________________"}</div>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Received By (Store)</div>
+          <div style={{ marginTop: 4, color: "#555", fontSize: 12 }}>{receipt.receivedBy ?? "___________________"}</div>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ borderTop: "1px solid #555", paddingTop: 8 }}>Approved By</div>
+          <div style={{ marginTop: 4, color: "#555", fontSize: 12 }}>___________________</div>
+        </div>
+      </div>
     </div>
   );
 }

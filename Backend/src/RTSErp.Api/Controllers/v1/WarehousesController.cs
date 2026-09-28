@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RTSErp.Application.Common.Interfaces;
 using RTSErp.Application.Operational.Warehouses;
 
 namespace RTSErp.Api.Controllers.v1;
@@ -23,4 +25,26 @@ public class WarehousesController : BaseApiController
     [HttpPatch("{id:guid}/toggle-status")]
     public async Task<IActionResult> Toggle(Guid id)
     { await Mediator.Send(new ToggleWarehouseStatusCommand { Id = id }); return NoContent(); }
+
+    /// <summary>Soft-delete a warehouse (only if no stock movements exist).</summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var hasMovements = await db.InventoryMovements
+            .AnyAsync(m => m.WarehouseId == id && !m.IsDeleted, ct);
+        if (hasMovements)
+            return Conflict(new { message = "Cannot delete warehouse with existing stock movements. Deactivate it instead." });
+
+        var hasGoodsReceipts = await db.GoodsReceipts
+            .AnyAsync(g => g.WarehouseId == id && !g.IsDeleted, ct);
+        if (hasGoodsReceipts)
+            return Conflict(new { message = "Cannot delete warehouse with existing goods receipts. Deactivate it instead." });
+
+        await Mediator.Send(new DeleteWarehouseCommand { Id = id }, ct);
+        return NoContent();
+    }
 }
