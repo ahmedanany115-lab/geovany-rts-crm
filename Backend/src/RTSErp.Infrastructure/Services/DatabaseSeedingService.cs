@@ -54,9 +54,6 @@ public sealed class DatabaseSeedingService : BackgroundService
 
                 _logger.LogInformation("[Seed] Running DbSeeder...");
                 await DbSeeder.SeedAsync(db, umgr, rmgr, _logger);
-                _logger.LogInformation("[Seed] DbSeeder complete. Starting production user maintenance...");
-                await ProductionUserMaintenance.ApplyAsync(db, umgr, _configuration, _logger);
-                _logger.LogInformation("[Seed] Production user maintenance complete.");
                 _logger.LogInformation("[Seed] Seeding complete.");
                 return; // success — stop retrying
             }
