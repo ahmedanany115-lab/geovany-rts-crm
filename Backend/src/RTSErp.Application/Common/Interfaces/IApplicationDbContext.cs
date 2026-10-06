@@ -35,7 +35,7 @@ public interface IApplicationDbContext
 
     // Operational (Phase 2)
     DbSet<Product> Products { get; }
-    DbSet<Warehouse> Warehouses { get; }
+    DbSet<RTSErp.Domain.Entities.Operational.Warehouse> Warehouses { get; }
     DbSet<InventoryBalance> InventoryBalances { get; }
     DbSet<InventoryMovement> InventoryMovements { get; }
     DbSet<PurchaseOrder> PurchaseOrders { get; }
