@@ -362,10 +362,12 @@ export default function JournalEntriesPage() {
   };
 
   /* ── delete ── */
-  const handleDelete = async (id: string, num: string, isPosted?: boolean) => {
-    const msg = isPosted
+  const handleDelete = async (id: string, num: string, kind: "draft" | "posted" | "reversed") => {
+    const msg = kind === "posted"
       ? `⚠️ DELETE POSTED ENTRY ${num}?\n\nThis permanently removes a posted journal entry from the ledger. This action cannot be undone.\n\nType OK to confirm.`
-      : `Delete draft journal entry ${num}? This cannot be undone.`;
+      : kind === "reversed"
+        ? `Delete reversed journal entry log ${num}? This hides the reversed log from Journal Entries and cannot be undone.`
+        : `Delete draft journal entry ${num}? This cannot be undone.`;
     if (!confirm(msg)) return;
     try {
       await deleteJE.mutateAsync(id);
@@ -575,6 +577,7 @@ export default function JournalEntriesPage() {
             const expanded = expandedId === je.id;
             const isDraft  = je.status === 1;
             const isPosted = je.status === 2;
+            const isReversed = je.status === 3;
             return (
               <div key={je.id} className="card overflow-hidden">
                 <div className="flex items-center gap-3 p-3">
@@ -608,7 +611,7 @@ export default function JournalEntriesPage() {
                     )}
                     {/* Draft: Delete (any authorized user) */}
                     {isDraft && (
-                      <button onClick={() => handleDelete(je.id, je.entryNumber, false)} disabled={deleteJE.isPending}
+                      <button onClick={() => handleDelete(je.id, je.entryNumber, "draft")} disabled={deleteJE.isPending}
                         title="Delete draft"
                         className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
                         <Trash2 className="h-4 w-4" />
@@ -633,8 +636,16 @@ export default function JournalEntriesPage() {
                     )}
                     {/* Posted: Delete (Admin or Moataz only) */}
                     {isPosted && canModifyPosted && (
-                      <button onClick={() => handleDelete(je.id, je.entryNumber, true)} disabled={deleteJE.isPending}
+                      <button onClick={() => handleDelete(je.id, je.entryNumber, "posted")} disabled={deleteJE.isPending}
                         title="Delete posted entry"
+                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                    {/* Reversed: Delete log (Admin or Moataz only) */}
+                    {isReversed && canModifyPosted && (
+                      <button onClick={() => handleDelete(je.id, je.entryNumber, "reversed")} disabled={deleteJE.isPending}
+                        title="Delete reversed entry log"
                         className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
                         <Trash2 className="h-4 w-4" />
                       </button>

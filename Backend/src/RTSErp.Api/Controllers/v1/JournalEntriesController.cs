@@ -71,7 +71,7 @@ public class JournalEntriesController : BaseApiController
     /// Update a journal entry.
     /// Draft: any authorized user (Admin, Accountant) may edit.
     /// Posted: only Admin role or Moataz@rtegy.com may edit (enforced in handler).
-    /// Reversed: not allowed.
+    /// Reversed: only Admin role or Moataz@rtegy.com may delete.
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Admin,Accountant")]
@@ -115,15 +115,8 @@ public class JournalEntriesController : BaseApiController
 
         if (entry is null) return NotFound();
 
-        // Reversed entries are never deletable
-        if (entry.Status == JournalEntryStatus.Reversed)
-            return BadRequest(new
-            {
-                message = "Reversed journal entries cannot be deleted.",
-            });
-
-        // Posted entries: only Admin or Moataz
-        if (entry.Status == JournalEntryStatus.Posted)
+        // Posted and Reversed entries: only Admin or Moataz
+        if (entry.Status is JournalEntryStatus.Posted or JournalEntryStatus.Reversed)
         {
             var isAdmin = currentUser.IsInRole("Admin");
             var isMoataz = string.Equals(currentUser.Email, MoatazEmail, StringComparison.OrdinalIgnoreCase);
@@ -154,9 +147,12 @@ public class JournalEntriesController : BaseApiController
             entityId:   entry.Id,
             entityType: "JournalEntry",
             reference:  entry.EntryNumber,
-            details:    entry.Status == JournalEntryStatus.Posted
-                            ? $"Posted entry deleted by privileged user ({currentUser.Email})"
-                            : "Draft entry deleted",
+            details:    entry.Status switch
+            {
+                JournalEntryStatus.Posted   => $"Posted entry deleted by privileged user ({currentUser.Email})",
+                JournalEntryStatus.Reversed => $"Reversed entry log deleted by privileged user ({currentUser.Email})",
+                _                           => "Draft entry deleted",
+            },
             ct: ct);
 
         return NoContent();
