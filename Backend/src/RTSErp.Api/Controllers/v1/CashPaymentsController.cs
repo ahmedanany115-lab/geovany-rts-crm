@@ -63,7 +63,7 @@ public class CashPaymentsController : BaseApiController
 
     /// <summary>Void a posted cash payment — reverses the journal entry.</summary>
     [HttpPost("{id:guid}/void")]
-    public async Task<IActionResult> Void(Guid id, [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.Formatters.EmptyBodyBehavior.Allow)] VoidCashPaymentCommand? cmd)
+    public async Task<IActionResult> Void(Guid id, [FromBody] VoidCashPaymentCommand? cmd = null)
     {
         var command = cmd ?? new VoidCashPaymentCommand();
         command.Id = id;
