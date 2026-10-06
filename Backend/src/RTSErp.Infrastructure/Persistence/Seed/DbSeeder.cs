@@ -209,7 +209,7 @@ public static class DbSeeder
         // rather than being skipped by an early-exit guard.
         var existingCodes = await db.Permissions
             .Select(p => p.Code)
-            .ToHashSetAsync();
+            .ToListAsync();
 
         var newCodes = codes.Where(c => !existingCodes.Contains(c)).ToList();
         if (!newCodes.Any())
@@ -419,7 +419,7 @@ public static class DbSeeder
         var existingCodes = await db.BusinessPartners
             .Where(bp => bp.PartnerType == BusinessPartnerType.Customer)
             .Select(bp => bp.Code)
-            .ToHashSetAsync();
+            .ToListAsync();
 
         var toInsert = HistoricalCustomers
             .Where(c => !existingCodes.Contains(c.Code))
