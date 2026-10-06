@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Exceptions;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Entities.Operational;
+using WarehouseEntity = RTSErp.Domain.Entities.Operational.Warehouse;
 
 namespace RTSErp.Application.Operational.Warehouses;
 
@@ -75,7 +76,7 @@ public class UpsertWarehouseCommandHandler : IRequestHandler<UpsertWarehouseComm
 
     public async Task<Guid> Handle(UpsertWarehouseCommand request, CancellationToken ct)
     {
-        Warehouse? wh = null;
+        WarehouseEntity? wh = null;
         if (request.Id.HasValue)
             wh = await _db.Warehouses.FirstOrDefaultAsync(w => w.Id == request.Id.Value && !w.IsDeleted, ct);
 
@@ -83,7 +84,7 @@ public class UpsertWarehouseCommandHandler : IRequestHandler<UpsertWarehouseComm
         {
             var exists = await _db.Warehouses.AnyAsync(w => w.Code == request.Code && !w.IsDeleted, ct);
             if (exists) throw new InvalidOperationException($"Warehouse with code '{request.Code}' already exists.");
-            wh = new Warehouse { Code = request.Code, IsActive = true, CreatedBy = _user.UserId };
+            wh = new WarehouseEntity { Code = request.Code, IsActive = true, CreatedBy = _user.UserId };
             _db.Warehouses.Add(wh);
         }
         else
@@ -115,7 +116,7 @@ public class ToggleWarehouseStatusCommandHandler : IRequestHandler<ToggleWarehou
     public async Task Handle(ToggleWarehouseStatusCommand request, CancellationToken ct)
     {
         var wh = await _db.Warehouses.FirstOrDefaultAsync(w => w.Id == request.Id && !w.IsDeleted, ct)
-            ?? throw new NotFoundException(nameof(Warehouse), request.Id);
+            ?? throw new NotFoundException(nameof(WarehouseEntity), request.Id);
         wh.IsActive = !wh.IsActive;
         wh.ModifiedAt = DateTime.UtcNow;
         wh.ModifiedBy = _user.UserId;
@@ -138,7 +139,7 @@ public class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWarehouseComm
     public async Task Handle(DeleteWarehouseCommand request, CancellationToken ct)
     {
         var wh = await _db.Warehouses.FirstOrDefaultAsync(w => w.Id == request.Id && !w.IsDeleted, ct)
-            ?? throw new NotFoundException(nameof(Warehouse), request.Id);
+            ?? throw new NotFoundException(nameof(WarehouseEntity), request.Id);
 
         wh.IsDeleted  = true;
         wh.ModifiedAt = DateTime.UtcNow;
