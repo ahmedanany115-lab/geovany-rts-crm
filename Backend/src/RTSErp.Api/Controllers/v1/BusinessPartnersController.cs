@@ -19,13 +19,12 @@ public class CustomersController : BaseApiController
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] bool? isActive, [FromQuery] string? search)
     {
-        // Sales users only see customers assigned to them
+        // Customer visibility rule:
+        // Admin + Finance (Accountant) can see all customers.
+        // Every other allowed role only sees customers assigned to their own user id.
         Guid? salesFilter = null;
-        if (User.IsInRole("Sales") && !User.IsInRole("Admin") && !User.IsInRole("Manager")
-            && !User.IsInRole("Accountant") && !User.IsInRole("SalesManager"))
-        {
+        if (!User.IsInRole("Admin") && !User.IsInRole("Accountant"))
             salesFilter = _user.UserId;
-        }
 
         return Ok(await Mediator.Send(new GetBusinessPartnersQuery
         {
@@ -37,8 +36,26 @@ public class CustomersController : BaseApiController
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id)
-        => Ok(await Mediator.Send(new GetBusinessPartnerQuery { Id = id }));
+    public async Task<IActionResult> Get(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        // Enforce the same visibility rule for direct-by-id access so a user
+        // cannot bypass the list filter by calling /customers/{id}.
+        if (!User.IsInRole("Admin") && !User.IsInRole("Accountant"))
+        {
+            var visible = await db.BusinessPartners
+                .AnyAsync(bp => bp.Id == id
+                    && !bp.IsDeleted
+                    && bp.PartnerType == BusinessPartnerType.Customer
+                    && bp.AssignedSalesRepId == _user.UserId, ct);
+
+            if (!visible) return Forbid();
+        }
+
+        return Ok(await Mediator.Send(new GetBusinessPartnerQuery { Id = id }));
+    }
 
     // CREATE — Admin + Accountant only. Sales cannot create customers.
     [HttpPost]
