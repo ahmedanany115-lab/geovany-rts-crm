@@ -7,7 +7,7 @@ import { useRoles } from "@/hooks/useRoles";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Users, RefreshCw, PowerOff, Plus, X, Check, AlertTriangle, Search } from "lucide-react";
+import { Users, RefreshCw, PowerOff, Plus, X, Check, AlertTriangle, Search, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
 interface SystemUser {
@@ -61,6 +61,12 @@ export default function UsersPage() {
     mutationFn: (id: string) => apiFetch<{ id: string; isActive: boolean }>(`/users/${id}/toggle-active`, { method: "PATCH" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); toast("User status updated.", "success"); },
     onError: (e: any) => toast(e?.message ?? "Failed.", "error"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/users/${id}`, { method: "DELETE" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); toast("User deleted.", "info"); },
+    onError: (e: any) => toast(e?.message ?? "Delete failed.", "error"),
   });
 
   const createMut = useMutation({
@@ -181,11 +187,20 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="p-3 text-right">
-                    <button onClick={() => toggleMut.mutate(u.id)} disabled={toggleMut.isPending}
-                      title={u.isActive ? t("deactivate") : t("activate")}
-                      className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50">
-                      <PowerOff className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => toggleMut.mutate(u.id)} disabled={toggleMut.isPending}
+                        title={u.isActive ? t("deactivate") : t("activate")}
+                        className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50">
+                        <PowerOff className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => confirm(`Delete user ${u.fullName || u.email}? This will disable and archive the account.`) && deleteMut.mutate(u.id)}
+                        disabled={deleteMut.isPending}
+                        title="Delete user"
+                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

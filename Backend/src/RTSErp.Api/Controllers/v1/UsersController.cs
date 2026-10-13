@@ -77,6 +77,28 @@ public class UsersController : BaseApiController
         return Ok(new { user.Id, user.IsActive });
     }
 
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user is null || user.IsDeleted) return NotFound();
+
+        var currentUserId = _userManager.GetUserId(User);
+        if (string.Equals(currentUserId, id.ToString(), StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "You cannot delete your own account." });
+
+        user.IsActive = false;
+        user.IsDeleted = true;
+        user.ModifiedAt = DateTime.UtcNow;
+
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+            return BadRequest(new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
+
+        return NoContent();
+    }
+
     /// <summary>Create a new ERP user account — Admin only.</summary>
     [HttpPost]
     [Authorize(Roles = "Admin")]

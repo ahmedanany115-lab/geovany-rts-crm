@@ -277,3 +277,42 @@ public class ApprovePurchaseOrderCommandHandler : IRequestHandler<ApprovePurchas
         await _db.SaveChangesAsync(ct);
     }
 }
+
+
+public class DeletePurchaseOrderCommand : IRequest
+{
+    public Guid Id { get; set; }
+}
+
+public class DeletePurchaseOrderCommandHandler : IRequestHandler<DeletePurchaseOrderCommand>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ICurrentUserService _user;
+
+    public DeletePurchaseOrderCommandHandler(IApplicationDbContext db, ICurrentUserService user)
+        => (_db, _user) = (db, user);
+
+    public async Task Handle(DeletePurchaseOrderCommand request, CancellationToken ct)
+    {
+        var order = await _db.PurchaseOrders
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == request.Id && !o.IsDeleted, ct)
+            ?? throw new NotFoundException(nameof(PurchaseOrder), request.Id);
+
+        if (order.Status != PurchaseOrderStatus.Draft)
+            throw new InvalidOperationException("Only Draft purchase orders can be deleted.");
+
+        order.IsDeleted = true;
+        order.ModifiedAt = DateTime.UtcNow;
+        order.ModifiedBy = _user.UserId;
+
+        foreach (var line in order.Lines)
+        {
+            line.IsDeleted = true;
+            line.ModifiedAt = DateTime.UtcNow;
+            line.ModifiedBy = _user.UserId;
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+}

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import {
-  usePurchaseOrders, useApprovePurchaseOrder, useCreatePurchaseOrder,
+  usePurchaseOrders, useApprovePurchaseOrder, useCreatePurchaseOrder, useDeletePurchaseOrder,
   useSuppliers, useWarehouses, useProducts,
 } from "@/features/erp/hooks";
 import { useCurrencies } from "@/features/finance/hooks";
@@ -26,6 +26,7 @@ export default function PurchaseOrdersPage() {
   const { data, isLoading, refetch } = usePurchaseOrders({});
   const approve  = useApprovePurchaseOrder();
   const create   = useCreatePurchaseOrder();
+  const remove   = useDeletePurchaseOrder();
   const { data: suppliers  } = useSuppliers({});
   const { data: warehouses } = useWarehouses();
   const { data: products   } = useProducts({});
@@ -63,6 +64,12 @@ export default function PurchaseOrdersPage() {
   const handleApprove = async (id: string, num: string) => {
     try { await approve.mutateAsync(id); toast(`PO ${num} confirmed.`, "success"); }
     catch (err: any) { toast(err?.message ?? "Action failed.", "error"); }
+  };
+
+  const handleDelete = async (id: string, num: string) => {
+    if (!confirm(`Delete draft purchase order ${num}? This cannot be undone.`)) return;
+    try { await remove.mutateAsync(id); toast(`PO ${num} deleted.`, "info"); }
+    catch (err: any) { toast(err?.message ?? "Delete failed.", "error"); }
   };
 
   return (
@@ -164,10 +171,17 @@ export default function PurchaseOrdersPage() {
                     <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span></td>
                     <td className="p-3 text-right">
                       {o.status === 1 && (
-                        <button onClick={() => handleApprove(o.id, o.poNumber)} disabled={approve.isPending}
-                          className="flex items-center gap-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
-                          <CheckCircle className="h-3.5 w-3.5" /> Confirm
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => handleApprove(o.id, o.poNumber)} disabled={approve.isPending}
+                            className="flex items-center gap-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                            <CheckCircle className="h-3.5 w-3.5" /> Confirm
+                          </button>
+                          <button onClick={() => handleDelete(o.id, o.poNumber)} disabled={remove.isPending}
+                            title="Delete draft purchase order"
+                            className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

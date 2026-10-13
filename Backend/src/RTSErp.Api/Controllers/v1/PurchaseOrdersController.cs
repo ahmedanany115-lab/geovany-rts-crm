@@ -5,7 +5,7 @@ using RTSErp.Domain.Enums;
 
 namespace RTSErp.Api.Controllers.v1;
 
-[Authorize(Roles = "Admin,Manager,Accountant,Sales")]
+[Authorize(Roles = "Admin,Manager,Accountant,Purchasing,Sales")]
 [Microsoft.AspNetCore.Mvc.Route("api/v1/purchaseorders")]
 public class PurchaseOrdersController : BaseApiController
 {
@@ -23,9 +23,16 @@ public class PurchaseOrdersController : BaseApiController
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id)
     { await Mediator.Send(new ApprovePurchaseOrderCommand { Id = id }); return NoContent(); }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        await Mediator.Send(new DeletePurchaseOrderCommand { Id = id });
+        return NoContent();
+    }
 }
 
-[Authorize(Roles = "Admin,Manager,Accountant,Sales")]
+[Authorize(Roles = "Admin,Manager,Accountant,Purchasing,Sales")]
 [Microsoft.AspNetCore.Mvc.Route("api/v1/purchasereceipts")]
 public class PurchaseReceiptsController : BaseApiController
 {
@@ -38,7 +45,7 @@ public class PurchaseReceiptsController : BaseApiController
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }
 }
 
-[Authorize(Roles = "Admin,Manager,Accountant,Sales")]
+[Authorize(Roles = "Admin,Manager,Accountant,Purchasing,Sales")]
 [Microsoft.AspNetCore.Mvc.Route("api/v1/supplierinvoices")]
 public class SupplierInvoicesController : BaseApiController
 {
