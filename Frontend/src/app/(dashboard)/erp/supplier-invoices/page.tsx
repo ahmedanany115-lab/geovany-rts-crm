@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, RefreshCw, Send, CheckCircle2, Plus, X, Check, AlertTriangle } from "lucide-react";
+import { FileText, RefreshCw, Send, CheckCircle2, Plus, X, Check, AlertTriangle, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
@@ -11,11 +11,10 @@ import { useCurrencies } from "@/features/finance/hooks";
 
 const STATUS: Record<number, { label: string; cls: string }> = {
   1: { label: "Draft",          cls: "bg-muted text-muted-foreground" },
-  2: { label: "Approved",       cls: "bg-blue-100 text-blue-700" },
+  2: { label: "Posted",         cls: "bg-blue-100 text-blue-700" },
   3: { label: "Partially Paid", cls: "bg-amber-100 text-amber-700" },
   4: { label: "Paid",           cls: "bg-emerald-100 text-emerald-700" },
-  5: { label: "Overdue",        cls: "bg-red-100 text-red-700" },
-  6: { label: "Cancelled",      cls: "bg-muted text-muted-foreground" },
+  5: { label: "Cancelled",      cls: "bg-red-100 text-red-700" },
 };
 
 const EMPTY_LINE = { description: "", quantity: 1, unitPrice: 0, accountId: "" };
@@ -39,6 +38,15 @@ export default function SupplierInvoicesPage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["supplier-invoices"],
     queryFn: () => apiFetch<any[]>("/supplierinvoices"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/supplierinvoices/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["supplier-invoices"] });
+      toast("Supplier invoice removed. Posted accounting was reversed when required.", "info");
+    },
+    onError: (e: any) => toast(e?.message ?? "Unable to remove invoice.", "error"),
   });
 
   const createMut = useMutation({
@@ -174,13 +182,22 @@ export default function SupplierInvoicesPage() {
                     <td className="p-3 text-right tabular-nums text-red-600">{inv.balanceDue > 0 ? inv.balanceDue.toLocaleString() : "—"}</td>
                     <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span></td>
                     <td className="p-3 text-right">
-                      {inv.status === 1 && (
-                        <button onClick={() => postMut.mutate(inv.id)} disabled={postMut.isPending}
-                          className="flex items-center gap-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
-                          <Send className="h-3.5 w-3.5" /> Post
+                      <div className="flex items-center justify-end gap-1">
+                        {inv.status === 1 && (
+                          <button onClick={() => postMut.mutate(inv.id)} disabled={postMut.isPending}
+                            className="flex items-center gap-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                            <Send className="h-3.5 w-3.5" /> Post
+                          </button>
+                        )}
+                        {inv.status === 2 && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                        <button
+                          onClick={() => confirm(`Remove supplier invoice ${inv.invoiceNumber}? Posted entries will be reversed. Payments must be removed first.`) && deleteMut.mutate(inv.id)}
+                          disabled={deleteMut.isPending}
+                          title="Delete / reverse invoice"
+                          className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
-                      )}
-                      {inv.status === 2 && <CheckCircle2 className="h-4 w-4 text-emerald-500 ml-auto" />}
+                      </div>
                     </td>
                   </tr>
                 );

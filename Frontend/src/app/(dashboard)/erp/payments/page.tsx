@@ -6,6 +6,8 @@ import {
   useSupplierPayments,
   useCreateCustomerPayment,
   useCreateSupplierPayment,
+  useDeleteCustomerPayment,
+  useDeleteSupplierPayment,
   useCustomers,
   useSuppliers,
   useBankAccounts,
@@ -13,7 +15,7 @@ import {
 import { useCurrencies } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
-import { DollarSign, RefreshCw, Plus, X, Check, AlertTriangle } from "lucide-react";
+import { DollarSign, RefreshCw, Plus, X, Check, AlertTriangle, Trash2 } from "lucide-react";
 
 /* ── Payment method config ─────────────────────────────────────────────────── */
 const METHODS = [
@@ -58,6 +60,8 @@ export default function PaymentsPage() {
 
   const createCust = useCreateCustomerPayment();
   const createSupp = useCreateSupplierPayment();
+  const deleteCust = useDeleteCustomerPayment();
+  const deleteSupp = useDeleteSupplierPayment();
 
   const data    = tab === "customer" ? custPayments : suppPayments;
   const loading = tab === "customer" ? cL : sL;
@@ -272,6 +276,7 @@ export default function PaymentsPage() {
               <th className="text-left p-3 font-medium text-muted-foreground">Method</th>
               <th className="text-right p-3 font-medium text-muted-foreground">Amount</th>
               <th className="text-center p-3 font-medium text-muted-foreground">Status</th>
+              <th className="p-3"></th>
             </tr></thead>
             <tbody className="divide-y divide-border">
               {(data ?? []).map((p: any) => {
@@ -290,11 +295,24 @@ export default function PaymentsPage() {
                     <td className="p-3 text-center">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span>
                     </td>
+                    <td className="p-3 text-right">
+                      {p.status === 2 && (
+                        <button
+                          onClick={() => confirm(`Reverse and remove payment ${p.paymentNumber}? A reversing journal entry will be created.`) &&
+                            (tab === "customer" ? deleteCust.mutate(p.id) : deleteSupp.mutate(p.id))}
+                          disabled={deleteCust.isPending || deleteSupp.isPending}
+                          title="Reverse and remove payment"
+                          className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
               {(data ?? []).length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No payments found.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No payments found.</td></tr>
               )}
             </tbody>
           </table>

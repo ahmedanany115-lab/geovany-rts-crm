@@ -114,6 +114,37 @@ public class SalesOrdersController : BaseApiController
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        [FromServices] ICurrentUserService user,
+        CancellationToken ct)
+    {
+        var order = await db.SalesOrders
+            .Include(o => o.Lines)
+            .Include(o => o.Deliveries)
+            .FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted, ct);
+        if (order is null) return NotFound();
+
+        var hasInvoice = await db.CustomerInvoices.AnyAsync(i => !i.IsDeleted && i.SalesOrderId == id, ct);
+        if (order.Deliveries.Any(d => !d.IsDeleted) || hasInvoice)
+            return BadRequest(new { message = "Order has deliveries or invoices. Reverse/delete those documents first." });
+
+        order.IsDeleted = true;
+        order.ModifiedAt = DateTime.UtcNow;
+        order.ModifiedBy = user.UserId;
+        foreach (var line in order.Lines)
+        {
+            line.IsDeleted = true;
+            line.ModifiedAt = DateTime.UtcNow;
+            line.ModifiedBy = user.UserId;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }
 
 [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
@@ -127,6 +158,77 @@ public class SalesDeliveriesController : BaseApiController
     [HttpPost]
     public async Task<IActionResult> Create(CreateSalesDeliveryCommand cmd)
     { var id = await Mediator.Send(cmd); return Ok(new { id }); }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Reverse(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        [FromServices] IInventoryService inventory,
+        [FromServices] IAccountingService accounting,
+        [FromServices] ICurrentUserService user,
+        CancellationToken ct)
+    {
+        var delivery = await db.SalesDeliveries
+            .Include(d => d.Lines).ThenInclude(l => l.SalesOrderLine)
+            .Include(d => d.SalesOrder).ThenInclude(o => o.Lines)
+            .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted, ct);
+        if (delivery is null) return NotFound();
+
+        var hasPostedInvoice = await db.CustomerInvoices.AnyAsync(i =>
+            !i.IsDeleted && i.SalesOrderId == delivery.SalesOrderId && i.Status != InvoiceStatus.Draft, ct);
+        if (hasPostedInvoice)
+            return BadRequest(new { message = "This delivery belongs to an order with a posted invoice. Reverse/delete the invoice first." });
+
+        if (delivery.JournalEntryId.HasValue)
+        {
+            var reversed = await accounting.ReverseJournalEntryAsync(
+                delivery.JournalEntryId.Value,
+                $"Reversed sales delivery {delivery.DeliveryNumber}",
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                ct);
+            if (!reversed.Succeeded)
+                return BadRequest(new { message = string.Join(", ", reversed.Errors) });
+        }
+
+        foreach (var line in delivery.Lines.Where(l => !l.IsDeleted))
+        {
+            await inventory.MoveInventoryAsync(
+                line.ProductId,
+                delivery.WarehouseId,
+                line.Quantity,
+                line.UnitCost,
+                InventoryMovementType.ReturnFromCustomer,
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                referenceType: "SalesDeliveryReversal",
+                referenceId: delivery.Id,
+                referenceNumber: delivery.DeliveryNumber,
+                notes: $"Reversal of {delivery.DeliveryNumber}",
+                createdBy: user.UserId,
+                cancellationToken: ct);
+
+            line.SalesOrderLine.DeliveredQuantity = Math.Max(0, line.SalesOrderLine.DeliveredQuantity - line.Quantity);
+            line.SalesOrderLine.ModifiedAt = DateTime.UtcNow;
+            line.SalesOrderLine.ModifiedBy = user.UserId;
+            line.IsDeleted = true;
+            line.ModifiedAt = DateTime.UtcNow;
+            line.ModifiedBy = user.UserId;
+        }
+
+        var activeLines = delivery.SalesOrder.Lines.Where(l => !l.IsDeleted).ToList();
+        var anyDelivered = activeLines.Any(l => l.DeliveredQuantity > 0);
+        var allDelivered = activeLines.Count > 0 && activeLines.All(l => l.DeliveredQuantity >= l.Quantity);
+        delivery.SalesOrder.Status = allDelivered
+            ? SalesOrderStatus.Delivered
+            : anyDelivered ? SalesOrderStatus.PartiallyDelivered : SalesOrderStatus.Approved;
+        delivery.SalesOrder.ModifiedAt = DateTime.UtcNow;
+        delivery.SalesOrder.ModifiedBy = user.UserId;
+
+        delivery.IsDeleted = true;
+        delivery.ModifiedAt = DateTime.UtcNow;
+        delivery.ModifiedBy = user.UserId;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }
 
 [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
@@ -176,25 +278,47 @@ public class CustomerInvoicesController : BaseApiController
         return NoContent();
     }
 
-    /// <summary>Hard-delete only Draft invoices with no payments.</summary>
+    /// <summary>Delete drafts or safely reverse posted invoices that have no payments.</summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,Manager,Accountant")]
     public async Task<IActionResult> Delete(
         Guid id,
-        [FromServices] RTSErp.Application.Common.Interfaces.IApplicationDbContext db,
+        [FromServices] IApplicationDbContext db,
+        [FromServices] IAccountingService accounting,
+        [FromServices] ICurrentUserService user,
         CancellationToken ct)
     {
-        var inv = await db.CustomerInvoices.FindAsync([id], ct);
-        if (inv is null || inv.IsDeleted) return NotFound();
+        var inv = await db.CustomerInvoices
+            .Include(i => i.Lines)
+            .Include(i => i.Payments)
+            .FirstOrDefaultAsync(i => i.Id == id && !i.IsDeleted, ct);
+        if (inv is null) return NotFound();
 
-        if (inv.Status != RTSErp.Domain.Enums.InvoiceStatus.Draft)
-            return BadRequest(new { message = "Only Draft invoices can be deleted. Void or reverse posted invoices instead." });
+        if (inv.PaidAmount > 0 || inv.Payments.Any(p => !p.IsDeleted))
+            return BadRequest(new { message = "Invoice has payments. Reverse/delete those payments first." });
 
-        if (inv.PaidAmount > 0)
-            return BadRequest(new { message = "Invoice has recorded payments and cannot be deleted." });
+        if (inv.JournalEntryId.HasValue)
+        {
+            var reversed = await accounting.ReverseJournalEntryAsync(
+                inv.JournalEntryId.Value,
+                $"Cancelled customer invoice {inv.InvoiceNumber}",
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                ct);
+            if (!reversed.Succeeded)
+                return BadRequest(new { message = string.Join(", ", reversed.Errors) });
+        }
 
-        inv.IsDeleted  = true;
+        inv.Status = InvoiceStatus.Cancelled;
+        inv.IsDeleted = true;
         inv.ModifiedAt = DateTime.UtcNow;
+        inv.ModifiedBy = user.UserId;
+        foreach (var line in inv.Lines)
+        {
+            line.IsDeleted = true;
+            line.ModifiedAt = DateTime.UtcNow;
+            line.ModifiedBy = user.UserId;
+        }
+
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

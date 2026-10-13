@@ -106,9 +106,11 @@ export const purchaseOrdersApi = {
   delete: (id: string) => apiFetch<void>(`/purchaseorders/${id}`, { method: "DELETE" }),
   createReceipt: (data: unknown) =>
     apiFetch<{ id: string }>("/purchasereceipts", { method: "POST", body: JSON.stringify(data) }),
+  deleteReceipt: (id: string) => apiFetch<void>(`/purchasereceipts/${id}`, { method: "DELETE" }),
   createInvoice: (data: unknown) =>
     apiFetch<{ id: string }>("/supplierinvoices", { method: "POST", body: JSON.stringify(data) }),
   postInvoice: (id: string) => apiFetch<void>(`/supplierinvoices/${id}/post`, { method: "POST" }),
+  deleteInvoice: (id: string) => apiFetch<void>(`/supplierinvoices/${id}`, { method: "DELETE" }),
 };
 
 // ── Sales Orders ──────────────────────────────────────────────────────────────
@@ -121,8 +123,10 @@ export const salesOrdersApi = {
     apiFetch<{ id: string }>("/salesorders", { method: "POST", body: JSON.stringify(data) }),
   approve: (id: string) => apiFetch<void>(`/salesorders/${id}/approve`, { method: "POST" }),
   cancel: (id: string) => apiFetch<void>(`/salesorders/${id}/cancel`, { method: "PATCH" }),
+  delete: (id: string) => apiFetch<void>(`/salesorders/${id}`, { method: "DELETE" }),
   createDelivery: (data: unknown) =>
     apiFetch<{ id: string }>("/salesdeliveries", { method: "POST", body: JSON.stringify(data) }),
+  deleteDelivery: (id: string) => apiFetch<void>(`/salesdeliveries/${id}`, { method: "DELETE" }),
 };
 
 // ── Customer Invoices ─────────────────────────────────────────────────────────
@@ -134,6 +138,7 @@ export const customerInvoicesApi = {
   create: (data: unknown) =>
     apiFetch<{ id: string }>("/customerinvoices", { method: "POST", body: JSON.stringify(data) }),
   post: (id: string) => apiFetch<void>(`/customerinvoices/${id}/post`, { method: "POST" }),
+  delete: (id: string) => apiFetch<void>(`/customerinvoices/${id}`, { method: "DELETE" }),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────────
@@ -143,10 +148,12 @@ export const paymentsApi = {
     apiFetch<CustomerPaymentDto[]>(`/customerpayments${qs(p ?? {})}`),
   createCustomer: (data: unknown) =>
     apiFetch<{ id: string }>("/customerpayments", { method: "POST", body: JSON.stringify(data) }),
+  deleteCustomer: (id: string) => apiFetch<void>(`/customerpayments/${id}`, { method: "DELETE" }),
   listSupplier: (p?: { supplierId?: string }) =>
     apiFetch<SupplierPaymentDto[]>(`/supplierpayments${qs(p ?? {})}`),
   createSupplier: (data: unknown) =>
     apiFetch<{ id: string }>("/supplierpayments", { method: "POST", body: JSON.stringify(data) }),
+  deleteSupplier: (id: string) => apiFetch<void>(`/supplierpayments/${id}`, { method: "DELETE" }),
 };
 
 // ── Cheques ───────────────────────────────────────────────────────────────────
@@ -159,6 +166,7 @@ export const chequesApi = {
     apiFetch<void>(`/cheques/${id}/deposit`, { method: "POST", body: JSON.stringify(data) }),
   bounce: (id: string, bounceDate: string) =>
     apiFetch<void>(`/cheques/${id}/bounce`, { method: "POST", body: JSON.stringify(bounceDate) }),
+  delete: (id: string) => apiFetch<void>(`/cheques/${id}`, { method: "DELETE" }),
 };
 
 // ── Bank Accounts ─────────────────────────────────────────────────────────────
@@ -167,10 +175,12 @@ export const bankAccountsApi = {
   list: (p?: { isActive?: boolean }) => apiFetch<BankAccountDto[]>(`/bankaccounts${qs(p ?? {})}`),
   create: (data: unknown) => apiFetch<{ id: string }>("/bankaccounts", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: unknown) => apiFetch<void>(`/bankaccounts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  delete: (id: string) => apiFetch<void>(`/bankaccounts/${id}`, { method: "DELETE" }),
   transactions: (p?: { bankAccountId?: string; fromDate?: string; toDate?: string }) =>
     apiFetch<BankTransactionDto[]>(`/banktransactions${qs(p ?? {})}`),
   createTransaction: (data: unknown) =>
     apiFetch<{ id: string }>("/banktransactions", { method: "POST", body: JSON.stringify(data) }),
+  deleteTransaction: (id: string) => apiFetch<void>(`/banktransactions/${id}`, { method: "DELETE" }),
 };
 
 // ── ERP Dashboard ─────────────────────────────────────────────────────────────

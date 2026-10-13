@@ -1,8 +1,9 @@
 "use client";
 
-import { Truck, RefreshCw } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Truck, RefreshCw, Trash2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { useToast } from "@/components/ui/toast";
 
 interface SalesDeliveryDto {
   id: string;
@@ -16,9 +17,22 @@ interface SalesDeliveryDto {
 }
 
 export default function DeliveriesPage() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const { data: deliveries, isLoading, refetch } = useQuery({
     queryKey: ["sales-deliveries"],
     queryFn: () => apiFetch<SalesDeliveryDto[]>("/salesdeliveries"),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/salesdeliveries/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sales-deliveries"] });
+      qc.invalidateQueries({ queryKey: ["sales-orders"] });
+      qc.invalidateQueries({ queryKey: ["product-stock"] });
+      toast("Delivery reversed and removed.", "info");
+    },
+    onError: (e: any) => toast(e?.message ?? "Unable to reverse delivery.", "error"),
   });
 
   const totalCOGS = deliveries?.reduce((s, d) => s + d.totalCOGS, 0) ?? 0;
@@ -65,6 +79,7 @@ export default function DeliveriesPage() {
                 <th className="text-left p-3 font-medium text-muted-foreground">Warehouse</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">Date</th>
                 <th className="text-right p-3 font-medium text-muted-foreground">COGS</th>
+                <th className="p-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -78,10 +93,19 @@ export default function DeliveriesPage() {
                   <td className="p-3 text-right tabular-nums">
                     {d.totalCOGS.toLocaleString("en-EG", { style: "currency", currency: "EGP" })}
                   </td>
+                  <td className="p-3 text-right">
+                    <button
+                      onClick={() => confirm(`Reverse delivery ${d.deliveryNumber}? Stock and COGS will be reversed.`) && remove.mutate(d.id)}
+                      disabled={remove.isPending}
+                      title="Reverse and remove delivery"
+                      className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!deliveries?.length && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">
                   No deliveries found. Create a delivery from an approved Sales Order.
                 </td></tr>
               )}
