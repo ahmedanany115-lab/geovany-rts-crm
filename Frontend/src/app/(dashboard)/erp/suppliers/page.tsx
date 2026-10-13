@@ -1,8 +1,8 @@
 "use client";
-import { useSuppliers, useCreateSupplier, useToggleSupplierStatus, useDeleteSupplier } from "@/features/erp/hooks";
+import { useSuppliers, useCreateSupplier, useToggleSupplierStatus } from "@/features/erp/hooks";
 import { useT } from "@/hooks/useT";
 import { useState } from "react";
-import { Truck, Plus, PowerOff, Search, RefreshCw, Trash2 } from "lucide-react";
+import { Truck, Plus, PowerOff, Search, RefreshCw } from "lucide-react";
 
 export default function SuppliersPage() {
   const { t } = useT();
@@ -12,7 +12,6 @@ export default function SuppliersPage() {
   const { data, isLoading, refetch } = useSuppliers({ search: search || undefined });
   const create = useCreateSupplier();
   const toggle = useToggleSupplierStatus();
-  const remove = useDeleteSupplier();
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,18 +58,7 @@ export default function SuppliersPage() {
                   <td className="p-3 font-medium">{s.name}</td>
                   <td className="p-3 text-muted-foreground">{s.phone ?? "—"}</td>
                   <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${s.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{s.isActive ? t("active") : t("inactive")}</span></td>
-                  <td className="p-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => toggle.mutate(s.id)} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"><PowerOff className="h-4 w-4" /></button>
-                      <button
-                        onClick={() => confirm(`Delete supplier ${s.name}? Suppliers with dependent records may be blocked.`) && remove.mutate(s.id)}
-                        disabled={remove.isPending}
-                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50"
-                        title="Delete supplier">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+                  <td className="p-3 text-right"><button onClick={() => toggle.mutate(s.id)} className="text-muted-foreground hover:text-foreground"><PowerOff className="h-4 w-4" /></button></td>
                 </tr>
               ))}
               {!data?.length && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>}

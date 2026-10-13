@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useFiscalPeriods, useCreateFiscalPeriod, useCloseFiscalPeriod, useOpenFiscalPeriod, useDeleteFiscalPeriod } from "@/features/finance/hooks";
+import { useFiscalPeriods, useCreateFiscalPeriod, useCloseFiscalPeriod, useOpenFiscalPeriod } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
-import { CalendarDays, Plus, Lock, Unlock, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, Lock, Unlock } from "lucide-react";
 
 const STATUS_LABELS: Record<number, string> = { 1: "Open", 2: "Closed", 3: "Locked" };
 
@@ -14,7 +14,6 @@ export default function FiscalPeriodsPage() {
   const create = useCreateFiscalPeriod();
   const close  = useCloseFiscalPeriod();
   const open   = useOpenFiscalPeriod();
-  const remove = useDeleteFiscalPeriod();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", startDate: "", endDate: "" });
 
@@ -74,13 +73,6 @@ export default function FiscalPeriodsPage() {
                   <td className="p-3 text-right flex gap-2 justify-end">
                     {p.status === 1 && <button onClick={() => handleClose(p.id, p.name)} className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-accent text-muted-foreground"><Lock className="h-3.5 w-3.5" />Close</button>}
                     {p.status === 2 && <button onClick={() => handleOpen(p.id, p.name)} className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-accent text-muted-foreground"><Unlock className="h-3.5 w-3.5" />Reopen</button>}
-                    <button
-                      onClick={() => confirm(`Delete fiscal period ${p.name}? Periods containing journal entries cannot be deleted.`) && remove.mutate(p.id)}
-                      disabled={remove.isPending}
-                      className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50"
-                      title="Delete fiscal period">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
                   </td>
                 </tr>
               ))}

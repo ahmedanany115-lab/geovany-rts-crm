@@ -176,7 +176,7 @@ export default function CustomerInvoicesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-background rounded-xl border shadow-xl p-6 max-w-sm w-full space-y-4">
             <div className="flex items-center gap-3 text-red-600"><Trash2 className="h-5 w-5" /><h2 className="font-semibold">Delete Invoice?</h2></div>
-            <p className="text-sm text-muted-foreground">Remove <strong>{delTarget.invoiceNumber}</strong>? Draft invoices are deleted directly; posted invoices are reversed first. Invoices with payments must have those payments reversed first.</p>
+            <p className="text-sm text-muted-foreground">Delete <strong>{delTarget.invoiceNumber}</strong>? Only Draft invoices with no payments can be deleted.</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setDelTarget(null)} className="btn-ghost px-4 py-2 rounded-lg text-sm">Cancel</button>
               <button onClick={() => deleteMut.mutate(delTarget.id)} disabled={deleteMut.isPending}
@@ -392,9 +392,8 @@ export default function CustomerInvoicesPage() {
                               <button onClick={() => setVoidTarget(inv)}
                                 className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200">Void</button>
                             )}
-                            {canCreate && inv.paidAmount <= 0 && (
+                            {inv.status === 1 && canCreate && (
                               <button onClick={() => setDelTarget(inv)}
-                                title={inv.status === 1 ? "Delete invoice" : "Reverse and delete invoice"}
                                 className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>

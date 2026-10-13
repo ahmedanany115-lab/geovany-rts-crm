@@ -7,7 +7,7 @@ import { useCustomers, useSuppliers, useBankAccounts } from "@/features/erp/hook
 import { useCurrencies } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
-import { CreditCard, RefreshCw, Plus, X, Check, AlertTriangle, Trash2 } from "lucide-react";
+import { CreditCard, RefreshCw, Plus, X, Check, AlertTriangle } from "lucide-react";
 
 const STATUS: Record<number, { label: string; cls: string }> = {
   1: { label: "Received",  cls: "bg-blue-100 text-blue-700" },
@@ -45,16 +45,6 @@ export default function ChequesPage() {
     mutationFn: (data: any) => apiFetch<{ id: string }>("/cheques", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["cheques"] }); toast("Cheque receivable recorded.", "success"); setShowForm(false); setRecForm(INIT_REC); },
     onError: (e: any) => { toast(e?.message ?? "Failed.", "error"); },
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => apiFetch<void>(`/cheques/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cheques"] });
-      qc.invalidateQueries({ queryKey: ["bank-accounts"] });
-      toast("Cheque cancelled and removed.", "info");
-    },
-    onError: (e: any) => toast(e?.message ?? "Unable to cancel cheque.", "error"),
   });
 
   const createPay = useMutation({
@@ -276,18 +266,9 @@ export default function ChequesPage() {
                           <button onClick={() => { setDepositingId(c.id); setDepositDate(new Date().toISOString().split("T")[0]); setDepositBankId(""); }}
                             className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Deposit</button>
                         )}
-                        {c.status === 2 && (
+                        {c.status === 1 && (
                           <button onClick={() => bounceMut.mutate({ id: c.id, date: new Date().toISOString().split("T")[0] })}
                             className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200">Bounce</button>
-                        )}
-                        {c.status !== 3 && (
-                          <button
-                            onClick={() => confirm(`Cancel and remove cheque ${c.chequeNumber}? Related accounting entries will be reversed where applicable.`) && deleteMut.mutate(c.id)}
-                            disabled={deleteMut.isPending}
-                            title="Cancel and remove cheque"
-                            className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
                         )}
                       </div>
                     </td>

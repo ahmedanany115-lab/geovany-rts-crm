@@ -168,14 +168,6 @@ export function useOpenFiscalPeriod() {
   });
 }
 
-export function useDeleteFiscalPeriod() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: fiscalPeriodsApi.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["fiscal-periods"] }),
-  });
-}
-
 // ── Currencies ────────────────────────────────────────────────────────────────
 
 export function useCurrencies() {
@@ -198,14 +190,6 @@ export function useUpdateCurrency() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name: string; symbol: string; exchangeRate: number; isActive: boolean }) =>
       currenciesApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["currencies"] }),
-  });
-}
-
-export function useDeleteCurrency() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: currenciesApi.delete,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["currencies"] }),
   });
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import {
-  useSalesOrders, useApproveSalesOrder, useCreateSalesOrder, useDeleteSalesOrder,
+  useSalesOrders, useApproveSalesOrder, useCreateSalesOrder,
   useCustomers, useProducts, useWarehouses,
 } from "@/features/erp/hooks";
 import { useCurrencies } from "@/features/finance/hooks";
@@ -36,7 +36,6 @@ export default function SalesOrdersPage() {
   const { data, isLoading, refetch } = useSalesOrders({});
   const approve  = useApproveSalesOrder();
   const create   = useCreateSalesOrder();
-  const remove   = useDeleteSalesOrder();
   const { printRef, handlePrint } = usePrint("RTS ERP — Sales Orders");
 
   const [showForm,   setShowForm]   = useState(false);
@@ -412,13 +411,6 @@ export default function SalesOrdersPage() {
                           <FileText className="h-3.5 w-3.5" /> Generate Invoice
                         </button>
                       )}
-                      <button
-                        onClick={() => confirm(`Delete sales order ${o.soNumber}? Existing deliveries/invoices must be reversed first.`) && remove.mutate(o.id)}
-                        disabled={remove.isPending}
-                        title="Delete sales order"
-                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
                     </td>
                   </tr>
                 );

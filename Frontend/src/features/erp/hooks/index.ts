@@ -77,11 +77,6 @@ export const useToggleSupplierStatus = () => {
   return useMutation({ mutationFn: suppliersApi.toggleStatus, onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }) });
 };
 
-export const useDeleteSupplier = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: suppliersApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }) });
-};
-
 // ── Products ──────────────────────────────────────────────────────────────────
 
 export const useProducts = (p?: Parameters<typeof productsApi.list>[0]) =>
@@ -142,11 +137,6 @@ export const useToggleWarehouseStatus = () => {
   return useMutation({ mutationFn: warehousesApi.toggleStatus, onSuccess: () => qc.invalidateQueries({ queryKey: ["warehouses"] }) });
 };
 
-export const useDeleteWarehouse = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: warehousesApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ["warehouses"] }) });
-};
-
 // ── Inventory ─────────────────────────────────────────────────────────────────
 
 export const useInventoryMovements = (p?: Parameters<typeof inventoryApi.movements>[0]) =>
@@ -198,11 +188,6 @@ export const useApproveSalesOrder = () => {
   return useMutation({ mutationFn: salesOrdersApi.approve, onSuccess: () => qc.invalidateQueries({ queryKey: ["sales-orders"] }) });
 };
 
-export const useDeleteSalesOrder = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: salesOrdersApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ["sales-orders"] }) });
-};
-
 export const useCancelSalesOrder = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: salesOrdersApi.cancel, onSuccess: () => qc.invalidateQueries({ queryKey: ["sales-orders"] }) });
@@ -239,18 +224,6 @@ export const useCreateCustomerPayment = () => {
   });
 };
 
-export const useDeleteCustomerPayment = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: paymentsApi.deleteCustomer,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["customer-payments"] });
-      qc.invalidateQueries({ queryKey: ["customer-invoices"] });
-      qc.invalidateQueries({ queryKey: ["bank-accounts"] });
-    },
-  });
-};
-
 export const useSupplierPayments = (p?: Parameters<typeof paymentsApi.listSupplier>[0]) =>
   useQuery({ queryKey: ["supplier-payments", p], queryFn: () => paymentsApi.listSupplier(p) });
 
@@ -262,17 +235,6 @@ export const useCreateSupplierPayment = () => {
   });
 };
 
-export const useDeleteSupplierPayment = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: paymentsApi.deleteSupplier,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["supplier-payments"] });
-      qc.invalidateQueries({ queryKey: ["bank-accounts"] });
-    },
-  });
-};
-
 // ── Cheques ───────────────────────────────────────────────────────────────────
 
 export const useCheques = (p?: Parameters<typeof chequesApi.list>[0]) =>
@@ -281,17 +243,6 @@ export const useCheques = (p?: Parameters<typeof chequesApi.list>[0]) =>
 export const useReceiveCheque = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: chequesApi.receive, onSuccess: () => qc.invalidateQueries({ queryKey: ["cheques"] }) });
-};
-
-export const useDeleteCheque = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: chequesApi.delete,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cheques"] });
-      qc.invalidateQueries({ queryKey: ["bank-accounts"] });
-    },
-  });
 };
 
 export const useDepositCheque = () => {
@@ -312,11 +263,6 @@ export const useCreateBankAccount = () => {
   return useMutation({ mutationFn: bankAccountsApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ["bank-accounts"] }) });
 };
 
-export const useDeleteBankAccount = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: bankAccountsApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ["bank-accounts"] }) });
-};
-
 export const useUpdateBankAccount = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -333,14 +279,6 @@ export const useCreateBankTransaction = () => {
   return useMutation({
     mutationFn: bankAccountsApi.createTransaction,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["bank-transactions"] }); qc.invalidateQueries({ queryKey: ["bank-accounts"] }); }
-  });
-};
-
-export const useDeleteBankTransaction = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: bankAccountsApi.deleteTransaction,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bank-transactions"] }); qc.invalidateQueries({ queryKey: ["bank-accounts"] }); },
   });
 };
 

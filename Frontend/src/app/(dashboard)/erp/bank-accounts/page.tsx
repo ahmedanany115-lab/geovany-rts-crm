@@ -13,7 +13,6 @@ export default function BankAccountsPage() {
   const { t } = useT();
   const { toast } = useToast();
   const { data, isLoading, refetch } = useBankAccounts({});
-  const { data: transactions, isLoading: txLoading, refetch: refetchTransactions } = useBankTransactions({});
   const { data: glAccounts } = useAccounts();
   const { data: currencies } = useCurrencies();
   const create = useCreateBankAccount();
@@ -140,55 +139,6 @@ export default function BankAccountsPage() {
           </table>
         </div>
       )}
-
-      <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold">Bank Transactions</h2>
-            <p className="text-xs text-muted-foreground">Manual deposits, withdrawals and transfers</p>
-          </div>
-          <button onClick={() => refetchTransactions()} className="btn-ghost p-2 rounded-lg"><RefreshCw className="h-4 w-4" /></button>
-        </div>
-        {txLoading ? (
-          <div className="p-8 text-center text-muted-foreground">{t("loading")}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/30"><tr>
-                <th className="text-left p-3 font-medium text-muted-foreground">Transaction #</th>
-                <th className="text-left p-3 font-medium text-muted-foreground">Bank Account</th>
-                <th className="text-left p-3 font-medium text-muted-foreground">Type</th>
-                <th className="text-left p-3 font-medium text-muted-foreground">Date</th>
-                <th className="text-right p-3 font-medium text-muted-foreground">Amount</th>
-                <th className="p-3"></th>
-              </tr></thead>
-              <tbody className="divide-y divide-border">
-                {(transactions ?? []).map((tx: any) => (
-                  <tr key={tx.id} className="hover:bg-muted/20">
-                    <td className="p-3 font-mono text-xs">{tx.transactionNumber}</td>
-                    <td className="p-3 font-medium">{tx.bankAccountName}</td>
-                    <td className="p-3 text-muted-foreground">{tx.transactionTypeName ?? tx.transactionType}</td>
-                    <td className="p-3 text-muted-foreground">{tx.transactionDate}</td>
-                    <td className="p-3 text-right tabular-nums">{tx.amount?.toLocaleString()} {tx.currencyCode}</td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => confirm(`Reverse bank transaction ${tx.transactionNumber}? A reversing journal entry will be created.`) && removeTransaction.mutate(tx.id)}
-                        disabled={removeTransaction.isPending}
-                        title="Reverse and remove transaction"
-                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {!(transactions ?? []).length && (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No manual bank transactions found.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -137,7 +137,6 @@ export const fiscalPeriodsApi = {
 
   open: (id: string) =>
     apiFetch<void>(`/fiscalperiods/${id}/open`, { method: "POST" }),
-  delete: (id: string) => apiFetch<void>(`/fiscalperiods/${id}`, { method: "DELETE" }),
 };
 
 // ── Currencies ────────────────────────────────────────────────────────────────
@@ -156,7 +155,6 @@ export const currenciesApi = {
       method: "PUT",
       body: JSON.stringify({ id, ...data }),
     }),
-  delete: (id: string) => apiFetch<void>(`/currencies/${id}`, { method: "DELETE" }),
 };
 
 export const taxRatesApi = {
