@@ -77,6 +77,11 @@ export const useToggleSupplierStatus = () => {
   return useMutation({ mutationFn: suppliersApi.toggleStatus, onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }) });
 };
 
+export const useDeleteSupplier = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: suppliersApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }) });
+};
+
 // ── Products ──────────────────────────────────────────────────────────────────
 
 export const useProducts = (p?: Parameters<typeof productsApi.list>[0]) =>
@@ -135,6 +140,11 @@ export const useUpdateWarehouse = () => {
 export const useToggleWarehouseStatus = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: warehousesApi.toggleStatus, onSuccess: () => qc.invalidateQueries({ queryKey: ["warehouses"] }) });
+};
+
+export const useDeleteWarehouse = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: warehousesApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ["warehouses"] }) });
 };
 
 // ── Inventory ─────────────────────────────────────────────────────────────────

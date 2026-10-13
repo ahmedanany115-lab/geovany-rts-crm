@@ -1,9 +1,9 @@
 "use client";
-import { useWarehouses, useCreateWarehouse, useUpdateWarehouse, useToggleWarehouseStatus } from "@/features/erp/hooks";
+import { useWarehouses, useCreateWarehouse, useUpdateWarehouse, useToggleWarehouseStatus, useDeleteWarehouse } from "@/features/erp/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
-import { Warehouse, Plus, PowerOff, RefreshCw, Pencil, X, Check } from "lucide-react";
+import { Warehouse, Plus, PowerOff, RefreshCw, Pencil, X, Check, Trash2 } from "lucide-react";
 
 const INIT = { code: "", name: "", location: "", notes: "" };
 
@@ -17,6 +17,7 @@ export default function WarehousesPage() {
   const create = useCreateWarehouse();
   const update = useUpdateWarehouse();
   const toggle = useToggleWarehouseStatus();
+  const remove = useDeleteWarehouse();
 
   const openEdit = (w: any) => {
     setEditing(w);
@@ -94,6 +95,13 @@ export default function WarehousesPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => openEdit(w)} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
                       <button onClick={() => handleToggle(w)} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"><PowerOff className="h-3.5 w-3.5" /></button>
+                      <button
+                        onClick={() => confirm(`Delete warehouse ${w.name}? Warehouses with stock/history cannot be deleted.`) && remove.mutate(w.id)}
+                        disabled={remove.isPending}
+                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                        title="Delete warehouse">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </td>
                 </tr>

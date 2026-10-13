@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RTSErp.Application.Common.Interfaces;
 using RTSErp.Application.Accounting.FiscalPeriods.Commands.CloseFiscalPeriod;
 using RTSErp.Application.Accounting.FiscalPeriods.Commands.CreateFiscalPeriod;
 using RTSErp.Application.Accounting.FiscalPeriods.Queries;
@@ -35,6 +37,25 @@ public class FiscalPeriodsController : BaseApiController
     public async Task<IActionResult> Open(Guid id)
     {
         await Mediator.Send(new OpenFiscalPeriodCommand { Id = id });
+        return NoContent();
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        CancellationToken ct)
+    {
+        var period = await db.FiscalPeriods.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted, ct);
+        if (period is null) return NotFound();
+
+        var hasEntries = await db.JournalEntries.AnyAsync(e => !e.IsDeleted && e.FiscalPeriodId == id, ct);
+        if (hasEntries)
+            return Conflict(new { message = "Fiscal period contains journal entries and cannot be deleted. Close or lock it instead." });
+
+        period.IsDeleted = true;
+        period.ModifiedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
         return NoContent();
     }
 }

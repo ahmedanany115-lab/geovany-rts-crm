@@ -1,14 +1,15 @@
 "use client";
 import { useState } from "react";
-import { useCurrencies, useCreateCurrency, useUpdateCurrency } from "@/features/finance/hooks";
+import { useCurrencies, useCreateCurrency, useUpdateCurrency, useDeleteCurrency } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
-import { Coins, Plus, Pencil, X } from "lucide-react";
+import { Coins, Plus, Pencil, X, Trash2 } from "lucide-react";
 
 export default function CurrenciesPage() {
   const { t } = useT();
   const { data, isLoading } = useCurrencies();
   const create = useCreateCurrency();
   const update = useUpdateCurrency();
+  const remove = useDeleteCurrency();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ code: "", name: "", symbol: "", exchangeRate: 1, isActive: true });
@@ -69,7 +70,20 @@ export default function CurrenciesPage() {
                   <td className="p-3 text-right tabular-nums">{c.exchangeRate.toFixed(4)}</td>
                   <td className="p-3 text-center">{c.isBaseCurrency ? <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Base</span> : "—"}</td>
                   <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${c.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{c.isActive ? t("active") : t("inactive")}</span></td>
-                  <td className="p-3 text-right"><button onClick={() => startEdit(c as any)} className="text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button></td>
+                  <td className="p-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => startEdit(c as any)} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button>
+                      {!c.isBaseCurrency && (
+                        <button
+                          onClick={() => confirm(`Delete currency ${c.code}? Currencies with financial history cannot be deleted.`) && remove.mutate(c.id)}
+                          disabled={remove.isPending}
+                          className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                          title="Delete currency">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!data?.length && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>}
