@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   useCashPayments,
   useCashPayment,
@@ -431,6 +432,18 @@ export default function CashPaymentsPage() {
   const [showForm, setShowForm]   = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [printId, setPrintId]     = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const edit = searchParams.get("edit");
+    if (edit) {
+      setEditingId(edit);
+      setShowForm(true);
+    } else if (searchParams.get("new") === "1") {
+      setEditingId(null);
+      setShowForm(true);
+    }
+  }, [searchParams]);
 
   const openCreate = () => { setEditingId(null); setShowForm(true); };
   const openEdit   = (id: string) => { setEditingId(id); setShowForm(true); };

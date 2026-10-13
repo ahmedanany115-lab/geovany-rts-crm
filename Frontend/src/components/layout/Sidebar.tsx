@@ -9,7 +9,7 @@ import {
   Landmark, ShoppingCart, ShoppingBag, Truck, CreditCard, DollarSign,
   Warehouse, TrendingUp, BookOpen, ArrowLeftRight, CalendarDays, Coins,
   HeartHandshake, Wrench, ClipboardList, HardDrive, Calculator, FileCheck2,
-  PackageCheck, ShieldCheck, ArrowDownCircle, ArrowUpCircle,
+  PackageCheck, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-state";
@@ -160,8 +160,6 @@ export function Sidebar() {
                 { href: "/erp/bank-accounts",        label: t("bank_accounts"),     icon: Landmark },
                 { href: "/erp/customer-invoices",    label: t("customer_invoices"), icon: Receipt },
                 { href: "/erp/supplier-invoices",    label: lang === "ar" ? "فواتير الموردين" : "Supplier Invoices", icon: FileText },
-                { href: "/finance/cash-receipts",    label: lang === "ar" ? "المقبوضات النقدية" : "Cash Receipts",  icon: ArrowDownCircle },
-                { href: "/finance/cash-payments",    label: lang === "ar" ? "المدفوعات النقدية" : "Cash Payments",  icon: ArrowUpCircle },
                 { href: "/finance/cash-journal",     label: lang === "ar" ? "يومية النقدية" : "Cash Journal",       icon: BookOpen },
               ].map(i => <NavLink key={i.href} {...i} indent />)}
             </Collapsible>

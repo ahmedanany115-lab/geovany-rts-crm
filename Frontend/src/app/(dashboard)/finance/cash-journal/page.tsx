@@ -1,275 +1,266 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { useCashJournal, useAccounts } from "@/features/finance/hooks";
-import { usePrint } from "@/hooks/usePrint";
+import {
+  useCashReceipts,
+  useCashPayments,
+  usePostCashReceipt,
+  useVoidCashReceipt,
+  useDeleteCashReceipt,
+  usePostCashPayment,
+  useVoidCashPayment,
+  useDeleteCashPayment,
+} from "@/features/finance/hooks";
 import { useToast } from "@/components/ui/toast";
-import type { AccountDto } from "@/features/finance/types";
-import type { CashJournalDto } from "@/features/finance/api/financeApi";
-import { BookOpen, Search, Printer, X } from "lucide-react";
+import {
+  BookOpen, Plus, ArrowDownCircle, ArrowUpCircle, RefreshCw,
+  Pencil, Send, Ban, Trash2, ChevronDown,
+} from "lucide-react";
 
-function fmt(n: number) {
+const STATUS = {
+  1: { label: "Draft", cls: "bg-amber-100 text-amber-700" },
+  2: { label: "Posted", cls: "bg-emerald-100 text-emerald-700" },
+  3: { label: "Voided", cls: "bg-red-100 text-red-600" },
+};
+
+function money(n: number) {
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-}
-
-/* ── Print content ─────────────────────────────────────────────────────────── */
-function JournalPrintView({ journal }: { journal: CashJournalDto }) {
-  return (
-    <div className="p-8 font-mono text-xs space-y-4 text-black">
-      <div className="text-center text-lg font-bold tracking-widest border-b-2 border-black pb-2">
-        CASH JOURNAL
-      </div>
-      <div className="flex justify-between text-xs mt-1">
-        <span>Cash Account: <strong>{journal.cashAccountName}</strong></span>
-        <span>Period: {new Date(journal.fromDate).toLocaleDateString("en-GB")} — {new Date(journal.toDate).toLocaleDateString("en-GB")}</span>
-      </div>
-
-      <div className="flex justify-end border-t border-dashed border-black pt-1 mt-2">
-        <span>Opening Balance: <strong>{fmt(journal.openingBalance)}</strong></span>
-      </div>
-
-      <table className="w-full border-collapse mt-2">
-        <thead>
-          <tr className="border-b border-black">
-            <th className="text-left py-1 pr-2">Date</th>
-            <th className="text-left py-1 pr-2">Document #</th>
-            <th className="text-left py-1 pr-2">Description</th>
-            <th className="text-left py-1 pr-2">Contra Account</th>
-            <th className="text-right py-1 pr-2">Debit</th>
-            <th className="text-right py-1 pr-2">Credit</th>
-            <th className="text-right py-1">Balance</th>
-          </tr>
-        </thead>
-        <tbody>
-          {journal.entries.map((e, i) => (
-            <tr key={i} className="border-b border-dashed border-gray-300">
-              <td className="py-0.5 pr-2">{fmtDate(e.date)}</td>
-              <td className="py-0.5 pr-2">{e.documentNumber}</td>
-              <td className="py-0.5 pr-2">{e.description}</td>
-              <td className="py-0.5 pr-2">{e.contraAccount}</td>
-              <td className="py-0.5 pr-2 text-right">{e.debit > 0 ? fmt(e.debit) : "—"}</td>
-              <td className="py-0.5 pr-2 text-right">{e.credit > 0 ? fmt(e.credit) : "—"}</td>
-              <td className="py-0.5 text-right">{fmt(e.runningBalance)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="border-t-2 border-black pt-2 space-y-0.5 text-right">
-        <div>Total Debit: <strong>{fmt(journal.totalDebit)}</strong></div>
-        <div>Total Credit: <strong>{fmt(journal.totalCredit)}</strong></div>
-        <div className="text-base font-bold">Closing Balance: {fmt(journal.closingBalance)}</div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Print modal ───────────────────────────────────────────────────────────── */
-function PrintModal({ journal, onClose }: { journal: CashJournalDto; onClose: () => void }) {
-  const { printRef, handlePrint } = usePrint(`Cash Journal — ${journal.cashAccountName}`);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-background rounded-xl border shadow-xl w-full max-w-4xl">
-        <div className="flex items-center justify-between p-4 border-b">
-          <span className="font-semibold text-sm">Print Preview — Cash Journal</span>
-          <div className="flex gap-2">
-            <button onClick={handlePrint}
-              className="flex items-center gap-2 btn-primary px-4 py-1.5 rounded-lg text-sm">
-              <Printer className="h-4 w-4" /> Print
-            </button>
-            <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-        <div ref={printRef} className="overflow-y-auto max-h-[75vh]">
-          <JournalPrintView journal={journal} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Main page ─────────────────────────────────────────────────────────────── */
 export default function CashJournalPage() {
-  const today = new Date().toISOString().split("T")[0];
-  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString().split("T")[0];
+  const { toast } = useToast();
+  const [status, setStatus] = useState<number | undefined>();
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
 
-  const [cashAccountId, setCashAccountId] = useState("");
-  const [fromDate, setFromDate] = useState(firstOfMonth);
-  const [toDate, setToDate]     = useState(today);
-  const [searchParams, setSearchParams] = useState<
-    { cashAccountId: string; fromDate: string; toDate: string } | undefined
-  >(undefined);
-  const [showPrint, setShowPrint] = useState(false);
+  const params = { status, fromDate: fromDate || undefined, toDate: toDate || undefined };
+  const receipts = useCashReceipts(params);
+  const payments = useCashPayments(params);
 
-  const { data: accounts } = useAccounts();
-  const postingAccounts = (accounts ?? []).filter((a: AccountDto) => !a.isGroup && a.isActive);
+  const postReceipt = usePostCashReceipt();
+  const voidReceipt = useVoidCashReceipt();
+  const deleteReceipt = useDeleteCashReceipt();
+  const postPayment = usePostCashPayment();
+  const voidPayment = useVoidCashPayment();
+  const deletePayment = useDeleteCashPayment();
 
-  const { data: journal, isLoading, error } = useCashJournal(searchParams);
-
-  const handleSearch = () => {
-    if (!cashAccountId) return;
-    if (!fromDate || !toDate) return;
-    setSearchParams({ cashAccountId, fromDate, toDate });
+  const refresh = () => {
+    receipts.refetch();
+    payments.refetch();
   };
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Print modal */}
-      {showPrint && journal && (
-        <PrintModal journal={journal} onClose={() => setShowPrint(false)} />
-      )}
+  const run = async (action: () => Promise<unknown>, success: string) => {
+    try {
+      await action();
+      toast(success, "success");
+      refresh();
+    } catch (err: any) {
+      toast(err?.message ?? "Action failed.", "error");
+    }
+  };
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+  const receiptRows = receipts.data ?? [];
+  const paymentRows = payments.data ?? [];
+
+  return (
+    <div className="p-6 space-y-5">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div className="flex items-center gap-3">
           <BookOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold">Cash Journal</h1>
+          <div>
+            <h1 className="text-2xl font-semibold">Cash Journal</h1>
+            <p className="text-sm text-muted-foreground">Receipts and payments in one workspace</p>
+          </div>
         </div>
-        {journal && (
-          <button onClick={() => setShowPrint(true)}
-            className="btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm border">
-            <Printer className="h-4 w-4" /> Print
+
+        <div className="relative">
+          <button
+            onClick={() => setShowAdd(v => !v)}
+            className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
+          >
+            <Plus className="h-4 w-4" /> Add Cash Transaction <ChevronDown className="h-4 w-4" />
           </button>
-        )}
+          {showAdd && (
+            <div className="absolute right-0 mt-2 w-56 rounded-lg border bg-background shadow-lg z-20 overflow-hidden">
+              <Link href="/finance/cash-receipts?new=1" className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted/40">
+                <ArrowDownCircle className="h-4 w-4 text-emerald-600" /> New Cash Receipt
+              </Link>
+              <Link href="/finance/cash-payments?new=1" className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted/40">
+                <ArrowUpCircle className="h-4 w-4 text-red-600" /> New Cash Payment
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Filter bar */}
       <div className="card p-4">
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-muted-foreground block mb-1">Cash Account *</label>
-            <select value={cashAccountId} onChange={e => setCashAccountId(e.target.value)} className="input w-full">
-              <option value="">Select account…</option>
-              {postingAccounts.map((a: AccountDto) => (
-                <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
-              ))}
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Status</label>
+            <select
+              value={status ?? ""}
+              onChange={e => setStatus(e.target.value ? Number(e.target.value) : undefined)}
+              className="input text-sm"
+            >
+              <option value="">All Statuses</option>
+              <option value="1">Draft</option>
+              <option value="2">Posted</option>
+              <option value="3">Voided</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground block mb-1">From Date</label>
-            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input" />
+            <label className="text-xs text-muted-foreground block mb-1">From</label>
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input text-sm" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground block mb-1">To Date</label>
-            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input" />
+            <label className="text-xs text-muted-foreground block mb-1">To</label>
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input text-sm" />
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={!cashAccountId || !fromDate || !toDate}
-            className="btn-primary flex items-center gap-2 px-5 py-2 rounded-lg text-sm disabled:opacity-50">
-            <Search className="h-4 w-4" /> Search
+          <button onClick={refresh} className="btn-ghost border px-3 py-2 rounded-lg">
+            <RefreshCw className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Results */}
-      {isLoading && (
-        <div className="text-center py-10 text-muted-foreground">Loading journal…</div>
-      )}
-
-      {error && (
-        <div className="card p-4 text-red-600 text-sm">
-          Failed to load cash journal. Please try again.
-        </div>
-      )}
-
-      {!isLoading && !error && !journal && (
-        <div className="card p-12 text-center text-muted-foreground">
-          Select a cash account and date range, then click Search.
-        </div>
-      )}
-
-      {journal && (
-        <div className="space-y-4">
-          {/* Period summary */}
-          <div className="card p-4 flex flex-wrap gap-6 text-sm">
-            <div>
-              <span className="text-xs text-muted-foreground block">Cash Account</span>
-              <span className="font-semibold">{journal.cashAccountName}</span>
+      <div className="grid xl:grid-cols-2 gap-5">
+        <section className="card overflow-hidden">
+          <div className="px-4 py-3 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
+              <div>
+                <h2 className="font-semibold">Cash Receipts</h2>
+                <p className="text-xs text-muted-foreground">{receiptRows.length} record(s)</p>
+              </div>
             </div>
-            <div>
-              <span className="text-xs text-muted-foreground block">Period</span>
-              <span className="font-medium">
-                {new Date(journal.fromDate).toLocaleDateString("en-GB")} — {new Date(journal.toDate).toLocaleDateString("en-GB")}
-              </span>
-            </div>
-            <div className="ml-auto text-right">
-              <span className="text-xs text-muted-foreground block">Opening Balance</span>
-              <span className="text-lg font-bold tabular-nums">{fmt(journal.openingBalance)}</span>
-            </div>
+            <Link href="/finance/cash-receipts?new=1" className="text-xs text-primary hover:underline">+ Add Receipt</Link>
           </div>
 
-          {/* Entries table */}
-          <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b bg-muted/30">
+              <thead className="bg-muted/30 border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Document #</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Description</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Contra Account</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Debit</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Credit</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Balance</th>
+                  <th className="text-left px-3 py-2">Receipt #</th>
+                  <th className="text-left px-3 py-2">Date</th>
+                  <th className="text-left px-3 py-2">Received From</th>
+                  <th className="text-right px-3 py-2">Amount</th>
+                  <th className="text-left px-3 py-2">Status</th>
+                  <th className="px-3 py-2"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {journal.entries.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                      No transactions in this period.
-                    </td>
-                  </tr>
-                ) : journal.entries.map((entry, i) => (
-                  <tr key={i} className="hover:bg-muted/20">
-                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                      {fmtDate(entry.date)}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-primary">{entry.documentNumber}</td>
-                    <td className="px-4 py-2.5">{entry.description}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{entry.contraAccount}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-emerald-700">
-                      {entry.debit > 0 ? fmt(entry.debit) : "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-red-600">
-                      {entry.credit > 0 ? fmt(entry.credit) : "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                      {fmt(entry.runningBalance)}
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y">
+                {receipts.isLoading ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Loading receipts…</td></tr>
+                ) : receiptRows.length === 0 ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">No cash receipts found.</td></tr>
+                ) : receiptRows.map((r: any) => {
+                  const st = STATUS[r.status as keyof typeof STATUS] ?? { label: r.statusName ?? "—", cls: "bg-muted" };
+                  return (
+                    <tr key={r.id} className="hover:bg-muted/20">
+                      <td className="px-3 py-2 font-mono text-xs">{r.receiptNumber}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{r.receiptDate}</td>
+                      <td className="px-3 py-2 max-w-[160px] truncate">{r.receivedFrom || "—"}</td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">{money(r.amount)} {r.currencyCode}</td>
+                      <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span></td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-1">
+                          {r.status === 1 && (
+                            <>
+                              <Link href={`/finance/cash-receipts?edit=${r.id}`} title="Edit" className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Link>
+                              <button title="Post" onClick={() => confirm(`Post ${r.receiptNumber}?`) && run(() => postReceipt.mutateAsync(r.id), `${r.receiptNumber} posted.`)} className="p-1.5 rounded hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600">
+                                <Send className="h-3.5 w-3.5" />
+                              </button>
+                              <button title="Delete" onClick={() => confirm(`Delete ${r.receiptNumber}?`) && run(() => deleteReceipt.mutateAsync(r.id), `${r.receiptNumber} deleted.`)} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
+                          {r.status === 2 && (
+                            <button title="Void" onClick={() => confirm(`Void ${r.receiptNumber}?`) && run(() => voidReceipt.mutateAsync(r.id), `${r.receiptNumber} voided.`)} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+                              <Ban className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+        </section>
 
-          {/* Totals footer */}
-          <div className="card p-4">
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div className="text-center">
-                <span className="text-xs text-muted-foreground block mb-0.5">Total Debit</span>
-                <span className="text-lg font-semibold tabular-nums text-emerald-700">{fmt(journal.totalDebit)}</span>
-              </div>
-              <div className="text-center">
-                <span className="text-xs text-muted-foreground block mb-0.5">Total Credit</span>
-                <span className="text-lg font-semibold tabular-nums text-red-600">{fmt(journal.totalCredit)}</span>
-              </div>
-              <div className="text-center border-l pl-4">
-                <span className="text-xs text-muted-foreground block mb-0.5">Closing Balance</span>
-                <span className="text-xl font-bold tabular-nums">{fmt(journal.closingBalance)}</span>
+        <section className="card overflow-hidden">
+          <div className="px-4 py-3 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ArrowUpCircle className="h-5 w-5 text-red-600" />
+              <div>
+                <h2 className="font-semibold">Cash Payments</h2>
+                <p className="text-xs text-muted-foreground">{paymentRows.length} record(s)</p>
               </div>
             </div>
+            <Link href="/finance/cash-payments?new=1" className="text-xs text-primary hover:underline">+ Add Payment</Link>
           </div>
-        </div>
-      )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 border-b">
+                <tr>
+                  <th className="text-left px-3 py-2">Payment #</th>
+                  <th className="text-left px-3 py-2">Date</th>
+                  <th className="text-left px-3 py-2">Paid To</th>
+                  <th className="text-right px-3 py-2">Amount</th>
+                  <th className="text-left px-3 py-2">Status</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {payments.isLoading ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Loading payments…</td></tr>
+                ) : paymentRows.length === 0 ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">No cash payments found.</td></tr>
+                ) : paymentRows.map((p: any) => {
+                  const st = STATUS[p.status as keyof typeof STATUS] ?? { label: p.statusName ?? "—", cls: "bg-muted" };
+                  return (
+                    <tr key={p.id} className="hover:bg-muted/20">
+                      <td className="px-3 py-2 font-mono text-xs">{p.paymentNumber}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{p.paymentDate}</td>
+                      <td className="px-3 py-2 max-w-[160px] truncate">{p.paidTo || "—"}</td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">{money(p.amount)} {p.currencyCode}</td>
+                      <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span></td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-1">
+                          {p.status === 1 && (
+                            <>
+                              <Link href={`/finance/cash-payments?edit=${p.id}`} title="Edit" className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Link>
+                              <button title="Post" onClick={() => confirm(`Post ${p.paymentNumber}?`) && run(() => postPayment.mutateAsync(p.id), `${p.paymentNumber} posted.`)} className="p-1.5 rounded hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600">
+                                <Send className="h-3.5 w-3.5" />
+                              </button>
+                              <button title="Delete" onClick={() => confirm(`Delete ${p.paymentNumber}?`) && run(() => deletePayment.mutateAsync(p.id), `${p.paymentNumber} deleted.`)} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
+                          {p.status === 2 && (
+                            <button title="Void" onClick={() => confirm(`Void ${p.paymentNumber}?`) && run(() => voidPayment.mutateAsync(p.id), `${p.paymentNumber} voided.`)} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600">
+                              <Ban className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

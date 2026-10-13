@@ -8,6 +8,7 @@ import { useErpDashboardKpis } from "@/features/erp/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { useT } from "@/hooks/useT";
+import { PersonalCalendar } from "@/features/dashboard/components/PersonalCalendar";
 import {
   Plus, TrendingUp, ShoppingCart, Users, FileCheck2,
   AlertTriangle, Clock, ChevronRight, ArrowRight,
@@ -148,6 +149,9 @@ export default function ErpDashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* ── Personal calendar ── */}
+      <PersonalCalendar />
 
       {/* ── Sales Performance ── */}
       <div className="grid md:grid-cols-3 gap-4">
