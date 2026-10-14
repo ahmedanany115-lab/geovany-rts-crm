@@ -90,7 +90,6 @@ public class UsersController : BaseApiController
 
         user.IsActive = false;
         user.IsDeleted = true;
-        user.ModifiedAt = DateTime.UtcNow;
 
         var result = await _userManager.UpdateAsync(user);
         if (!result.Succeeded)
