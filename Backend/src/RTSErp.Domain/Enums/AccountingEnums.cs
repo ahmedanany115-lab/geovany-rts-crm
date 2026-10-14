@@ -42,4 +42,6 @@ public enum ReferenceType
     MaintenanceContract = 14,
     MaintenanceVisit    = 15,
     QuarterRecognition  = 16,
+    CustomerReturn      = 17,
+    SupplierReturn      = 18,
 }

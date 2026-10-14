@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Bell, Search, LogOut, User as UserIcon, Languages, X } from "lucide-react";
 import { useUiStore } from "@/stores/ui-state";
@@ -88,9 +89,17 @@ export function Topbar() {
     : "?";
 
   return (
-    <header className="flex h-14 items-center justify-between border-b px-4 relative">
-      {/* Search bar */}
-      <div ref={searchRef} className="relative w-72">
+    <header className="flex h-16 items-center justify-between border-b px-4 relative bg-background">
+      <div className="flex items-center gap-4 min-w-0 flex-1">
+        <Link href="/erp/dashboard" className="flex items-center gap-2 shrink-0">
+          <Image src="/logo.png" alt="Royal Technology System" width={34} height={34} className="object-contain" priority />
+          <div className="hidden sm:block leading-tight">
+            <div className="text-sm font-bold text-primary">Royal Technology</div>
+            <div className="text-[10px] text-muted-foreground">System</div>
+          </div>
+        </Link>
+        {/* Search bar */}
+        <div ref={searchRef} className="relative w-full max-w-md">
         <button
           onClick={() => { setSearchOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
           className="flex w-full items-center gap-2 rounded-md border px-3 py-1.5 text-sm text-muted-foreground hover:border-primary/50 transition-colors"
@@ -139,9 +148,10 @@ export function Topbar() {
             ))}
           </div>
         )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 ml-3">
         {/* Language */}
         <button
           onClick={toggleLanguage}

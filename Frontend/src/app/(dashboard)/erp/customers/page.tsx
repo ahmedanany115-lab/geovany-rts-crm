@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import { useRoles } from "@/hooks/useRoles";
 import { Users, Plus, RefreshCw, PowerOff, Search, Pencil, Trash2, X, Check, AlertTriangle, UserCheck } from "lucide-react";
 
-const INIT = { code: "", name: "", phone: "", email: "", address: "", notes: "", receivableAccountId: "" };
+const INIT = { code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "", receivableAccountId: "" };
 
 interface SalesUser { id: string; firstName: string; lastName: string; email: string; }
 
@@ -55,7 +55,7 @@ export default function ErpCustomersPage() {
 
   const openEdit = (c: any) => {
     setEditing(c); setSalesRep(c.assignedSalesRepId ? { id: c.assignedSalesRepId, name: c.assignedSalesRepName ?? "" } : null);
-    setForm({ code: c.code, name: c.name, phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", notes: c.notes ?? "", receivableAccountId: c.receivableAccountId ?? "" });
+    setForm({ code: c.code, name: c.name, taxNumber: c.taxNumber ?? "", phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", notes: c.notes ?? "", receivableAccountId: c.receivableAccountId ?? "" });
     setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(INIT); setSalesRep(null); };
@@ -160,6 +160,8 @@ export default function ErpCustomersPage() {
               <input required value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="input w-full" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("name")} *</label>
               <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input w-full" /></div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Tax Number</label>
+              <input value={form.taxNumber} onChange={e => setForm(f => ({ ...f, taxNumber: e.target.value }))} className="input w-full" placeholder="Optional" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("phone")} *</label>
               <input required value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="input w-full" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("email")} *</label>
@@ -208,6 +210,7 @@ export default function ErpCustomersPage() {
             <thead className="bg-muted/30"><tr>
               <th className="text-left p-3 font-medium text-muted-foreground">{t("code")}</th>
               <th className="text-left p-3 font-medium text-muted-foreground">{t("name")}</th>
+              <th className="text-left p-3 font-medium text-muted-foreground">Tax Number</th>
               <th className="text-left p-3 font-medium text-muted-foreground">{t("phone")}</th>
               <th className="text-left p-3 font-medium text-muted-foreground">Sales Rep</th>
               <th className="text-center p-3 font-medium text-muted-foreground">{t("status")}</th>
@@ -218,6 +221,7 @@ export default function ErpCustomersPage() {
                 <tr key={c.id} className={`hover:bg-muted/20 ${!c.isActive ? "opacity-60" : ""}`}>
                   <td className="p-3 font-mono text-xs">{c.code}</td>
                   <td className="p-3 font-semibold">{c.name}</td>
+                  <td className="p-3 font-mono text-xs text-muted-foreground">{c.taxNumber ?? "—"}</td>
                   <td className="p-3 text-muted-foreground">{c.phone ?? "—"}</td>
                   <td className="p-3 text-muted-foreground">
                     {(c as any).assignedSalesRepName
@@ -243,7 +247,7 @@ export default function ErpCustomersPage() {
                   </td>
                 </tr>
               ))}
-              {!data?.length && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>}
+              {!data?.length && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>}
             </tbody>
           </table>
         </div>

@@ -12,7 +12,7 @@ import { PersonalCalendar } from "@/features/dashboard/components/PersonalCalend
 import {
   Plus, TrendingUp, ShoppingCart, Users, FileCheck2,
   AlertTriangle, Clock, ChevronRight, ArrowRight,
-  Package, ClipboardList,
+  Package, ClipboardList, Receipt, FileText, DollarSign,
 } from "lucide-react";
 
 /* ── helpers ── */
@@ -78,10 +78,10 @@ export default function ErpDashboardPage() {
 
   /* ── Quick Actions ── */
   const quickActions = [
-    { label: lang === "ar" ? "+ عميل جديد" : "+ New Customer",   href: "/crm/customers",  icon: Users,        color: "bg-blue-500" },
-    { label: lang === "ar" ? "+ عميل محتمل" : "+ New Lead",       href: "/crm/leads",      icon: TrendingUp,   color: "bg-purple-500" },
-    { label: lang === "ar" ? "+ عرض سعر"   : "+ New Quotation",  href: "/quotations",     icon: FileCheck2,   color: "bg-amber-500" },
-    { label: lang === "ar" ? "+ أمر بيع"   : "+ New Sales Order",href: "/erp/sales-orders",icon: ShoppingCart,color: "bg-emerald-500" },
+    { label: lang === "ar" ? "+ عميل جديد" : "+ New Customer",   href: "/crm/customers",  icon: Users,        color: "bg-primary/10" },
+    { label: lang === "ar" ? "+ عميل محتمل" : "+ New Lead",       href: "/crm/leads",      icon: TrendingUp,   color: "bg-primary/10" },
+    { label: lang === "ar" ? "+ عرض سعر"   : "+ New Quotation",  href: "/quotations",     icon: FileCheck2,   color: "bg-primary/10" },
+    { label: lang === "ar" ? "+ أمر بيع"   : "+ New Sales Order",href: "/erp/sales-orders",icon: ShoppingCart,color: "bg-primary/10" },
   ];
 
   /* ── Pipeline stages ── */
@@ -118,10 +118,10 @@ export default function ErpDashboardPage() {
   }));
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2">
+      <div className="card p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-primary/[0.025]">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">
             {user?.firstName ? greet(user.firstName) : "Welcome 👋"}
@@ -142,12 +142,49 @@ export default function ErpDashboardPage() {
             <Link key={a.href} href={a.href}
               className="flex items-center gap-3 rounded-xl border p-4 hover:border-primary/40 hover:shadow-sm transition-all group bg-background">
               <div className={`h-9 w-9 rounded-lg ${a.color} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
-                <a.icon className="h-4 w-4 text-white" />
+                <a.icon className="h-4 w-4 text-primary" />
               </div>
               <span className="text-sm font-semibold text-foreground">{a.label}</span>
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* ── Financial overview ── */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Link href="/erp/customer-invoices" className="card p-5 hover:border-primary/40 transition-colors">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-medium">Total Receivable</p>
+              <p className="text-xs text-muted-foreground">Outstanding customer balance</p>
+            </div>
+            <Receipt className="h-5 w-5 text-primary" />
+          </div>
+          <p className="text-2xl font-bold tabular-nums">{kpis ? fmtEGP(kpis.totalReceivables) : "…"}</p>
+          <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full w-2/3 bg-primary rounded-full" /></div>
+        </Link>
+        <Link href="/erp/supplier-invoices" className="card p-5 hover:border-primary/40 transition-colors">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-medium">Total Payables</p>
+              <p className="text-xs text-muted-foreground">Outstanding supplier balance</p>
+            </div>
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <p className="text-2xl font-bold tabular-nums">{kpis ? fmtEGP(kpis.totalPayables) : "…"}</p>
+          <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full w-1/2 bg-primary rounded-full" /></div>
+        </Link>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Link href="/erp/bank-accounts" className="card p-5 flex items-center justify-between hover:border-primary/40 transition-colors">
+          <div><p className="text-xs text-muted-foreground">Cash & Bank Balance</p><p className="text-xl font-bold mt-1">{kpis ? fmtEGP(kpis.bankBalances.reduce((s, b) => s + b.balance, 0)) : "…"}</p></div>
+          <DollarSign className="h-6 w-6 text-primary" />
+        </Link>
+        <Link href="/erp/inventory" className="card p-5 flex items-center justify-between hover:border-primary/40 transition-colors">
+          <div><p className="text-xs text-muted-foreground">Inventory Value</p><p className="text-xl font-bold mt-1">{kpis ? fmtEGP(kpis.inventoryValue) : "…"}</p></div>
+          <Package className="h-6 w-6 text-primary" />
+        </Link>
       </div>
 
       {/* ── Personal calendar ── */}

@@ -179,6 +179,7 @@ export default function CrmCustomersPage() {
             <thead className="bg-muted/30"><tr>
               <th className="text-left p-3 font-medium text-muted-foreground">{t("code")}</th>
               <th className="text-left p-3 font-medium text-muted-foreground">{t("name")}</th>
+              <th className="text-left p-3 font-medium text-muted-foreground">Tax Number</th>
               <th className="text-left p-3 font-medium text-muted-foreground">{t("phone")}</th>
               <th className="text-left p-3 font-medium text-muted-foreground">{t("email")}</th>
               <th className="text-center p-3 font-medium text-muted-foreground">{t("status")}</th>
@@ -189,6 +190,7 @@ export default function CrmCustomersPage() {
                 <tr key={c.id} className={`hover:bg-muted/20 ${!c.isActive ? "opacity-60" : ""}`}>
                   <td className="p-3 font-mono text-xs">{c.code}</td>
                   <td className="p-3 font-semibold">{c.name}</td>
+                  <td className="p-3 font-mono text-xs text-muted-foreground">{c.taxNumber ?? "—"}</td>
                   <td className="p-3 text-muted-foreground">{c.phone ?? "—"}</td>
                   <td className="p-3 text-muted-foreground">{c.email ?? "—"}</td>
                   <td className="p-3 text-center">
@@ -215,7 +217,7 @@ export default function CrmCustomersPage() {
                 </tr>
               ))}
               {!customers?.length && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">
                   {search ? `No customers match "${search}".` : t("no_data")}
                 </td></tr>
               )}

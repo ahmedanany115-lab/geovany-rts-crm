@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Accounting.Reports;
 using RTSErp.Application.Common.Interfaces;
+using RTSErp.Domain.Enums;
 
 namespace RTSErp.Api.Controllers.v1;
 
@@ -43,12 +44,22 @@ public class ReportsController : BaseApiController
         var to    = toDate   ?? today;
 
         var invoices = await _db.CustomerInvoices
-            .Where(i => !i.IsDeleted && i.InvoiceDate >= from && i.InvoiceDate <= to)
+            .Where(i => !i.IsDeleted && i.Status != InvoiceStatus.Draft && i.Status != InvoiceStatus.Cancelled && i.InvoiceDate >= from && i.InvoiceDate <= to)
             .ToListAsync(ct);
 
         var payments = await _db.CustomerPayments
             .Where(p => !p.IsDeleted && p.PaymentDate >= from && p.PaymentDate <= to)
             .ToListAsync(ct);
+
+        var arIds = await GetReceivableAccountIdsAsync(ct);
+        var returnEntries = await _db.JournalEntries
+            .Include(j => j.Lines)
+            .Where(j => !j.IsDeleted && j.Status == JournalEntryStatus.Posted
+                && j.ReferenceType == ReferenceType.CustomerReturn
+                && j.EntryDate >= from && j.EntryDate <= to)
+            .ToListAsync(ct);
+        var totalReturns = returnEntries.Sum(j =>
+            j.Lines.Where(l => arIds.Contains(l.AccountId)).Sum(l => l.CreditBase - l.DebitBase));
 
         var orders = await _db.SalesOrders
             .Where(o => !o.IsDeleted && o.OrderDate >= from && o.OrderDate <= to)
@@ -61,9 +72,10 @@ public class ReportsController : BaseApiController
             totalRevenue     = invoices.Sum(i => i.SubTotal),
             totalVat         = invoices.Sum(i => i.TaxAmount),
             totalDiscounts   = invoices.Sum(i => i.DiscountAmount),
-            netRevenue       = invoices.Sum(i => i.TotalAmount),
+            netRevenue       = invoices.Sum(i => i.TotalAmount) - totalReturns,
+            totalReturns,
             totalCollected   = payments.Sum(p => p.Amount),
-            totalOutstanding = invoices.Sum(i => i.TotalAmount - i.PaidAmount),
+            totalOutstanding = invoices.Sum(i => i.TotalAmount - i.PaidAmount) - totalReturns,
         });
     }
 
@@ -74,22 +86,31 @@ public class ReportsController : BaseApiController
         var from  = fromDate ?? new DateOnly(today.Year, 1, 1);
         var to    = toDate   ?? today;
 
-        var rows = await _db.CustomerInvoices
+        var invoices = await _db.CustomerInvoices
             .Include(i => i.Customer)
             .Where(i => !i.IsDeleted && i.InvoiceDate >= from && i.InvoiceDate <= to)
+            .ToListAsync(ct);
+        var returnMap = await GetCustomerReturnMapAsync(from, to, ct);
+
+        var rows = invoices
             .GroupBy(i => new { i.CustomerId, i.Customer.Name })
-            .Select(g => new
+            .Select(g =>
             {
-                customerId       = g.Key.CustomerId,
-                customerName     = g.Key.Name,
-                orderCount       = g.Count(),
-                totalRevenue     = g.Sum(i => i.SubTotal),
-                totalVat         = g.Sum(i => i.TaxAmount),
-                totalCollected   = g.Sum(i => i.PaidAmount),
-                totalOutstanding = g.Sum(i => i.TotalAmount - i.PaidAmount),
+                var returns = g.Sum(i => returnMap.GetValueOrDefault(i.Id));
+                return new
+                {
+                    customerId       = g.Key.CustomerId,
+                    customerName     = g.Key.Name,
+                    orderCount       = g.Count(),
+                    totalRevenue     = g.Sum(i => i.SubTotal),
+                    totalVat         = g.Sum(i => i.TaxAmount),
+                    totalCollected   = g.Sum(i => i.PaidAmount),
+                    totalReturns     = returns,
+                    totalOutstanding = g.Sum(i => i.TotalAmount - i.PaidAmount) - returns,
+                };
             })
             .OrderByDescending(r => r.totalRevenue)
-            .ToListAsync(ct);
+            .ToList();
 
         return Ok(rows);
     }
@@ -101,25 +122,59 @@ public class ReportsController : BaseApiController
         var from  = fromDate ?? new DateOnly(today.Year, 1, 1);
         var to    = toDate   ?? today;
 
-        var rows = await _db.CustomerInvoiceLines
-            .Include(l => l.CustomerInvoice).Include(l => l.Product)
+        var lines = await _db.CustomerInvoiceLines
+            .Include(l => l.CustomerInvoice)
+            .Include(l => l.Product)
             .Where(l => !l.IsDeleted && !l.CustomerInvoice.IsDeleted
-                     && l.CustomerInvoice.InvoiceDate >= from && l.CustomerInvoice.InvoiceDate <= to
-                     && l.ProductId != null)
-            .GroupBy(l => new { l.ProductId, l.Product!.Name, l.Product.SKU })
-            .Select(g => new
+                     && l.CustomerInvoice.Status != InvoiceStatus.Draft
+                     && l.CustomerInvoice.Status != InvoiceStatus.Cancelled
+                     && l.CustomerInvoice.InvoiceDate >= from && l.CustomerInvoice.InvoiceDate <= to)
+            .ToListAsync(ct);
+
+        var returnMovements = await _db.InventoryMovements
+            .Where(m => !m.IsDeleted
+                && m.ReferenceType == "CustomerReturn"
+                && m.MovementType == InventoryMovementType.ReturnFromCustomer
+                && m.MovementDate >= from && m.MovementDate <= to
+                && m.ReferenceId.HasValue)
+            .ToListAsync(ct);
+
+        var rows = lines
+            .GroupBy(l => new { l.ProductId, l.Product.Name, l.Product.SKU })
+            .Select(g =>
             {
-                productId    = g.Key.ProductId,
-                productName  = g.Key.Name,
-                productSku   = g.Key.SKU,
-                quantitySold = g.Sum(l => l.Quantity),
-                totalRevenue = g.Sum(l => l.LineTotal),
-                totalDiscount= g.Sum(l => l.DiscountAmount),
-                totalVat     = g.Sum(l => l.TaxAmount),
-                netRevenue   = g.Sum(l => l.NetAmount),
+                decimal returnedQty = 0, returnedGross = 0, returnedDiscount = 0, returnedVat = 0, returnedNet = 0;
+                foreach (var movement in returnMovements.Where(m => m.ProductId == g.Key.ProductId))
+                {
+                    var source = lines.FirstOrDefault(l =>
+                        l.CustomerInvoiceId == movement.ReferenceId!.Value && l.ProductId == movement.ProductId);
+                    if (source is null) continue;
+
+                    var gross = movement.Quantity * source.UnitPrice;
+                    var discount = gross * (source.DiscountPercent / 100m);
+                    var vat = gross * source.TaxRate;
+                    returnedQty += movement.Quantity;
+                    returnedGross += gross;
+                    returnedDiscount += discount;
+                    returnedVat += vat;
+                    returnedNet += gross - discount + vat;
+                }
+
+                return new
+                {
+                    productId     = g.Key.ProductId,
+                    productName   = g.Key.Name,
+                    productSku    = g.Key.SKU,
+                    quantitySold  = g.Sum(l => l.Quantity) - returnedQty,
+                    returnedQty,
+                    totalRevenue  = g.Sum(l => l.LineTotal) - returnedGross,
+                    totalDiscount = g.Sum(l => l.DiscountAmount) - returnedDiscount,
+                    totalVat      = g.Sum(l => l.TaxAmount) - returnedVat,
+                    netRevenue    = g.Sum(l => l.NetAmount) - returnedNet,
+                };
             })
             .OrderByDescending(r => r.totalRevenue)
-            .ToListAsync(ct);
+            .ToList();
 
         return Ok(rows);
     }
@@ -131,23 +186,67 @@ public class ReportsController : BaseApiController
         var from  = fromDate ?? new DateOnly(today.Year, 1, 1);
         var to    = toDate   ?? today;
 
-        var rows = await _db.CustomerInvoices
+        var invoices = await _db.CustomerInvoices
             .Include(i => i.Customer)
             .Where(i => !i.IsDeleted && i.InvoiceDate >= from && i.InvoiceDate <= to)
+            .ToListAsync(ct);
+        var returnMap = await GetCustomerReturnMapAsync(from, to, ct);
+
+        var rows = invoices
             .GroupBy(i => new { i.Customer.AssignedSalesRepId, i.Customer.AssignedSalesRepName })
-            .Select(g => new
+            .Select(g =>
             {
-                salesRepId       = g.Key.AssignedSalesRepId,
-                salesRepName     = g.Key.AssignedSalesRepName ?? "Unassigned",
-                orderCount       = g.Count(),
-                totalRevenue     = g.Sum(i => i.SubTotal),
-                totalCollected   = g.Sum(i => i.PaidAmount),
-                totalOutstanding = g.Sum(i => i.TotalAmount - i.PaidAmount),
-                commission       = g.Sum(i => i.SubTotal) * 0.015m,   // 1.5% existing rule
+                var returns = g.Sum(i => returnMap.GetValueOrDefault(i.Id));
+                var netSales = g.Sum(i => i.TotalAmount) - returns;
+                return new
+                {
+                    salesRepId       = g.Key.AssignedSalesRepId,
+                    salesRepName     = g.Key.AssignedSalesRepName ?? "Unassigned",
+                    orderCount       = g.Count(),
+                    totalRevenue     = g.Sum(i => i.SubTotal),
+                    totalCollected   = g.Sum(i => i.PaidAmount),
+                    totalReturns     = returns,
+                    totalOutstanding = g.Sum(i => i.TotalAmount - i.PaidAmount) - returns,
+                    commission       = netSales * 0.015m,
+                };
             })
             .OrderByDescending(r => r.totalRevenue)
-            .ToListAsync(ct);
+            .ToList();
 
         return Ok(rows);
+    }
+
+    private async Task<List<Guid>> GetReceivableAccountIdsAsync(CancellationToken ct)
+    {
+        var ids = await _db.BusinessPartners
+            .Where(b => !b.IsDeleted && b.ReceivableAccountId.HasValue)
+            .Select(b => b.ReceivableAccountId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+        var fallback = await _db.Accounts
+            .Where(a => !a.IsDeleted && a.Code == "1301")
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
+        if (fallback.HasValue && !ids.Contains(fallback.Value)) ids.Add(fallback.Value);
+        return ids;
+    }
+
+    private async Task<Dictionary<Guid, decimal>> GetCustomerReturnMapAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        var arIds = await GetReceivableAccountIdsAsync(ct);
+        var entries = await _db.JournalEntries
+            .Include(j => j.Lines)
+            .Where(j => !j.IsDeleted && j.Status == JournalEntryStatus.Posted
+                && j.ReferenceType == ReferenceType.CustomerReturn
+                && j.ReferenceId.HasValue
+                && j.EntryDate >= from && j.EntryDate <= to)
+            .ToListAsync(ct);
+
+        return entries
+            .GroupBy(j => j.ReferenceId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(j => j.Lines.Where(l => arIds.Contains(l.AccountId))
+                    .Sum(l => l.CreditBase - l.DebitBase)));
     }
 }

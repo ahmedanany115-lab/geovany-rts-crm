@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { ModuleNav } from "@/components/layout/ModuleNav";
 import { NotificationsDrawer } from "@/components/layout/NotificationsDrawer";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -28,12 +28,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null; // redirect effect above is already firing
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
+    <div className="flex h-screen flex-col overflow-hidden bg-muted/10">
+      <Topbar />
+      <ModuleNav />
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1600px] p-4 md:p-6">{children}</div>
+      </main>
       <NotificationsDrawer />
     </div>
   );

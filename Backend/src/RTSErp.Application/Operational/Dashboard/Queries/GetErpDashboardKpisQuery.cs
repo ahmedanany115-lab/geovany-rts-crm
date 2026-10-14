@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using RTSErp.Application.Common.Interfaces;
 using RTSErp.Domain.Enums;
+using RTSErp.Domain.Entities.Accounting;
 
 namespace RTSErp.Application.Operational.Dashboard.Queries;
 
