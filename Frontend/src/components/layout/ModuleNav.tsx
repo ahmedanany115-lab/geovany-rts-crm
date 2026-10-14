@@ -100,7 +100,7 @@ export function ModuleNav() {
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 relative z-40">
-      <div className="flex items-center gap-1 overflow-x-auto px-4 min-h-11">
+      <div className="flex flex-wrap items-center gap-1 overflow-visible px-4 min-h-11">
         {groups.map(group => {
           const active = group.items.some(i => pathname === i.href || pathname?.startsWith(i.href + "/"));
           const Icon = group.icon;

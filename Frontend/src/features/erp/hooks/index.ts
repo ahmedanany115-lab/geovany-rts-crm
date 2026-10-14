@@ -104,7 +104,7 @@ export const useUpdateProduct = () => {
 export const useDeleteProduct = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiFetch<void>(`/products/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiFetch<{ archived: boolean; message: string }>(`/products/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
   });
 };

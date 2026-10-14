@@ -4,6 +4,7 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useT
 import { useCurrencies } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
+import { useRoles } from "@/hooks/useRoles";
 import { Package, Plus, RefreshCw, PowerOff, Search, Pencil, Trash2, X, Check, AlertTriangle } from "lucide-react";
 import type { ProductDto } from "@/features/erp/types";
 
@@ -12,6 +13,8 @@ const INIT = { sku: "", name: "", nameAr: "", category: "", unit: "Piece", purch
 export default function ProductsPage() {
   const { t } = useT();
   const { toast } = useToast();
+  const { isAdmin, hasRole } = useRoles();
+  const canDelete = isAdmin || hasRole("Manager");
   const [search, setSearch]       = useState("");
   const [showForm, setShowForm]   = useState(false);
   const [editing, setEditing]     = useState<ProductDto | null>(null);
@@ -46,8 +49,12 @@ export default function ProductsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    try { await del.mutateAsync(deleteTarget.id); toast(`"${deleteTarget.name}" deleted.`, "info"); setDelete(null); }
-    catch (err: any) { toast(err?.message ?? "Failed to delete — deactivate instead.", "error"); setDelete(null); }
+    try {
+      const result = await del.mutateAsync(deleteTarget.id);
+      toast(result?.message ?? `"${deleteTarget.name}" updated.`, result?.archived ? "info" : "success");
+      setDelete(null);
+    }
+    catch (err: any) { toast(err?.message ?? "Failed to delete product.", "error"); setDelete(null); }
   };
 
   const handleToggle = async (id: string, name: string, active: boolean) => {
