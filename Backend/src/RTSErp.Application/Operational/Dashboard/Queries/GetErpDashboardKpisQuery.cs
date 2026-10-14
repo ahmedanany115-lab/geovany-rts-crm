@@ -116,6 +116,22 @@ public class GetErpDashboardKpisQueryHandler : IRequestHandler<GetErpDashboardKp
             .Where(c => !c.IsDeleted && c.Status == CommissionStatus.Pending)
             .SumAsync(c => c.CommissionAmount, ct);
 
+        // VAT balances come from posted journal entries so the dashboard stays
+        // consistent with the ledger / financial statements.
+        dto.VatReceivable = await _db.JournalEntryLines
+            .Where(l => !l.IsDeleted
+                && !l.JournalEntry.IsDeleted
+                && l.JournalEntry.Status == JournalEntryStatus.Posted
+                && l.Account.Code == "1400")
+            .SumAsync(l => l.DebitBase - l.CreditBase, ct);
+
+        dto.VatPayable = await _db.JournalEntryLines
+            .Where(l => !l.IsDeleted
+                && !l.JournalEntry.IsDeleted
+                && l.JournalEntry.Status == JournalEntryStatus.Posted
+                && l.Account.Code == "2200")
+            .SumAsync(l => l.CreditBase - l.DebitBase, ct);
+
         return dto;
     }
 }

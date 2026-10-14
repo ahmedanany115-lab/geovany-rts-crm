@@ -280,6 +280,16 @@ public class PostCashReceiptCommandHandler : IRequestHandler<PostCashReceiptComm
         receipt.ModifiedAt     = DateTime.UtcNow;
         receipt.ModifiedBy     = _user.UserId;
 
+        // Keep dashboard/bank-account balance in sync with the posted GL cash account.
+        var linkedBankAccount = await _db.BankAccounts
+            .FirstOrDefaultAsync(b => !b.IsDeleted && b.GlAccountId == receipt.CashAccountId, ct);
+        if (linkedBankAccount is not null)
+        {
+            linkedBankAccount.CurrentBalance += receipt.Amount;
+            linkedBankAccount.ModifiedAt = DateTime.UtcNow;
+            linkedBankAccount.ModifiedBy = _user.UserId;
+        }
+
         await _db.SaveChangesAsync(ct);
     }
 }
@@ -330,6 +340,15 @@ public class VoidCashReceiptCommandHandler : IRequestHandler<VoidCashReceiptComm
         receipt.Status     = CashTransactionStatus.Voided;
         receipt.ModifiedAt = DateTime.UtcNow;
         receipt.ModifiedBy = _user.UserId;
+
+        var linkedBankAccount = await _db.BankAccounts
+            .FirstOrDefaultAsync(b => !b.IsDeleted && b.GlAccountId == receipt.CashAccountId, ct);
+        if (linkedBankAccount is not null)
+        {
+            linkedBankAccount.CurrentBalance -= receipt.Amount;
+            linkedBankAccount.ModifiedAt = DateTime.UtcNow;
+            linkedBankAccount.ModifiedBy = _user.UserId;
+        }
 
         await _db.SaveChangesAsync(ct);
     }
