@@ -644,7 +644,11 @@ public class PostCustomerInvoiceCommandHandler : IRequestHandler<PostCustomerInv
             throw new InvalidOperationException($"Cannot post invoice in status {invoice.Status}.");
 
         var receivableAccountId = invoice.Customer.ReceivableAccountId
-            ?? throw new InvalidOperationException("Customer has no Receivable Account configured.");
+            ?? (await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "1301" && !a.IsDeleted, ct))?.Id
+            ?? throw new InvalidOperationException("No Trade Receivables account (1301) is configured.");
+
+        if (!invoice.Customer.ReceivableAccountId.HasValue)
+            invoice.Customer.ReceivableAccountId = receivableAccountId;
 
         // Get VAT output account
         var vatOutputAcc = await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "2200" && !a.IsDeleted, ct);

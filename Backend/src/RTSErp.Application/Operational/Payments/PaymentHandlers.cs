@@ -163,7 +163,11 @@ public class CreateCustomerPaymentCommandHandler : IRequestHandler<CreateCustome
             ?? throw new NotFoundException("Customer", req.CustomerId);
 
         var receivableAccountId = customer.ReceivableAccountId
-            ?? throw new InvalidOperationException("Customer has no Receivable Account.");
+            ?? (await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "1301" && !a.IsDeleted, ct))?.Id
+            ?? throw new InvalidOperationException("No Trade Receivables account (1301) is configured.");
+
+        if (!customer.ReceivableAccountId.HasValue)
+            customer.ReceivableAccountId = receivableAccountId;
 
         // Determine bank/credit account
         Guid creditAccountId;
@@ -311,7 +315,11 @@ public class CreateSupplierPaymentCommandHandler : IRequestHandler<CreateSupplie
         var supplier = await _db.BusinessPartners.FirstOrDefaultAsync(b => b.Id == req.SupplierId && !b.IsDeleted, ct)
             ?? throw new NotFoundException("Supplier", req.SupplierId);
         var payableAccountId = supplier.PayableAccountId
-            ?? throw new InvalidOperationException("Supplier has no Payable Account.");
+            ?? (await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "2101" && !a.IsDeleted, ct))?.Id
+            ?? throw new InvalidOperationException("No Trade Payables account (2101) is configured.");
+
+        if (!supplier.PayableAccountId.HasValue)
+            supplier.PayableAccountId = payableAccountId;
 
         var bankAcc = await _db.BankAccounts.FirstOrDefaultAsync(b => b.Id == req.BankAccountId && !b.IsDeleted, ct)
             ?? throw new NotFoundException(nameof(BankAccount), req.BankAccountId);

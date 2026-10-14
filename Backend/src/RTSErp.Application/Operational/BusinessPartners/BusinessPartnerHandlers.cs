@@ -226,9 +226,34 @@ public class UpsertBusinessPartnerCommandHandler : IRequestHandler<UpsertBusines
         bp.AssignedSalesRepId   = request.AssignedSalesRepId;
         bp.AssignedSalesRepName = request.AssignedSalesRepName?.Trim();
         bp.CreditLimit = request.CreditLimit;
-        bp.CurrencyId = request.CurrencyId;
-        bp.ReceivableAccountId = request.ReceivableAccountId;
-        bp.PayableAccountId = request.PayableAccountId;
+
+        // Safe accounting defaults: keep explicit/existing configuration,
+        // otherwise attach the standard seeded accounts automatically.
+        var baseCurrencyId = await _db.Currencies
+            .Where(c => c.IsBaseCurrency && !c.IsDeleted)
+            .Select(c => (Guid?)c.Id)
+            .FirstOrDefaultAsync(ct);
+        bp.CurrencyId = request.CurrencyId ?? bp.CurrencyId ?? baseCurrencyId;
+
+        bp.ReceivableAccountId = request.ReceivableAccountId ?? bp.ReceivableAccountId;
+        if (!bp.ReceivableAccountId.HasValue &&
+            request.PartnerType is BusinessPartnerType.Customer or BusinessPartnerType.Both)
+        {
+            bp.ReceivableAccountId = await _db.Accounts
+                .Where(a => a.Code == "1301" && !a.IsDeleted)
+                .Select(a => (Guid?)a.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        bp.PayableAccountId = request.PayableAccountId ?? bp.PayableAccountId;
+        if (!bp.PayableAccountId.HasValue &&
+            request.PartnerType is BusinessPartnerType.Supplier or BusinessPartnerType.Both)
+        {
+            bp.PayableAccountId = await _db.Accounts
+                .Where(a => a.Code == "2101" && !a.IsDeleted)
+                .Select(a => (Guid?)a.Id)
+                .FirstOrDefaultAsync(ct);
+        }
 
         await _db.SaveChangesAsync(ct);
         return bp.Id;

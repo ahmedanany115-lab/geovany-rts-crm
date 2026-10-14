@@ -283,16 +283,29 @@ public class PostSupplierInvoiceCommandHandler : IRequestHandler<PostSupplierInv
         // Get accounts
         var supplier = invoice.Supplier;
         var payableAccountId = supplier.PayableAccountId
-            ?? throw new InvalidOperationException("Supplier has no Payable Account configured.");
+            ?? (await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "2101" && !a.IsDeleted, ct))?.Id
+            ?? throw new InvalidOperationException("No Trade Payables account (2101) is configured.");
 
-        // Get the first product's purchase account (or fall back to a generic inventory account)
+        if (!supplier.PayableAccountId.HasValue)
+            supplier.PayableAccountId = payableAccountId;
+
+        // Free-text supplier invoice lines have no Product. Use General & Admin
+        // as a safe seeded fallback instead of dereferencing a null Product.
+        var genericExpenseAccount = await _db.Accounts
+            .FirstOrDefaultAsync(a => a.Code == "6600" && !a.IsDeleted, ct);
+
         var purchaseAccountIds = invoice.Lines
             .Where(l => !l.IsDeleted)
-            .Select(l => l.Product.PurchaseAccountId ?? l.Product.InventoryAccountId)
+            .Select(l => l.Product != null
+                ? (l.Product.PurchaseAccountId ?? l.Product.InventoryAccountId)
+                : genericExpenseAccount?.Id)
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
             .Distinct()
             .ToList();
+
+        if (!purchaseAccountIds.Any())
+            throw new InvalidOperationException("No purchase/expense account is configured for this supplier invoice.");
 
         // Get VAT input account
         var vatInputAccount = await _db.Accounts
@@ -305,15 +318,19 @@ public class PostSupplierInvoiceCommandHandler : IRequestHandler<PostSupplierInv
         // Debit: Purchase/Inventory accounts per line
         foreach (var line in invoice.Lines.Where(l => !l.IsDeleted))
         {
-            var accountId = line.Product.PurchaseAccountId ?? line.Product.InventoryAccountId;
-            if (!accountId.HasValue) continue;
+            var accountId = line.Product != null
+                ? (line.Product.PurchaseAccountId ?? line.Product.InventoryAccountId)
+                : genericExpenseAccount?.Id;
+            if (!accountId.HasValue)
+                throw new InvalidOperationException($"No purchase/expense account configured for line '{line.Description}'.");
 
+            var lineName = line.Product?.Name ?? line.Description;
             jeLines.Add(new JournalEntryLineRequest
             {
                 AccountId = accountId.Value,
                 Debit = line.LineTotal,   // gross before discount and tax
                 Credit = 0,
-                Description = $"Purchase: {line.Product.Name} x{line.Quantity}",
+                Description = $"Purchase: {lineName} x{line.Quantity}",
                 SortOrder = ++sort
             });
         }
