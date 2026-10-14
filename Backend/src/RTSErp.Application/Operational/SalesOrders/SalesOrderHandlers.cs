@@ -375,6 +375,15 @@ public class CreateSalesDeliveryCommandHandler : IRequestHandler<CreateSalesDeli
         decimal totalCOGS = 0;
         var cogsLines = new List<(Guid cogsAccountId, Guid inventoryAccountId, decimal amount, string productName)>();
 
+        var defaultCogsAccountId = await _db.Accounts
+            .Where(a => a.Code == "5100" && !a.IsDeleted)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
+        var defaultInventoryAccountId = await _db.Accounts
+            .Where(a => a.Code == "1502" && !a.IsDeleted)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
+
         foreach (var lineReq in req.Lines)
         {
             var orderLine = order.Lines.FirstOrDefault(l => l.Id == lineReq.SalesOrderLineId && !l.IsDeleted)
@@ -409,11 +418,19 @@ public class CreateSalesDeliveryCommandHandler : IRequestHandler<CreateSalesDeli
             orderLine.ModifiedAt = DateTime.UtcNow;
             totalCOGS += lineCOGS;
 
-            // Collect for COGS journal
-            var cogsAccId = orderLine.Product.COGSAccountId;
-            var invAccId = orderLine.Product.InventoryAccountId;
-            if (cogsAccId.HasValue && invAccId.HasValue)
-                cogsLines.Add((cogsAccId.Value, invAccId.Value, lineCOGS, orderLine.Product.Name));
+            // Collect for COGS journal. Old products created by the simplified
+            // UI may not have GL mappings, so use the standard seeded defaults.
+            var cogsAccId = orderLine.Product.COGSAccountId ?? defaultCogsAccountId;
+            var invAccId = orderLine.Product.InventoryAccountId ?? defaultInventoryAccountId;
+            if (!cogsAccId.HasValue || !invAccId.HasValue)
+                throw new InvalidOperationException($"Missing COGS/Inventory GL accounts for product '{orderLine.Product.Name}'.");
+
+            if (!orderLine.Product.COGSAccountId.HasValue)
+                orderLine.Product.COGSAccountId = cogsAccId;
+            if (!orderLine.Product.InventoryAccountId.HasValue)
+                orderLine.Product.InventoryAccountId = invAccId;
+
+            cogsLines.Add((cogsAccId.Value, invAccId.Value, lineCOGS, orderLine.Product.Name));
         }
 
         delivery.TotalCOGS = totalCOGS;
@@ -656,6 +673,11 @@ public class PostCustomerInvoiceCommandHandler : IRequestHandler<PostCustomerInv
         var jeLines = new List<JournalEntryLineRequest>();
         int sort = 0;
 
+        var defaultSalesAccountId = await _db.Accounts
+            .Where(a => a.Code == "4100" && !a.IsDeleted)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
+
         // Dr: Customer Receivable (total net)
         jeLines.Add(new JournalEntryLineRequest
         {
@@ -666,8 +688,13 @@ public class PostCustomerInvoiceCommandHandler : IRequestHandler<PostCustomerInv
         // Cr: Sales Revenue per line (gross line total) + Cr: Discount adjustment
         foreach (var line in invoice.Lines.Where(l => !l.IsDeleted))
         {
-            var salesAccountId = line.Product.SalesAccountId;
-            if (!salesAccountId.HasValue) continue;
+            var salesAccountId = line.Product.SalesAccountId ?? defaultSalesAccountId;
+            if (!salesAccountId.HasValue)
+                throw new InvalidOperationException($"Missing Sales Revenue account for product '{line.Product.Name}'.");
+
+            if (!line.Product.SalesAccountId.HasValue)
+                line.Product.SalesAccountId = salesAccountId;
+
             // Credit the gross line amount
             jeLines.Add(new JournalEntryLineRequest
             {

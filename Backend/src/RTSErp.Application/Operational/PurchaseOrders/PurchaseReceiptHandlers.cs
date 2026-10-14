@@ -297,7 +297,7 @@ public class PostSupplierInvoiceCommandHandler : IRequestHandler<PostSupplierInv
         var purchaseAccountIds = invoice.Lines
             .Where(l => !l.IsDeleted)
             .Select(l => l.Product != null
-                ? (l.Product.PurchaseAccountId ?? l.Product.InventoryAccountId)
+                ? (l.Product.PurchaseAccountId ?? l.Product.InventoryAccountId ?? genericExpenseAccount?.Id)
                 : genericExpenseAccount?.Id)
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
@@ -319,7 +319,7 @@ public class PostSupplierInvoiceCommandHandler : IRequestHandler<PostSupplierInv
         foreach (var line in invoice.Lines.Where(l => !l.IsDeleted))
         {
             var accountId = line.Product != null
-                ? (line.Product.PurchaseAccountId ?? line.Product.InventoryAccountId)
+                ? (line.Product.PurchaseAccountId ?? line.Product.InventoryAccountId ?? genericExpenseAccount?.Id)
                 : genericExpenseAccount?.Id;
             if (!accountId.HasValue)
                 throw new InvalidOperationException($"No purchase/expense account configured for line '{line.Description}'.");

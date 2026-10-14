@@ -233,10 +233,27 @@ public class UpsertProductCommandHandler : IRequestHandler<UpsertProductCommand,
         product.CurrencyId = request.CurrencyId;
         product.TaxRateId = request.TaxRateId;
         product.MinimumStock = request.MinimumStock;
-        product.InventoryAccountId = request.InventoryAccountId;
-        product.COGSAccountId = request.COGSAccountId;
-        product.SalesAccountId = request.SalesAccountId;
-        product.PurchaseAccountId = request.PurchaseAccountId;
+
+        // The current Products UI does not expose GL mappings. Apply the
+        // standard seeded accounts automatically while preserving any explicit
+        // or existing configuration.
+        var defaultInventoryId = await _db.Accounts
+            .Where(a => a.Code == "1502" && !a.IsDeleted)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
+        var defaultCogsId = await _db.Accounts
+            .Where(a => a.Code == "5100" && !a.IsDeleted)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
+        var defaultSalesId = await _db.Accounts
+            .Where(a => a.Code == "4100" && !a.IsDeleted)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
+
+        product.InventoryAccountId = request.InventoryAccountId ?? product.InventoryAccountId ?? defaultInventoryId;
+        product.COGSAccountId      = request.COGSAccountId      ?? product.COGSAccountId      ?? defaultCogsId;
+        product.SalesAccountId     = request.SalesAccountId     ?? product.SalesAccountId     ?? defaultSalesId;
+        product.PurchaseAccountId  = request.PurchaseAccountId  ?? product.PurchaseAccountId  ?? defaultInventoryId;
 
         await _db.SaveChangesAsync(ct);
         return product.Id;
