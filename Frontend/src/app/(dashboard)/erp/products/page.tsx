@@ -51,7 +51,7 @@ export default function ProductsPage() {
     if (!deleteTarget) return;
     try {
       const result = await del.mutateAsync(deleteTarget.id);
-      toast(result?.message ?? `"${deleteTarget.name}" updated.`, result?.archived ? "info" : "success");
+      toast(result?.message ?? `"${deleteTarget.name}" deleted.`, "success");
       setDelete(null);
     }
     catch (err: any) { toast(err?.message ?? "Failed to delete product.", "error"); setDelete(null); }
@@ -76,7 +76,7 @@ export default function ProductsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-background rounded-xl border shadow-xl p-6 max-w-sm w-full space-y-4">
             <div className="flex items-center gap-3 text-red-600"><AlertTriangle className="h-5 w-5" /><h2 className="font-semibold">{t("confirm_delete")}</h2></div>
-            <p className="text-sm text-muted-foreground">Delete <strong>{deleteTarget.name}</strong>? Products with inventory history cannot be deleted — they will be deactivated instead.</p>
+            <p className="text-sm text-muted-foreground">Delete <strong>{deleteTarget.name}</strong>? The product will be removed from the product catalog. Historical transactions will remain intact.</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setDelete(null)} className="btn-ghost px-4 py-2 rounded-lg text-sm">Cancel</button>
               <button onClick={handleDelete} disabled={del.isPending} className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">{del.isPending ? "Deleting…" : "Delete"}</button>
@@ -87,7 +87,6 @@ export default function ProductsPage() {
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-5 space-y-4 border border-primary/20">
           <h2 className="font-semibold text-sm">{editing ? `Edit: ${editing.name}` : "New Product"}</h2>
-          <h2 className="font-semibold text-sm">New Product</h2>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="text-xs text-muted-foreground block mb-1">SKU *</label><input required value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} className="input w-full font-mono" /></div>
             <div className="col-span-2"><label className="text-xs text-muted-foreground block mb-1">{t("name")} *</label><input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input w-full" /></div>
@@ -133,7 +132,7 @@ export default function ProductsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => openEdit(p)} title={t("edit")} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
                       <button onClick={() => handleToggle(p.id, p.name, p.isActive)} title={p.isActive ? t("deactivate") : t("activate")} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"><PowerOff className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => setDelete(p)} title={t("delete")} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                      {canDelete && <button onClick={() => setDelete(p)} title={t("delete")} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>}
                     </div>
                   </td>
                 </tr>

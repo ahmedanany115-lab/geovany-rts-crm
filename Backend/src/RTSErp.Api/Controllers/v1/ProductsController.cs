@@ -48,30 +48,13 @@ public class ProductsController : BaseApiController
         var product = await db.Products.FindAsync([id], ct);
         if (product is null || product.IsDeleted) return NotFound();
 
-        var hasMovements = await db.InventoryMovements.AnyAsync(m => m.ProductId == id && !m.IsDeleted, ct);
-        var hasStock = await db.InventoryBalances.AnyAsync(b => b.ProductId == id && !b.IsDeleted && b.Quantity != 0, ct);
-        var hasPurchaseHistory =
-            await db.PurchaseOrderLines.AnyAsync(l => l.ProductId == id && !l.IsDeleted, ct) ||
-            await db.PurchaseReceiptLines.AnyAsync(l => l.ProductId == id && !l.IsDeleted, ct) ||
-            await db.SupplierInvoiceLines.AnyAsync(l => l.ProductId == id && !l.IsDeleted, ct);
-        var hasSalesHistory =
-            await db.SalesOrderLines.AnyAsync(l => l.ProductId == id && !l.IsDeleted, ct) ||
-            await db.SalesDeliveryLines.AnyAsync(l => l.ProductId == id && !l.IsDeleted, ct) ||
-            await db.CustomerInvoiceLines.AnyAsync(l => l.ProductId == id && !l.IsDeleted, ct);
-
-        // Historical products remain in the database so old documents and reports
-        // keep their references. DELETE behaves as a safe archive/deactivation.
-        if (hasMovements || hasStock || hasPurchaseHistory || hasSalesHistory)
-        {
-            product.IsActive = false;
-            product.ModifiedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(ct);
-            return Ok(new { archived = true, message = "Product has history and was deactivated instead of being permanently deleted." });
-        }
-
+        // Soft-delete the catalog item even when historical documents exist.
+        // The row stays in the database so old orders, invoices, stock movements
+        // and reports keep their foreign-key references and historical names.
         product.IsActive = false;
         product.IsDeleted = true;
         product.ModifiedAt = DateTime.UtcNow;
+
         await db.SaveChangesAsync(ct);
         return Ok(new { archived = false, message = "Product deleted." });
     }
