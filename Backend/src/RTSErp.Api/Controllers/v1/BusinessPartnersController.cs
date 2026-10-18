@@ -165,9 +165,19 @@ public class SuppliersController : BaseApiController
     [Authorize(Roles = "Admin,Manager,Accountant,Purchasing")]
     public async Task<IActionResult> Create(UpsertBusinessPartnerCommand cmd)
     {
+        cmd.Code = cmd.Code.Trim().ToUpperInvariant();
+        cmd.Name = cmd.Name.Trim();
         cmd.PartnerType = BusinessPartnerType.Supplier;
-        var id = await Mediator.Send(cmd);
-        return CreatedAtAction(nameof(Get), new { id }, new { id });
+
+        try
+        {
+            var id = await Mediator.Send(cmd);
+            return CreatedAtAction(nameof(Get), new { id }, new { id });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]

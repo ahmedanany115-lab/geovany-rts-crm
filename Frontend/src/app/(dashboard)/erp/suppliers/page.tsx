@@ -1,11 +1,13 @@
 "use client";
 import { useSuppliers, useCreateSupplier, useToggleSupplierStatus } from "@/features/erp/hooks";
 import { useT } from "@/hooks/useT";
+import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 import { Truck, Plus, PowerOff, Search, RefreshCw } from "lucide-react";
 
 export default function SuppliersPage() {
   const { t } = useT();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "" });
@@ -15,9 +17,32 @@ export default function SuppliersPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    await create.mutateAsync({ ...form, partnerType: 2 });
-    setForm({ code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "" });
-    setShowForm(false);
+    const code = form.code.trim().toUpperCase();
+    const name = form.name.trim();
+
+    if (!code || !name) {
+      toast("Supplier code and name are required.", "error");
+      return;
+    }
+
+    try {
+      await create.mutateAsync({
+        ...form,
+        code,
+        name,
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        taxNumber: form.taxNumber.trim(),
+        address: form.address.trim(),
+        notes: form.notes.trim(),
+        partnerType: 2,
+      });
+      toast(`Supplier "${name}" created successfully.`, "success");
+      setForm({ code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "" });
+      setShowForm(false);
+    } catch (err: any) {
+      toast(err?.message ?? "Failed to create supplier.", "error");
+    }
   };
 
   return (
