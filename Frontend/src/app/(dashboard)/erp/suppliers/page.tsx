@@ -1,19 +1,35 @@
 "use client";
-import { useSuppliers, useCreateSupplier, useToggleSupplierStatus } from "@/features/erp/hooks";
+import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier, useToggleSupplierStatus } from "@/features/erp/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
-import { Truck, Plus, PowerOff, Search, RefreshCw } from "lucide-react";
+import { Truck, Plus, PowerOff, Search, RefreshCw, Pencil, Trash2, X } from "lucide-react";
 
 export default function SuppliersPage() {
   const { t } = useT();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const emptyForm = { code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "" };
+  const [form, setForm] = useState(emptyForm);
   const { data, isLoading, refetch } = useSuppliers({ search: search || undefined });
   const create = useCreateSupplier();
+  const update = useUpdateSupplier();
+  const remove = useDeleteSupplier();
   const toggle = useToggleSupplierStatus();
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const openEdit = (supplier: any) => {
+    setEditingId(supplier.id);
+    setForm({ code: supplier.code ?? "", name: supplier.name ?? "", taxNumber: supplier.taxNumber ?? "", phone: supplier.phone ?? "", email: supplier.email ?? "", address: supplier.address ?? "", notes: supplier.notes ?? "" });
+    setShowForm(true);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,22 +42,17 @@ export default function SuppliersPage() {
     }
 
     try {
-      await create.mutateAsync({
-        ...form,
-        code,
-        name,
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        taxNumber: form.taxNumber.trim(),
-        address: form.address.trim(),
-        notes: form.notes.trim(),
-        partnerType: 2,
-      });
-      toast(`Supplier "${name}" created successfully.`, "success");
-      setForm({ code: "", name: "", taxNumber: "", phone: "", email: "", address: "", notes: "" });
-      setShowForm(false);
+      const payload = { ...form, code, name, email: form.email.trim(), phone: form.phone.trim(), taxNumber: form.taxNumber.trim(), address: form.address.trim(), notes: form.notes.trim(), partnerType: 2 };
+      if (editingId) {
+        await update.mutateAsync({ id: editingId, data: payload });
+        toast(`Supplier "${name}" updated successfully.`, "success");
+      } else {
+        await create.mutateAsync(payload);
+        toast(`Supplier "${name}" created successfully.`, "success");
+      }
+      resetForm();
     } catch (err: any) {
-      toast(err?.message ?? "Failed to create supplier.", "error");
+      toast(err?.message ?? (editingId ? "Failed to update supplier." : "Failed to create supplier."), "error");
     }
   };
 
@@ -51,18 +62,22 @@ export default function SuppliersPage() {
         <div className="flex items-center gap-3"><Truck className="h-6 w-6 text-primary" /><h1 className="text-2xl font-semibold">{t("suppliers")}</h1></div>
         <div className="flex gap-2">
           <button onClick={() => refetch()} className="btn-ghost p-2 rounded-lg"><RefreshCw className="h-4 w-4" /></button>
-          <button onClick={() => setShowForm(v => !v)} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm"><Plus className="h-4 w-4" />{showForm ? t("cancel") : t("add")}</button>
+          <button onClick={() => { if (showForm && !editingId) resetForm(); else { setEditingId(null); setForm(emptyForm); setShowForm(true); } }} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm">{showForm && !editingId ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{showForm && !editingId ? t("cancel") : t("add")}</button>
         </div>
       </div>
       {showForm && (
         <form onSubmit={handleCreate} className="card p-5 space-y-4 border border-primary/20">
+          <div className="flex items-center justify-between"><h2 className="font-semibold">{editingId ? "Edit Supplier" : "New Supplier"}</h2>{editingId && <button type="button" onClick={resetForm} className="btn-ghost p-2 rounded-lg"><X className="h-4 w-4" /></button>}</div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs text-muted-foreground block mb-1">{t("code")} *</label><input required value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} className="input w-full" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("name")} *</label><input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input w-full" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("phone")}</label><input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="input w-full" /></div>
             <div><label className="text-xs text-muted-foreground block mb-1">{t("email")}</label><input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input w-full" /></div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Tax Number</label><input value={form.taxNumber} onChange={e => setForm(f => ({ ...f, taxNumber: e.target.value }))} className="input w-full" /></div>
+            <div><label className="text-xs text-muted-foreground block mb-1">Address</label><input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="input w-full" /></div>
+            <div className="col-span-2"><label className="text-xs text-muted-foreground block mb-1">Notes</label><textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="input w-full min-h-[80px]" /></div>
           </div>
-          <button type="submit" disabled={create.isPending} className="btn-primary px-4 py-2 rounded-lg text-sm">{create.isPending ? t("saving") : t("save")}</button>
+          <button type="submit" disabled={create.isPending || update.isPending} className="btn-primary px-4 py-2 rounded-lg text-sm">{create.isPending || update.isPending ? t("saving") : editingId ? "Update Supplier" : t("save")}</button>
         </form>
       )}
       <div className="relative max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search") + "..."} className="input pl-10 w-full" /></div>
@@ -83,7 +98,7 @@ export default function SuppliersPage() {
                   <td className="p-3 font-medium">{s.name}</td>
                   <td className="p-3 text-muted-foreground">{s.phone ?? "—"}</td>
                   <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full ${s.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{s.isActive ? t("active") : t("inactive")}</span></td>
-                  <td className="p-3 text-right"><button onClick={() => toggle.mutate(s.id)} className="text-muted-foreground hover:text-foreground"><PowerOff className="h-4 w-4" /></button></td>
+                  <td className="p-3 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => openEdit(s)} title="Edit supplier" className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600"><Pencil className="h-4 w-4" /></button><button onClick={() => toggle.mutate(s.id)} title={s.isActive ? "Deactivate supplier" : "Activate supplier"} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"><PowerOff className="h-4 w-4" /></button><button onClick={async () => { if (!confirm(`Delete supplier ${s.name}? Suppliers with purchase/payment history cannot be deleted.`)) return; try { await remove.mutateAsync(s.id); toast(`Supplier "${s.name}" deleted.`, "success"); if (editingId === s.id) resetForm(); } catch (err: any) { toast(err?.message ?? "Failed to delete supplier.", "error"); } }} disabled={remove.isPending} title="Delete supplier" className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50"><Trash2 className="h-4 w-4" /></button></div></td>
                 </tr>
               ))}
               {!data?.length && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>}
