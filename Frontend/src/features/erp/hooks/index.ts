@@ -72,6 +72,22 @@ export const useCreateSupplier = () => {
   return useMutation({ mutationFn: suppliersApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }) });
 };
 
+export const useUpdateSupplier = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof suppliersApi.update>[1] }) => suppliersApi.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }),
+  });
+};
+
+export const useDeleteSupplier = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: suppliersApi.delete,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }),
+  });
+};
+
 export const useToggleSupplierStatus = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: suppliersApi.toggleStatus, onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }) });
