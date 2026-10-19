@@ -55,6 +55,7 @@ export const suppliersApi = {
   update: (id: string, data: UpsertBusinessPartnerRequest) =>
     apiFetch<void>(`/suppliers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   toggleStatus: (id: string) => apiFetch<void>(`/suppliers/${id}/toggle-status`, { method: "PATCH" }),
+  delete: (id: string) => apiFetch<void>(`/suppliers/${id}`, { method: "DELETE" }),
 };
 
 // ── Products ──────────────────────────────────────────────────────────────────
