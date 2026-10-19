@@ -198,12 +198,27 @@ public class SuppliersController : BaseApiController
         return NoContent();
     }
 
-    /// <summary>Soft-delete a supplier.</summary>
+    /// <summary>Soft-delete a supplier only when it has no operational/financial history.</summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin,Manager")]
-    public async Task<IActionResult> Delete(Guid id)
+    [Authorize(Roles = "Admin,Manager,Accountant,Purchasing")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IApplicationDbContext db,
+        CancellationToken ct)
     {
-        await Mediator.Send(new DeleteBusinessPartnerCommand { Id = id });
+        var supplier = await db.BusinessPartners
+            .FirstOrDefaultAsync(b => b.Id == id && !b.IsDeleted, ct);
+        if (supplier is null) return NotFound();
+
+        var hasHistory =
+            await db.PurchaseOrders.AnyAsync(x => !x.IsDeleted && x.SupplierId == id, ct) ||
+            await db.SupplierInvoices.AnyAsync(x => !x.IsDeleted && x.SupplierId == id, ct) ||
+            await db.SupplierPayments.AnyAsync(x => !x.IsDeleted && x.SupplierId == id, ct);
+
+        if (hasHistory)
+            return Conflict(new { message = "Supplier has purchase or payment history and cannot be deleted. Deactivate it instead." });
+
+        await Mediator.Send(new DeleteBusinessPartnerCommand { Id = id }, ct);
         return NoContent();
     }
 }
