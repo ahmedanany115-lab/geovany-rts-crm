@@ -58,13 +58,42 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
             .FirstOrDefaultAsync(a => a.Id == request.AccountId && !a.IsDeleted, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Accounting.Account), request.AccountId);
 
+        // For group/header accounts, include all descendant accounts in the ledger.
+        // Leaf accounts simply include their own id.
+        var accountIds = new List<Guid> { account.Id };
+        if (account.IsGroup)
+        {
+            var allAccounts = await _db.Accounts
+                .Where(a => !a.IsDeleted)
+                .Select(a => new { a.Id, a.ParentId })
+                .ToListAsync(cancellationToken);
+
+            var frontier = new Queue<Guid>();
+            frontier.Enqueue(account.Id);
+
+            while (frontier.Count > 0)
+            {
+                var parentId = frontier.Dequeue();
+                var children = allAccounts
+                    .Where(a => a.ParentId == parentId && !accountIds.Contains(a.Id))
+                    .Select(a => a.Id)
+                    .ToList();
+
+                foreach (var childId in children)
+                {
+                    accountIds.Add(childId);
+                    frontier.Enqueue(childId);
+                }
+            }
+        }
+
         // Opening balance = everything before FromDate
         decimal openingDebit = 0, openingCredit = 0;
         if (request.FromDate.HasValue)
         {
             var openingLines = await _db.JournalEntryLines
                 .Include(l => l.JournalEntry)
-                .Where(l => l.AccountId == request.AccountId
+                .Where(l => accountIds.Contains(l.AccountId)
                     && l.JournalEntry.Status == Domain.Enums.JournalEntryStatus.Posted
                     && l.JournalEntry.EntryDate < request.FromDate.Value
                     && !l.IsDeleted && !l.JournalEntry.IsDeleted)
@@ -77,7 +106,7 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
         // Period lines
         var periodQuery = _db.JournalEntryLines
             .Include(l => l.JournalEntry)
-            .Where(l => l.AccountId == request.AccountId
+            .Where(l => accountIds.Contains(l.AccountId)
                 && l.JournalEntry.Status == Domain.Enums.JournalEntryStatus.Posted
                 && !l.IsDeleted && !l.JournalEntry.IsDeleted);
 
