@@ -67,6 +67,12 @@ export default function PaymentsPage() {
 
   const resetForm = () => { setForm(INIT_FORM); setFormError(null); setShowForm(false); };
 
+  const openPaymentForm = (paymentType: "customer" | "supplier") => {
+    setForm({ ...INIT_FORM, paymentType });
+    setFormError(null);
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -95,7 +101,12 @@ export default function PaymentsPage() {
       } else {
         await createSupp.mutateAsync(payload);
       }
-      toast("Payment recorded successfully. Accounting entry created.", "success");
+      toast(
+        form.paymentType === "customer"
+          ? "Customer receipt recorded successfully. Accounting entry created."
+          : "Supplier payment recorded successfully. Accounting entry created.",
+        "success"
+      );
       resetForm(); refetch();
     } catch (err: any) {
       const msg = err?.message ?? "Failed to record payment.";
@@ -116,20 +127,33 @@ export default function PaymentsPage() {
           <DollarSign className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-semibold">{t("payments")}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => refetch()} className="btn-ghost p-2 rounded-lg"><RefreshCw className="h-4 w-4" /></button>
-          <button onClick={showForm ? resetForm : () => setShowForm(true)}
-            className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
-            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {showForm ? t("cancel") : "Add Payment"}
-          </button>
+          {showForm ? (
+            <button onClick={resetForm} className="btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
+              <X className="h-4 w-4" /> {t("cancel")}
+            </button>
+          ) : (
+            <>
+              <button onClick={() => openPaymentForm("customer")}
+                className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
+                <Plus className="h-4 w-4" /> Receive from Customer
+              </button>
+              <button onClick={() => openPaymentForm("supplier")}
+                className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm">
+                <Plus className="h-4 w-4" /> Pay Supplier
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* ── Add Payment form ── */}
       {showForm && (
         <form onSubmit={handleSubmit} className="card p-5 space-y-4 border border-primary/20">
-          <h2 className="font-semibold text-sm">New Payment</h2>
+          <h2 className="font-semibold text-sm">
+            {form.paymentType === "customer" ? "Receive Money from Customer" : "Pay Money to Supplier"}
+          </h2>
           {formError && (
             <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
               <AlertTriangle className="h-4 w-4 shrink-0" />{formError}
@@ -243,7 +267,9 @@ export default function PaymentsPage() {
             <button type="submit" disabled={createCust.isPending || createSupp.isPending}
               className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 flex items-center gap-2">
               <Check className="h-4 w-4" />
-              {(createCust.isPending || createSupp.isPending) ? t("saving") : "Record Payment"}
+              {(createCust.isPending || createSupp.isPending)
+                ? t("saving")
+                : form.paymentType === "customer" ? "Record Customer Receipt" : "Record Supplier Payment"}
             </button>
             <button type="button" onClick={resetForm} className="btn-ghost px-4 py-2 rounded-lg text-sm">{t("cancel")}</button>
           </div>
