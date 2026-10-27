@@ -28,11 +28,13 @@ export default function LedgerPage() {
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="flex-1 min-w-[220px]">
-          <label className="text-xs text-muted-foreground block mb-1">Account *</label>
+          <label className="text-xs text-muted-foreground block mb-1">Account * — all GL accounts are available</label>
           <select value={accountId} onChange={e => setAccountId(e.target.value)} className="input w-full">
             <option value="">Select account…</option>
-            {accounts?.filter(a => !a.isGroup).map(a => (
-              <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+            {accounts?.map(a => (
+              <option key={a.id} value={a.id}>
+                {a.code} — {a.name}{a.isGroup ? " (Group)" : ""}{!a.isActive ? " (Inactive)" : ""}
+              </option>
             ))}
           </select>
         </div>
