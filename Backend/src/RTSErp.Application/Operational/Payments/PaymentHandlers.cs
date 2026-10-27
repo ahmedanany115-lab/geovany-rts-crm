@@ -286,7 +286,8 @@ public class CreateSupplierPaymentCommand : IRequest<Guid>
     public Guid CurrencyId { get; set; }
     public decimal ExchangeRate { get; set; } = 1m;
     public decimal Amount { get; set; }
-    public Guid BankAccountId { get; set; }
+    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Bank;
+    public Guid? BankAccountId { get; set; }
     public string? Notes { get; set; }
     public List<Guid> InvoiceIds { get; set; } = [];
 }
@@ -297,8 +298,11 @@ public class CreateSupplierPaymentCommandValidator : AbstractValidator<CreateSup
     {
         RuleFor(x => x.SupplierId).NotEmpty();
         RuleFor(x => x.Amount).GreaterThan(0);
-        RuleFor(x => x.BankAccountId).NotEmpty();
+        RuleFor(x => x.CurrencyId).NotEmpty();
         RuleFor(x => x.ExchangeRate).GreaterThan(0);
+        RuleFor(x => x.BankAccountId).NotEmpty()
+            .When(x => x.PaymentMethod == PaymentMethod.Bank)
+            .WithMessage("Bank account is required for bank payments.");
     }
 }
 
@@ -321,8 +325,28 @@ public class CreateSupplierPaymentCommandHandler : IRequestHandler<CreateSupplie
         if (!supplier.PayableAccountId.HasValue)
             supplier.PayableAccountId = payableAccountId;
 
-        var bankAcc = await _db.BankAccounts.FirstOrDefaultAsync(b => b.Id == req.BankAccountId && !b.IsDeleted, ct)
-            ?? throw new NotFoundException(nameof(BankAccount), req.BankAccountId);
+        BankAccount? bankAcc = null;
+        Guid creditAccountId;
+
+        if (req.PaymentMethod == PaymentMethod.Bank)
+        {
+            bankAcc = await _db.BankAccounts
+                .FirstOrDefaultAsync(b => b.Id == req.BankAccountId!.Value && !b.IsDeleted, ct)
+                ?? throw new NotFoundException(nameof(BankAccount), req.BankAccountId!.Value);
+            creditAccountId = bankAcc.GlAccountId;
+        }
+        else if (req.PaymentMethod == PaymentMethod.Cash || req.PaymentMethod == PaymentMethod.InstaPay)
+        {
+            var cashAcc = await _db.Accounts
+                .FirstOrDefaultAsync(a => a.Code == "1101" && !a.IsDeleted, ct)
+                ?? await _db.Accounts.FirstOrDefaultAsync(a => a.Code == "1102" && !a.IsDeleted, ct)
+                ?? throw new InvalidOperationException("No Cash account (1101/1102) configured.");
+            creditAccountId = cashAcc.Id;
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unsupported supplier payment method: {req.PaymentMethod}");
+        }
 
         var year = DateTime.UtcNow.Year;
         var prefix = $"PMT{year}-";
@@ -344,8 +368,11 @@ public class CreateSupplierPaymentCommandHandler : IRequestHandler<CreateSupplie
             {
                 new() { AccountId = payableAccountId, Debit = req.Amount, Credit = 0,
                     Description = $"Supplier AP: {supplier.Name}", SortOrder = 1 },
-                new() { AccountId = bankAcc.GlAccountId, Debit = 0, Credit = req.Amount,
-                    Description = $"Bank: {bankAcc.Name}", SortOrder = 2 }
+                new() { AccountId = creditAccountId, Debit = 0, Credit = req.Amount,
+                    Description = req.PaymentMethod == PaymentMethod.Bank
+                        ? $"Bank: {bankAcc!.Name}"
+                        : req.PaymentMethod == PaymentMethod.InstaPay ? "InstaPay / Cash Equivalent" : "Cash",
+                    SortOrder = 2 }
             },
             CreatedBy = _user.UserId
         }, ct);
@@ -359,7 +386,7 @@ public class CreateSupplierPaymentCommandHandler : IRequestHandler<CreateSupplie
             SupplierId = req.SupplierId, PaymentDate = req.PaymentDate,
             CurrencyId = req.CurrencyId, ExchangeRate = req.ExchangeRate,
             Amount = req.Amount, AmountBase = req.Amount * req.ExchangeRate,
-            PaymentMethod = PaymentMethod.Bank, Status = PaymentStatus.Posted,
+            PaymentMethod = req.PaymentMethod, Status = PaymentStatus.Posted,
             BankAccountId = req.BankAccountId, Notes = req.Notes?.Trim(),
             JournalEntryId = jeResult.EntryId, CreatedBy = _user.UserId
         };
@@ -382,8 +409,11 @@ public class CreateSupplierPaymentCommandHandler : IRequestHandler<CreateSupplie
             }
         }
 
-        bankAcc.CurrentBalance -= req.Amount;
-        bankAcc.ModifiedAt = DateTime.UtcNow;
+        if (bankAcc is not null)
+        {
+            bankAcc.CurrentBalance -= req.Amount;
+            bankAcc.ModifiedAt = DateTime.UtcNow;
+        }
 
         _db.SupplierPayments.Add(payment);
         await _db.SaveChangesAsync(ct);
