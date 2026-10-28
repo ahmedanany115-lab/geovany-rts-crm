@@ -100,10 +100,11 @@ export const journalEntriesApi = {
 // ── Ledger ────────────────────────────────────────────────────────────────────
 
 export const ledgerApi = {
-  accountLedger: (accountId: string, params?: { fromDate?: string; toDate?: string }) => {
+  accountLedger: (accountId: string, params?: { fromDate?: string; toDate?: string; partnerId?: string }) => {
     const qs = new URLSearchParams();
     if (params?.fromDate) qs.set("fromDate", params.fromDate);
     if (params?.toDate)   qs.set("toDate",   params.toDate);
+    if (params?.partnerId) qs.set("partnerId", params.partnerId);
     const query = qs.toString() ? `?${qs}` : "";
     return apiFetch<AccountLedgerDto>(`/ledger/account/${accountId}${query}`);
   },
