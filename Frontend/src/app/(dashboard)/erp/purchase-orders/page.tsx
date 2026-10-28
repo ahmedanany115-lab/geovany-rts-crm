@@ -1,20 +1,22 @@
 "use client";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
-  usePurchaseOrders, useApprovePurchaseOrder, useCreatePurchaseOrder, useDeletePurchaseOrder,
+  usePurchaseOrders, useApprovePurchaseOrder, useFinanceApprovePurchaseOrder, useCreatePurchaseOrder, useDeletePurchaseOrder,
   useSuppliers, useWarehouses, useProducts,
 } from "@/features/erp/hooks";
 import { useCurrencies } from "@/features/finance/hooks";
 import { useT } from "@/hooks/useT";
 import { useToast } from "@/components/ui/toast";
-import { ShoppingBag, RefreshCw, CheckCircle, Plus, X, Check, Trash2 } from "lucide-react";
+import { useRoles } from "@/hooks/useRoles";
+import { ShoppingBag, RefreshCw, CheckCircle, Plus, X, Check, Trash2, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
 
 const STATUS: Record<number, { label: string; cls: string }> = {
   1: { label: "Draft",     cls: "bg-muted text-muted-foreground" },
-  2: { label: "Confirmed", cls: "bg-blue-100 text-blue-700" },
-  3: { label: "Received",  cls: "bg-emerald-100 text-emerald-700" },
-  4: { label: "Invoiced",  cls: "bg-purple-100 text-purple-700" },
-  5: { label: "Cancelled", cls: "bg-red-100 text-red-700" },
+  2: { label: "Confirmed",          cls: "bg-blue-100 text-blue-700" },
+  3: { label: "Partially Received", cls: "bg-amber-100 text-amber-700" },
+  4: { label: "Received",           cls: "bg-emerald-100 text-emerald-700" },
+  5: { label: "Cancelled",          cls: "bg-red-100 text-red-700" },
+  6: { label: "Finance Approved",   cls: "bg-purple-100 text-purple-700" },
 };
 
 const EMPTY_LINE = { productId: "", quantity: 1, unitPrice: 0, discountPercent: 0 };
@@ -23,8 +25,11 @@ const INIT = { supplierId:"", orderDate:new Date().toISOString().split("T")[0], 
 export default function PurchaseOrdersPage() {
   const { t } = useT();
   const { toast } = useToast();
+  const { isAdmin, hasRole } = useRoles();
+  const canFinanceApprove = isAdmin || hasRole("Manager", "Accountant");
   const { data, isLoading, refetch } = usePurchaseOrders({});
   const approve  = useApprovePurchaseOrder();
+  const financeApprove = useFinanceApprovePurchaseOrder();
   const create   = useCreatePurchaseOrder();
   const remove   = useDeletePurchaseOrder();
   const { data: suppliers  } = useSuppliers({});
@@ -36,6 +41,7 @@ export default function PurchaseOrdersPage() {
   const [form, setForm]         = useState(INIT);
   const [lines, setLines]       = useState([{ ...EMPTY_LINE }]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const setLine = (i: number, field: string, val: string | number) =>
     setLines(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: val } : l));
@@ -64,6 +70,15 @@ export default function PurchaseOrdersPage() {
   const handleApprove = async (id: string, num: string) => {
     try { await approve.mutateAsync(id); toast(`PO ${num} confirmed.`, "success"); }
     catch (err: any) { toast(err?.message ?? "Action failed.", "error"); }
+  };
+
+  const handleFinanceApprove = async (id: string, num: string) => {
+    try {
+      await financeApprove.mutateAsync(id);
+      toast(`PO ${num} Finance approved.`, "success");
+    } catch (err: any) {
+      toast(err?.message ?? "Finance approval failed.", "error");
+    }
   };
 
   const handleDelete = async (id: string, num: string) => {
@@ -162,29 +177,77 @@ export default function PurchaseOrdersPage() {
             <tbody className="divide-y divide-border">
               {data?.map(o => {
                 const st = STATUS[o.status as keyof typeof STATUS] ?? { label: "?", cls: "bg-muted" };
+                const isExpanded = expanded === o.id;
                 return (
-                  <tr key={o.id} className="hover:bg-muted/20">
-                    <td className="p-3 font-mono text-xs">{o.poNumber}</td>
+                  <Fragment key={o.id}>
+                  <tr className="hover:bg-muted/20">
+                    <td className="p-3 font-mono text-xs">
+                      <button onClick={() => setExpanded(v => v === o.id ? null : o.id)} className="flex items-center gap-1.5 hover:text-primary">
+                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        {o.poNumber}
+                      </button>
+                    </td>
                     <td className="p-3 font-semibold">{o.supplierName}</td>
                     <td className="p-3 text-muted-foreground">{o.orderDate?.toString()}</td>
                     <td className="p-3 text-right tabular-nums">{o.totalAmount.toLocaleString()}</td>
                     <td className="p-3 text-center"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.cls}`}>{st.label}</span></td>
                     <td className="p-3 text-right">
-                      {o.status === 1 && (
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => handleApprove(o.id, o.poNumber)} disabled={approve.isPending}
-                            className="flex items-center gap-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
-                            <CheckCircle className="h-3.5 w-3.5" /> Confirm
+                      <div className="flex items-center justify-end gap-1">
+                        {o.status === 1 && (
+                          <>
+                            <button onClick={() => handleApprove(o.id, o.poNumber)} disabled={approve.isPending}
+                              className="flex items-center gap-1 text-xs px-2 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                              <CheckCircle className="h-3.5 w-3.5" /> Confirm
+                            </button>
+                            <button onClick={() => handleDelete(o.id, o.poNumber)} disabled={remove.isPending}
+                              title="Delete draft purchase order"
+                              className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                        {o.status === 2 && canFinanceApprove && (
+                          <button onClick={() => handleFinanceApprove(o.id, o.poNumber)} disabled={financeApprove.isPending}
+                            className="flex items-center gap-1 text-xs px-2 py-1.5 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
+                            <ShieldCheck className="h-3.5 w-3.5" /> Finance Confirm
                           </button>
-                          <button onClick={() => handleDelete(o.id, o.poNumber)} disabled={remove.isPending}
-                            title="Delete draft purchase order"
-                            className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={6} className="bg-muted/10 px-6 py-4">
+                        <div className="grid md:grid-cols-4 gap-3 text-sm mb-4">
+                          <div><span className="text-muted-foreground">Supplier:</span><div className="font-medium">{o.supplierName}</div></div>
+                          <div><span className="text-muted-foreground">Warehouse:</span><div className="font-medium">{o.warehouseName}</div></div>
+                          <div><span className="text-muted-foreground">Currency:</span><div className="font-medium">{o.currencyCode}</div></div>
+                          <div><span className="text-muted-foreground">Total:</span><div className="font-semibold">{o.totalAmount.toLocaleString()} {o.currencyCode}</div></div>
+                        </div>
+                        {o.notes && <div className="text-sm mb-3"><span className="text-muted-foreground">Notes:</span> {o.notes}</div>}
+                        <table className="w-full text-xs">
+                          <thead><tr className="text-muted-foreground border-b">
+                            <th className="text-left py-2">Product</th><th className="text-right py-2">Qty</th>
+                            <th className="text-right py-2">Received</th><th className="text-right py-2">Unit Price</th>
+                            <th className="text-right py-2">Discount</th><th className="text-right py-2">Net</th>
+                          </tr></thead>
+                          <tbody>
+                            {o.lines?.map((l: any) => (
+                              <tr key={l.id} className="border-b border-border/40">
+                                <td className="py-2">{l.productSKU} — {l.productName}</td>
+                                <td className="py-2 text-right">{l.quantity}</td>
+                                <td className="py-2 text-right">{l.receivedQuantity}</td>
+                                <td className="py-2 text-right">{l.unitPrice.toLocaleString()}</td>
+                                <td className="py-2 text-right">{l.discountPercent}%</td>
+                                <td className="py-2 text-right font-medium">{l.netAmount.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
               {!data?.length && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">{t("no_data")}</td></tr>}
