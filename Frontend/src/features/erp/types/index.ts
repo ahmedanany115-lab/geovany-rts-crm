@@ -375,7 +375,7 @@ export interface ErpDashboardKpiDto {
 // ── Enum Labels ───────────────────────────────────────────────────────────────
 
 export const PurchaseOrderStatusLabels: Record<number, string> = {
-  1: "Draft", 2: "Approved", 3: "Partially Received", 4: "Received", 5: "Cancelled"
+  1: "Draft", 2: "Confirmed", 3: "Partially Received", 4: "Received", 5: "Cancelled", 6: "Finance Approved"
 };
 
 export const SalesOrderStatusLabels: Record<number, string> = {
