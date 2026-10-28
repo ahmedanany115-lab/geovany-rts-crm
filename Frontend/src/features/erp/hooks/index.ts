@@ -181,6 +181,11 @@ export const useApprovePurchaseOrder = () => {
   return useMutation({ mutationFn: purchaseOrdersApi.approve, onSuccess: () => qc.invalidateQueries({ queryKey: ["purchase-orders"] }) });
 };
 
+export const useFinanceApprovePurchaseOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: purchaseOrdersApi.financeApprove, onSuccess: () => qc.invalidateQueries({ queryKey: ["purchase-orders"] }) });
+};
+
 export const useDeletePurchaseOrder = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: purchaseOrdersApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ["purchase-orders"] }) });
