@@ -89,6 +89,7 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
         }
 
         string? partnerName = null;
+        var partnerChequeNumbers = new List<string>();
         if (request.PartnerId.HasValue)
         {
             partnerName = await _db.BusinessPartners
@@ -96,6 +97,25 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
                 .Select(b => b.Name)
                 .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new NotFoundException("BusinessPartner", request.PartnerId.Value);
+
+            partnerChequeNumbers = await _db.Cheques
+                .Where(c => !c.IsDeleted &&
+                    (c.CustomerId == request.PartnerId.Value || c.SupplierId == request.PartnerId.Value))
+                .Select(c => c.ChequeNumber)
+                .ToListAsync(cancellationToken);
+        }
+
+        bool MatchesPartner(string entryDescription, string? lineDescription)
+        {
+            if (string.IsNullOrWhiteSpace(partnerName)) return true;
+            if (entryDescription.Contains(partnerName, StringComparison.OrdinalIgnoreCase)) return true;
+            if (!string.IsNullOrWhiteSpace(lineDescription) &&
+                lineDescription.Contains(partnerName, StringComparison.OrdinalIgnoreCase)) return true;
+
+            return partnerChequeNumbers.Any(n =>
+                entryDescription.Contains(n, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(lineDescription) &&
+                 lineDescription.Contains(n, StringComparison.OrdinalIgnoreCase)));
         }
 
         // Opening balance = everything before FromDate
@@ -109,15 +129,13 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
                     && l.JournalEntry.EntryDate < request.FromDate.Value
                     && !l.IsDeleted && !l.JournalEntry.IsDeleted);
 
-            if (!string.IsNullOrWhiteSpace(partnerName))
-                openingQuery = openingQuery.Where(l =>
-                    l.JournalEntry.Description.Contains(partnerName) ||
-                    (l.Description != null && l.Description.Contains(partnerName)));
-
             var openingLines = await openingQuery.ToListAsync(cancellationToken);
+            var filteredOpeningLines = openingLines
+                .Where(l => MatchesPartner(l.JournalEntry.Description, l.Description))
+                .ToList();
 
-            openingDebit = openingLines.Sum(l => l.DebitBase);
-            openingCredit = openingLines.Sum(l => l.CreditBase);
+            openingDebit = filteredOpeningLines.Sum(l => l.DebitBase);
+            openingCredit = filteredOpeningLines.Sum(l => l.CreditBase);
         }
 
         // Period lines
@@ -126,11 +144,6 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
             .Where(l => accountIds.Contains(l.AccountId)
                 && l.JournalEntry.Status == Domain.Enums.JournalEntryStatus.Posted
                 && !l.IsDeleted && !l.JournalEntry.IsDeleted);
-
-        if (!string.IsNullOrWhiteSpace(partnerName))
-            periodQuery = periodQuery.Where(l =>
-                l.JournalEntry.Description.Contains(partnerName) ||
-                (l.Description != null && l.Description.Contains(partnerName)));
 
         if (request.FromDate.HasValue)
             periodQuery = periodQuery.Where(l => l.JournalEntry.EntryDate >= request.FromDate.Value);
@@ -152,6 +165,11 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
                 l.CreditBase
             })
             .ToListAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(partnerName))
+            periodLines = periodLines
+                .Where(l => MatchesPartner(l.EntryDescription, l.Description))
+                .ToList();
 
         var openingBalance = openingDebit - openingCredit;
         var runningBalance = openingBalance;
