@@ -117,7 +117,7 @@ export function useReverseJournalEntry() {
 
 export function useAccountLedger(
   accountId: string,
-  params?: { fromDate?: string; toDate?: string }
+  params?: { fromDate?: string; toDate?: string; partnerId?: string }
 ) {
   return useQuery({
     queryKey: ["ledger", accountId, params],
