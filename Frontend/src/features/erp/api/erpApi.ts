@@ -104,6 +104,7 @@ export const purchaseOrdersApi = {
   create: (data: unknown) =>
     apiFetch<{ id: string }>("/purchaseorders", { method: "POST", body: JSON.stringify(data) }),
   approve: (id: string) => apiFetch<void>(`/purchaseorders/${id}/approve`, { method: "POST" }),
+  financeApprove: (id: string) => apiFetch<void>(`/purchaseorders/${id}/finance-approve`, { method: "POST" }),
   delete: (id: string) => apiFetch<void>(`/purchaseorders/${id}`, { method: "DELETE" }),
   createReceipt: (data: unknown) =>
     apiFetch<{ id: string }>("/purchasereceipts", { method: "POST", body: JSON.stringify(data) }),
