@@ -576,6 +576,24 @@ public class CreateCustomerInvoiceCommandHandler : IRequestHandler<CreateCustome
 
     public async Task<Guid> Handle(CreateCustomerInvoiceCommand req, CancellationToken ct)
     {
+        if (req.SalesOrderId.HasValue)
+        {
+            var salesOrder = await _db.SalesOrders
+                .FirstOrDefaultAsync(o => o.Id == req.SalesOrderId.Value && !o.IsDeleted, ct)
+                ?? throw new NotFoundException(nameof(SalesOrder), req.SalesOrderId.Value);
+
+            if (salesOrder.Status == SalesOrderStatus.Draft || salesOrder.Status == SalesOrderStatus.Cancelled)
+                throw new InvalidOperationException("Sales Order must be confirmed before invoicing.");
+
+            if (salesOrder.CustomerId != req.CustomerId)
+                throw new InvalidOperationException("Selected Sales Order does not belong to the selected customer.");
+
+            var duplicateInvoice = await _db.CustomerInvoices
+                .AnyAsync(i => i.SalesOrderId == req.SalesOrderId.Value && !i.IsDeleted, ct);
+            if (duplicateInvoice)
+                throw new InvalidOperationException("An invoice already exists for this Sales Order.");
+        }
+
         var year = DateTime.UtcNow.Year;
         var prefix = $"INV{year}-";
         var last = await _db.CustomerInvoices.IgnoreQueryFilters()
