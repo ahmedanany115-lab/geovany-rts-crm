@@ -58,7 +58,9 @@ public class CreatePurchaseReceiptCommandHandler : IRequestHandler<CreatePurchas
             ?? throw new NotFoundException(nameof(PurchaseOrder), request.PurchaseOrderId);
 
         if (order.Status == PurchaseOrderStatus.Draft)
-            throw new InvalidOperationException("Cannot receive against a Draft purchase order. Approve it first.");
+            throw new InvalidOperationException("Cannot receive against a Draft purchase order. Confirm it first.");
+        if (order.Status == PurchaseOrderStatus.Approved)
+            throw new InvalidOperationException("Finance/Admin approval is required before receiving against this purchase order.");
         if (order.Status == PurchaseOrderStatus.Cancelled)
             throw new InvalidOperationException("Cannot receive against a cancelled purchase order.");
 
