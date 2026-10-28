@@ -37,6 +37,7 @@ public class AccountLedgerDto
 public class GetAccountLedgerQuery : IRequest<AccountLedgerDto>
 {
     public Guid AccountId { get; set; }
+    public Guid? PartnerId { get; set; }
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
 }
@@ -87,17 +88,33 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
             }
         }
 
+        string? partnerName = null;
+        if (request.PartnerId.HasValue)
+        {
+            partnerName = await _db.BusinessPartners
+                .Where(b => b.Id == request.PartnerId.Value && !b.IsDeleted)
+                .Select(b => b.Name)
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new NotFoundException("BusinessPartner", request.PartnerId.Value);
+        }
+
         // Opening balance = everything before FromDate
         decimal openingDebit = 0, openingCredit = 0;
         if (request.FromDate.HasValue)
         {
-            var openingLines = await _db.JournalEntryLines
+            var openingQuery = _db.JournalEntryLines
                 .Include(l => l.JournalEntry)
                 .Where(l => accountIds.Contains(l.AccountId)
                     && l.JournalEntry.Status == Domain.Enums.JournalEntryStatus.Posted
                     && l.JournalEntry.EntryDate < request.FromDate.Value
-                    && !l.IsDeleted && !l.JournalEntry.IsDeleted)
-                .ToListAsync(cancellationToken);
+                    && !l.IsDeleted && !l.JournalEntry.IsDeleted);
+
+            if (!string.IsNullOrWhiteSpace(partnerName))
+                openingQuery = openingQuery.Where(l =>
+                    l.JournalEntry.Description.Contains(partnerName) ||
+                    (l.Description != null && l.Description.Contains(partnerName)));
+
+            var openingLines = await openingQuery.ToListAsync(cancellationToken);
 
             openingDebit = openingLines.Sum(l => l.DebitBase);
             openingCredit = openingLines.Sum(l => l.CreditBase);
@@ -109,6 +126,11 @@ public class GetAccountLedgerQueryHandler : IRequestHandler<GetAccountLedgerQuer
             .Where(l => accountIds.Contains(l.AccountId)
                 && l.JournalEntry.Status == Domain.Enums.JournalEntryStatus.Posted
                 && !l.IsDeleted && !l.JournalEntry.IsDeleted);
+
+        if (!string.IsNullOrWhiteSpace(partnerName))
+            periodQuery = periodQuery.Where(l =>
+                l.JournalEntry.Description.Contains(partnerName) ||
+                (l.Description != null && l.Description.Contains(partnerName)));
 
         if (request.FromDate.HasValue)
             periodQuery = periodQuery.Where(l => l.JournalEntry.EntryDate >= request.FromDate.Value);
