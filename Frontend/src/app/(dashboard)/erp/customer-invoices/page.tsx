@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   useCustomerInvoices, useCreateCustomerInvoice,
   usePostCustomerInvoice, useCreateCustomerPayment,
-  useCustomers, useProducts,
+  useCustomers, useProducts, useSalesOrders,
 } from "@/features/erp/hooks";
 import { useCurrencies } from "@/features/finance/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -47,7 +47,7 @@ export default function CustomerInvoicesPage() {
   // Form state
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({
-    customerId: "", invoiceDate: today, dueDate: "",
+    salesOrderId: "", customerId: "", invoiceDate: today, dueDate: "",
     currencyId: "", notes: "",
   });
   const [lines, setLines] = useState([{ ...EMPTY_LINE }]);
@@ -55,6 +55,7 @@ export default function CustomerInvoicesPage() {
   const { data, isLoading, refetch } = useCustomerInvoices({ status: filterStatus });
   const { data: customers  } = useCustomers({});
   const { data: products   } = useProducts({});
+  const { data: salesOrders } = useSalesOrders({});
   const { data: currencies } = useCurrencies();
 
   const create = useCreateCustomerInvoice();
@@ -100,8 +101,36 @@ export default function CustomerInvoicesPage() {
 
   const resetForm = () => {
     setShowForm(false); setFormError(null);
-    setForm({ customerId: "", invoiceDate: today, dueDate: "", currencyId: "", notes: "" });
+    setForm({ salesOrderId: "", customerId: "", invoiceDate: today, dueDate: "", currencyId: "", notes: "" });
     setLines([{ ...EMPTY_LINE }]);
+  };
+
+  const selectSalesOrder = (salesOrderId: string) => {
+    if (!salesOrderId) {
+      setForm(f => ({ ...f, salesOrderId: "", customerId: "", currencyId: "" }));
+      setLines([{ ...EMPTY_LINE }]);
+      return;
+    }
+
+    const so: any = salesOrders?.find((o: any) => o.id === salesOrderId);
+    if (!so) return;
+
+    const currencyId = currencies?.find((cur: any) => cur.code === so.currencyCode)?.id ?? "";
+    setForm(f => ({
+      ...f,
+      salesOrderId,
+      customerId: so.customerId,
+      currencyId,
+      notes: f.notes || `Invoice from Sales Order ${so.soNumber}`,
+    }));
+    setLines((so.lines ?? []).map((l: any) => ({
+      productId: l.productId,
+      description: l.productName ?? "",
+      quantity: l.quantity,
+      unitPrice: l.unitPrice,
+      discountPercent: l.discountPercent ?? 0,
+      taxRateOverride: (l.taxRate ?? 0) <= 1 ? (l.taxRate ?? 0) * 100 : (l.taxRate ?? 0),
+    })));
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -113,6 +142,7 @@ export default function CustomerInvoicesPage() {
     if (lines.some(l => Number(l.quantity) <= 0)) { setFormError("Quantity must be > 0."); return; }
     try {
       const result = await create.mutateAsync({
+        salesOrderId: form.salesOrderId || undefined,
         customerId:   form.customerId,
         invoiceDate:  form.invoiceDate,
         dueDate:      form.dueDate,
@@ -223,8 +253,18 @@ export default function CustomerInvoicesPage() {
           {formError && <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-md px-4 py-2 text-sm text-red-700"><AlertTriangle className="h-4 w-4 shrink-0"/>{formError}</div>}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="col-span-2 md:col-span-4">
+              <label className="text-xs text-muted-foreground block mb-1">Sales Order</label>
+              <select value={form.salesOrderId} onChange={e => selectSalesOrder(e.target.value)} className="input w-full">
+                <option value="">Select Sales Order…</option>
+                {(salesOrders ?? []).filter((o: any) => o.status !== 1 && o.status !== 5).map((o: any) => (
+                  <option key={o.id} value={o.id}>{o.soNumber} — {o.customerName} — {EGP(o.totalAmount)}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">Selecting a Sales Order fills customer, currency and line items automatically.</p>
+            </div>
             <div className="col-span-2"><label className="text-xs text-muted-foreground block mb-1">Customer *</label>
-              <select required value={form.customerId} onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))} className="input w-full">
+              <select required disabled={!!form.salesOrderId} value={form.customerId} onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))} className="input w-full disabled:opacity-60">
                 <option value="">Select…</option>
                 {customers?.filter((c: any) => c.isActive).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -236,7 +276,7 @@ export default function CustomerInvoicesPage() {
               <input type="date" required value={form.dueDate} min={form.invoiceDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} className="input w-full" />
             </div>
             <div><label className="text-xs text-muted-foreground block mb-1">Currency *</label>
-              <select required value={form.currencyId} onChange={e => setForm(f => ({ ...f, currencyId: e.target.value }))} className="input w-full">
+              <select required disabled={!!form.salesOrderId} value={form.currencyId} onChange={e => setForm(f => ({ ...f, currencyId: e.target.value }))} className="input w-full disabled:opacity-60">
                 <option value="">Select…</option>
                 {currencies?.filter(c => c.isActive).map(c => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
               </select>
