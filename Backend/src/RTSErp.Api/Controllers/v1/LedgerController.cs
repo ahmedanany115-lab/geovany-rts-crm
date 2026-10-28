@@ -12,11 +12,13 @@ public class LedgerController : BaseApiController
     public async Task<IActionResult> AccountLedger(
         Guid accountId,
         [FromQuery] DateOnly? fromDate,
-        [FromQuery] DateOnly? toDate)
+        [FromQuery] DateOnly? toDate,
+        [FromQuery] Guid? partnerId)
     {
         var result = await Mediator.Send(new GetAccountLedgerQuery
         {
             AccountId = accountId,
+            PartnerId = partnerId,
             FromDate = fromDate,
             ToDate = toDate
         });
