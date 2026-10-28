@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useAccountLedger, useAccounts } from "@/features/finance/hooks";
+import { useCustomers, useSuppliers } from "@/features/erp/hooks";
 import { useT } from "@/hooks/useT";
 import { Receipt, RefreshCw, User } from "lucide-react";
 
@@ -9,11 +10,20 @@ export default function LedgerPage() {
   const [accountId, setAccountId] = useState("");
   const [fromDate, setFromDate]   = useState("");
   const [toDate, setToDate]       = useState("");
+  const [partnerId, setPartnerId] = useState("");
 
   const { data: accounts } = useAccounts();
+  const { data: customers } = useCustomers({ isActive: true });
+  const { data: suppliers } = useSuppliers({ isActive: true });
+
+  const selectedAccount = accounts?.find(a => a.id === accountId);
+  const accountName = selectedAccount?.name?.toLowerCase() ?? "";
+  const partnerMode: "customer" | "supplier" | null = accountName.includes("receivable") ? "customer" : accountName.includes("payable") ? "supplier" : null;
+  const partnerOptions = partnerMode === "customer" ? (customers ?? []) : partnerMode === "supplier" ? (suppliers ?? []) : [];
+
   const { data: ledger, isLoading, refetch } = useAccountLedger(
     accountId,
-    accountId ? { fromDate: fromDate || undefined, toDate: toDate || undefined } : undefined
+    accountId ? { fromDate: fromDate || undefined, toDate: toDate || undefined, partnerId: partnerId || undefined } : undefined
   );
 
   const fmt = (v: number) => v.toLocaleString("en-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 2 });
@@ -29,7 +39,7 @@ export default function LedgerPage() {
       <div className="flex gap-3 flex-wrap">
         <div className="flex-1 min-w-[220px]">
           <label className="text-xs text-muted-foreground block mb-1">Account * — all GL accounts are available</label>
-          <select value={accountId} onChange={e => setAccountId(e.target.value)} className="input w-full">
+          <select value={accountId} onChange={e => { setAccountId(e.target.value); setPartnerId(""); }} className="input w-full">
             <option value="">Select account…</option>
             {accounts?.map(a => (
               <option key={a.id} value={a.id}>
@@ -38,6 +48,15 @@ export default function LedgerPage() {
             ))}
           </select>
         </div>
+        {partnerMode && (
+          <div className="flex-1 min-w-[220px]">
+            <label className="text-xs text-muted-foreground block mb-1">{partnerMode === "customer" ? "Customer" : "Supplier"} — optional</label>
+            <select value={partnerId} onChange={e => setPartnerId(e.target.value)} className="input w-full">
+              <option value="">All {partnerMode === "customer" ? "Customers" : "Suppliers"}</option>
+              {partnerOptions.map((p: any) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label className="text-xs text-muted-foreground block mb-1">From</label>
           <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input" />
