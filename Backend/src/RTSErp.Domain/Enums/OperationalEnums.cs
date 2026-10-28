@@ -24,6 +24,7 @@ public enum PurchaseOrderStatus
     PartiallyReceived  = 3,
     Received           = 4,
     Cancelled          = 5,
+    FinanceApproved    = 6,
 }
 
 // ── Sales Orders ──────────────────────────────────────────────────────────────
